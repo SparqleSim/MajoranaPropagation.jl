@@ -1,0 +1,16 @@
+name = "MajoranaPropagation"
+uuid = "c1ba0b60-2606-4ffc-8aea-7c4a0f2726e4"
+authors = ["Matteo D'Anna"]
+version = "0.1.0"
+
+[deps]
+BitIntegers = "c3b6d118-76ef-56ca-8cc7-ebb389d030a1"
+Bits = "1654ce90-6ed3-553a-957f-9452c3a40996"
+LinearAlgebra = "37e2e46d-f89d-539d-b4ee-838fcccc9c8e"
+PauliPropagation = "293282d5-3c99-4fb6-92d0-fd3280a19750"
+
+[compat]
+BitIntegers = "0.3.5"
+Bits = "0.2.0"
+LinearAlgebra = "1.11.0"
+PauliPropagation = "0.4.1"
