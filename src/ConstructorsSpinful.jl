@@ -62,7 +62,7 @@ function spinful_ms_and_pref_from_symbol(n_spinful_sites::Int, symbs::Vector{Sym
     end
 end
 
-function spinful_ms_and_pref_from_symbol(n_spinful_sites::Int, symbs::Vector{Symbol}, sites; pop_id = true)
+function spinfulmajoranasum(n_spinful_sites::Int, symbs::Vector{Symbol}, sites; pop_id = false)
     @assert length(symbs) == length(sites)
     obs = spinful_ms_and_pref_from_symbol(n_spinful_sites, symbs, sites, 1; pop_id = false)
     for i = 2:length(symbs)
@@ -78,6 +78,6 @@ function spinful_ms_and_pref_from_symbol(n_spinful_sites::Int, symbs::Vector{Sym
     return obs
 end
 
-function spinful_ms_and_pref_from_symbol(n_spinful_sites::Int, symb, sites; pop_id = true)
-    return spinful_ms_and_pref_from_symbol(n_spinful_sites, [symb], [sites]; pop_id = pop_id)
+function spinfulmajoranasum(n_spinful_sites::Int, symb, sites; pop_id = false)
+    return spinfulmajoranasum(n_spinful_sites, [symb], [sites]; pop_id = pop_id)
 end

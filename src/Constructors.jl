@@ -42,10 +42,10 @@ function ms_and_pref_from_symbol(nfermions::Int, symbs::Vector{Symbol}, sites, i
 
 end
 
-function ms_and_pref_from_symbol(nfermions::Int, symbs::Vector{Symbol}, sites; pop_id = true)
+function MajoranaSum(nfermions::Int, symbs::Vector{Symbol}, sites; pop_id = false)
     obs = ms_and_pref_from_symbol(nfermions, symbs, sites, 1; pop_id = false)
     for i = 2:length(symbs)
-        obs2= ms_and_pref_from_symbol(nfermions, symbs[i], sites[i]; pop_id = false)
+        obs2= ms_and_pref_from_symbol(nfermions, symbs, sites, i; pop_id = false)
         obs = obs * obs2 
     end
     if pop_id 
@@ -56,7 +56,7 @@ function ms_and_pref_from_symbol(nfermions::Int, symbs::Vector{Symbol}, sites; p
     return obs
 end
 
-function ms_and_pref_from_symbol(nfermions::Int, symb::Symbol, sites; pop_id = true)
-    return ms_and_pref_from_symbol(nfermions, [symb], [sites]; pop_id = pop_id)
+function MajoranaSum(nfermions::Int, symb::Symbol, sites; pop_id = false)
+    return MajoranaSum(nfermions, [symb], [sites]; pop_id = pop_id)
 end
 
