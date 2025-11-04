@@ -1,7 +1,7 @@
 name = "MajoranaPropagation"
 uuid = "c1ba0b60-2606-4ffc-8aea-7c4a0f2726e4"
 authors = ["Matteo D'Anna"]
-version = "0.1.0"
+version = "0.0.1"
 
 [deps]
 BitIntegers = "c3b6d118-76ef-56ca-8cc7-ebb389d030a1"

@@ -65,9 +65,9 @@ export
 include("Constructors.jl")
 export 
     order_sites,
-    ms_and_pref_from_symbol
+    MajoranaSum
 
 include("ConstructorsSpinful.jl")
 export 
-    spinful_ms_and_pref_from_symbol
+    spinfulmajoranasum
 end
