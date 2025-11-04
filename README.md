@@ -5,14 +5,14 @@ A Julia library for Majorana propagation simulation of fermionic quantum circuit
 The library is currently in "experimental" mode. Adventures are possible, and the first stable release might bring a lot of updates. To use the library, clone the repository and include the source files in your Julia project by running:
 ```julia
 using Pkg
-Pkg.activate("./MPenv")
-Pkg.develop(path="../MajoranaPropagation.jl/")
+Pkg.activate("path/to/project")
+Pkg.develop(path="path/to/MajoranaPropagation.jl")
 ```
-afterwards, include
+afterward, include
 
 ```julia
 using Pkg
-Pkg.activate("./MPenv")
+Pkg.activate("path/to/project")
 
 using MajoranaPropagation
 using PauliPropagation
