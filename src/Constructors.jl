@@ -7,33 +7,24 @@ function order_sites(site_indices)
     return site_indices
 end
 
-function ms_and_pref_from_symbol(nfermions::Int, symbs::Vector{Symbol}, sites, index::Int; pop_id = true)
+function ms_and_pref_from_symbol(nfermions::Int, symbs::Vector{Symbol}, sites, index::Int)
     TT = getinttype(nfermions)
     symb = symbs[index]
     if symb == :n
         site = sites[index]
         obs = MajoranaSum(MajoranaString(nfermions, [2 * site - 1, 2 * site]), 0.5)
-        if pop_id
-            return obs, 0.5
-        end 
         sum_add!(obs, TT(0), 0.5)
         return obs
     elseif symb == :h
         s1, s2 = order_sites(sites[index])
         obs = MajoranaSum(MajoranaString(nfermions, [2 * s1 - 1, 2 * s2]), 0.5)
         sum_add!(obs, MajoranaString(nfermions, [2 * s1, 2 * s2 - 1]), -0.5)
-        if pop_id
-            return obs, 0.0
-        end
         return obs
     elseif symb == :nn 
         s1, s2 = order_sites(sites[index])
         obs = MajoranaSum(MajoranaString(nfermions, [2 * s1 - 1, 2 * s1]), 0.25)
         sum_add!(obs, MajoranaString(nfermions, [2 * s2 - 1, 2 * s2]), 0.25)
         sum_add!(obs, MajoranaString(nfermions, [2 * s1 - 1, 2 * s1, 2 * s2 - 1, 2 * s2]), -0.25)
-        if pop_id
-            return obs, 0.25
-        end
         sum_add!(obs, TT(0), 0.25)
         return obs
     else
@@ -42,21 +33,16 @@ function ms_and_pref_from_symbol(nfermions::Int, symbs::Vector{Symbol}, sites, i
 
 end
 
-function MajoranaSum(nfermions::Int, symbs::Vector{Symbol}, sites; pop_id = false)
-    obs = ms_and_pref_from_symbol(nfermions, symbs, sites, 1; pop_id = false)
+function MajoranaSum(nfermions::Int, symbs::Vector{Symbol}, sites)
+    obs = ms_and_pref_from_symbol(nfermions, symbs, sites, 1)
     for i = 2:length(symbs)
-        obs2= ms_and_pref_from_symbol(nfermions, symbs, sites, i; pop_id = false)
+        obs2= ms_and_pref_from_symbol(nfermions, symbs, sites, i)
         obs = obs * obs2 
-    end
-    if pop_id 
-        TT = getinttype(nfermions)
-        id_pref = pop!(obs, TT(0))
-        return obs, id_pref
     end
     return obs
 end
 
-function MajoranaSum(nfermions::Int, symb::Symbol, sites; pop_id = false)
-    return MajoranaSum(nfermions, [symb], [sites]; pop_id = pop_id)
+function MajoranaSum(nfermions::Int, symb::Symbol, sites)
+    return MajoranaSum(nfermions, [symb], [sites])
 end
 
