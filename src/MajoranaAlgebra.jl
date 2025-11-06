@@ -6,12 +6,10 @@ struct MajoranaString{TT<:Integer}
     gammas::TT
 end
 
+# TODO: documentation
 function MajoranaString(nfermions::Int, indices::Vector{Int})
     TT = getinttype(nfermions)
-    gammas::TT = 0
-    for i in indices
-        gammas = gammas | (typeof(gammas)(1) << (i - 1))
-    end
+    gammas = _bitonesat(TT, indices)
     return MajoranaString(nfermions, gammas)
 end
 
@@ -26,19 +24,24 @@ struct MajoranaSum{TT<:Integer,CT}
     Majoranas::Dict{TT,CT}
 end
 
-function MajoranaSum(nfermions::Int, ::Type{CT}) where {CT}
+
+function MajoranaSum(nfermions::Int)
+    return MajoranaSum(Float64, nfermions)
+end
+
+function MajoranaSum(::Type{CT}, nfermions::Int) where {CT}
     TT = getinttype(nfermions)
     return MajoranaSum(nfermions, Dict{TT,CT}())
 end
 
-function MajoranaSum(nfermions::Int, sumdict::Dict{Int,CT}) where {CT}
-    TT = getinttype(nfermions)
-    new_sumdict = Dict{TT,CT}()
-    for (key, value) in sumdict
-        new_sumdict[convert(TT, key)] = value
-    end
-    return MajoranaSum(nfermions, new_sumdict)
-end
+# function MajoranaSum(nfermions::Int, sumdict::Dict{Int,CT}) where {CT}
+#     TT = getinttype(nfermions)
+#     new_sumdict = Dict{TT,CT}()
+#     for (key, value) in sumdict
+#         new_sumdict[convert(TT, key)] = value
+#     end
+#     return MajoranaSum(nfermions, new_sumdict)
+# end
 
 function MajoranaSum(nfermions::Int, ms::MajoranaString, value::CT) where {CT}
     TT = getinttype(nfermions)
@@ -67,11 +70,23 @@ function MajoranaSum(ms::MajoranaString, ::Type{CT}) where {CT}
     return MajoranaSum(ms.nfermions, Dict{TT,CT}(ms.gammas => CT(1.)))
 end
 
-function sum_add!(ms::MajoranaSum{TT,CT}, ms2::MajoranaString{TT}, value::CT) where {TT<:Integer,CT}
-    sum_add!(ms, ms2.gammas, value)
+
+function add!(ms::MajoranaSum{TT,CT}, symbols::Vector{Symbol}, sites)
+    add!(ms, MajoranaSum(ms.nfermions, symbols, sites))
+    return ms
 end
 
-function sum_add!(ms::MajoranaSum, ms2_gammas::TT, value::CT) where {TT<:Integer,CT}
+function add!(ms::MajoranaSum{TT,CT}, ms2::MajoranaSum{TT,CT}) where {TT<:Integer,CT}
+    mergewith!(+, ms.Majoranas, ms2.Majoranas)
+    return ms
+end
+
+
+function add!(ms::MajoranaSum{TT,CT}, ms2::MajoranaString{TT}, value::CT) where {TT<:Integer,CT}
+    add!(ms, ms2.gammas, value)
+end
+
+function add!(ms::MajoranaSum, ms2_gammas::TT, value::CT) where {TT<:Integer,CT}
     if haskey(ms.Majoranas, ms2_gammas)
         ms.Majoranas[ms2_gammas] += value
     else
@@ -89,8 +104,12 @@ function set!(ms::MajoranaSum{TT,CT}, ms2::TT, value::CT) where {TT<:Integer,CT}
     return
 end
 
-function get_coeffs(ms::MajoranaSum)
-    return collect(values(ms.Majoranas))
+function majoranas(ms::MajoranaSum)
+    return keys(ms.Majoranas)
+end
+
+function coefficients(ms::MajoranaSum)
+    return values(ms.Majoranas)
 end
 
 function Base.delete!(ms::MajoranaSum, ms2::MajoranaString)
@@ -138,12 +157,18 @@ function Base.show(io::IO, ms::MajoranaSum)
 end
 
 
-function coefftype(msum::MajoranaSum{TT,CT}) where {TT,CT}
+function majoranatype(::MajoranaSum{TT,CT}) where {TT,CT}
+    return TT
+end
+
+function coefftype(::MajoranaSum{TT,CT}) where {TT,CT}
     return CT
 end
 
 function similar(msum::MajoranaSum)
-    return MajoranaSum(msum.nfermions, coefftype(msum))
+    new_msum = MajoranaSum(msum.nfermions, coefftype(msum))
+    sizehint!(new_msum.Majoranas, length(msum.Majoranas))
+    return new_msum
 end
 
 Base.iterate(msum::MajoranaSum, state=1) = iterate(msum.Majoranas, state)
@@ -165,6 +190,7 @@ function int_to_binary_array(var::TT, N::Int) where {TT<:Integer}
     return bits_array
 end
 
+# TODO: vectorize via masks
 function compute_parity_bits_and_shift(u::TT, Nbits::Int) where {TT<:Integer}
     p::TT = 0
     parity::TT = 0
@@ -232,6 +258,13 @@ function Base.:(+)(ms1::MajoranaString, ms2::MajoranaString)
     return MajoranaString(ms1.nfermions, mstring_additon(ms1.gammas, ms2.gammas))
 end
 
+
+function Base.:(+)(msum1::MajoranaSum, msum2::MajoranaSum)
+    msum1 = deepcopy(msum1)
+    add!(msum1, msum2)
+    return msum1
+end
+
 function Base.:(*)(msum1::MajoranaSum, msum2::MajoranaSum)
     res = MajoranaSum(msum1.nfermions, coefftype(msum1))
     for (ms1, coeff1) in msum1.Majoranas
@@ -239,7 +272,7 @@ function Base.:(*)(msum1::MajoranaSum, msum2::MajoranaSum)
             prefactor, ms3 = ms_mult(MajoranaString(msum1.nfermions, ms1), MajoranaString(msum2.nfermions, ms2))
             @assert imag(prefactor) ≈ 0
             prefactor = real(prefactor)
-            sum_add!(res, ms3, prefactor * tonumber(coeff1) * tonumber(coeff2))
+            add!(res, ms3, prefactor * tonumber(coeff1) * tonumber(coeff2))
         end
     end
     return res
@@ -283,7 +316,7 @@ function norm(msum::MajoranaSum, L=2)
     if length(msum) == 0
         return 0.0
     end
-    return LinearAlgebra.norm((coeff for coeff in get_coeffs(msum)), L)
+    return LinearAlgebra.norm((coeff for coeff in coefficients(msum)), L)
 end
 
 function commutator(msum1::MajoranaSum, msum2::MajoranaSum)
@@ -294,7 +327,7 @@ function commutator(msum1::MajoranaSum, msum2::MajoranaSum)
                 continue
             end
             prefactor, ms3 = ms_mult(MajoranaString(msum1.nfermions, ms1), MajoranaString(msum2.nfermions, ms2))
-            sum_add!(res, ms3, prefactor * tonumber(coeff1) * tonumber(coeff2))
+            add!(res, ms3, prefactor * tonumber(coeff1) * tonumber(coeff2))
         end
     end
     return res
@@ -351,4 +384,18 @@ function overlap_with_fock_spinful(mslist, up_sites_with_particle, down_sites_wi
         push!(fock_state, 2 * down_site)
     end
     return overlap_with_fock(mslist, fock_state; add_pref=add_pref)
+end
+
+# a function to get bits=1 at specified positions
+# indices here is some sort of iterable
+function _bitonesat(::Type{TT}, indices) where {TT<:Integer}
+    mask = zero(TT)
+    for pos in indices
+        mask |= TT(1) << (pos - 1)
+    end
+    return mask
+end
+
+function _bitonesat(::Type{TT}, index::Integer) where {TT<:Integer}
+    return TT(1) << (index - 1)
 end

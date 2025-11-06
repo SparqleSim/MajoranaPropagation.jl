@@ -18,7 +18,7 @@ export
     overlap_with_fock_spinful,
     getinttype,
     ms_mult,
-    sum_add!,
+    add!,
     commutator,
     commutes,
     norm,
@@ -63,11 +63,11 @@ export
     reset_tracker!
 
 include("Constructors.jl")
-export 
+export
     order_sites,
     MajoranaSum
 
 include("ConstructorsSpinful.jl")
-export 
+export
     spinfulmajoranasum
 end
