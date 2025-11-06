@@ -1,7 +1,10 @@
 # just like in Constructors.jl, but for spinful operators
 # we have the high level there so only define Val dispatch here
 
-function MajoranaSum(nfermions::Integer, ::Val{:nu}, site::Integer)
+# spinful operators on n sites have 2*n fermions
+
+function MajoranaSum(spinful_sites::Integer, ::Val{:nu}, site::Integer)
+    nfermions = 2 * spinful_sites
     TT = getinttype(nfermions)
     term1 = _bitonesat(TT, (4 * site - 3, 4 * site - 2))
     term2 = TT(0)
@@ -9,7 +12,8 @@ function MajoranaSum(nfermions::Integer, ::Val{:nu}, site::Integer)
     return obs
 end
 
-function MajoranaSum(nfermions::Integer, ::Val{:nd}, site::Integer)
+function MajoranaSum(spinful_sites::Integer, ::Val{:nd}, site::Integer)
+    nfermions = 2 * spinful_sites
     TT = getinttype(nfermions)
     term1 = _bitonesat(TT, (4 * site - 1, 4 * site))
     term2 = TT(0)
@@ -17,7 +21,8 @@ function MajoranaSum(nfermions::Integer, ::Val{:nd}, site::Integer)
     return obs
 end
 
-function MajoranaSum(nfermions::Integer, ::Val{:hu}, sites)
+function MajoranaSum(spinful_sites::Integer, ::Val{:hu}, sites)
+    nfermions = 2 * spinful_sites
     TT = getinttype(nfermions)
     site1, site2 = order_sites(collect(sites))
     term1 = _bitonesat(TT, (4 * site1 - 3, 4 * site2 - 2))
@@ -26,7 +31,8 @@ function MajoranaSum(nfermions::Integer, ::Val{:hu}, sites)
     return obs
 end
 
-function MajoranaSum(nfermions::Integer, ::Val{:hd}, sites)
+function MajoranaSum(spinful_sites::Integer, ::Val{:hd}, sites)
+    nfermions = 2 * spinful_sites
     TT = getinttype(nfermions)
     site1, site2 = order_sites(collect(sites))
     term1 = _bitonesat(TT, (4 * site1 - 1, 4 * site2))
@@ -35,7 +41,8 @@ function MajoranaSum(nfermions::Integer, ::Val{:hd}, sites)
     return obs
 end
 
-function MajoranaSum(nfermions::Integer, ::Val{:hole}, site::Integer)
+function MajoranaSum(spinful_sites::Integer, ::Val{:hole}, site::Integer)
+    nfermions = 2 * spinful_sites
     TT = getinttype(nfermions)
     term1 = _bitonesat(TT, (4 * site - 3, 4 * site - 2))
     term2 = _bitonesat(TT, (4 * site - 1, 4 * site))
@@ -48,7 +55,8 @@ function MajoranaSum(nfermions::Integer, ::Val{:hole}, site::Integer)
     return obs
 end
 
-function MajoranaSum(nfermions::Integer, ::Val{:nund}, site::Integer)
+function MajoranaSum(spinful_sites::Integer, ::Val{:nund}, site::Integer)
+    nfermions = 2 * spinful_sites
     TT = getinttype(nfermions)
     term1 = _bitonesat(TT, (4 * site - 3, 4 * site - 2))
     term2 = _bitonesat(TT, (4 * site - 1, 4 * site))
