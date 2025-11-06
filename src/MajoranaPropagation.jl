@@ -61,13 +61,3 @@ export
     MajoranaFrequencyTracker,
     wrapcoefficients,
     reset_tracker!
-
-include("Constructors.jl")
-export
-    order_sites,
-    MajoranaSum
-
-include("ConstructorsSpinful.jl")
-export
-    spinfulmajoranasum
-end
