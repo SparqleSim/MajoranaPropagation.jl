@@ -43,12 +43,10 @@ end
 #     return MajoranaSum(nfermions, new_sumdict)
 # end
 
-function MajoranaSum(nfermions::Int, ms::MajoranaString, value::CT) where {CT}
-    TT = getinttype(nfermions)
+function MajoranaSum(nfermions::Int, ms::MajoranaString{TT}, value::CT) where {TT,CT}
     return MajoranaSum(nfermions, Dict{TT,CT}(ms.gammas => value))
 end
-function MajoranaSum(ms::MajoranaString, value::CT) where {CT}
-    TT = getinttype(ms.nfermions)
+function MajoranaSum(ms::MajoranaString{TT}, value::CT) where {TT,CT}
     return MajoranaSum(ms.nfermions, Dict{TT,CT}(ms.gammas => value))
 end
 
@@ -61,28 +59,25 @@ function MajoranaSum(nfermions::Int, ms_and_values::Vector{Tuple{CT,MajoranaStri
     return MajoranaSum(nfermions, sum_dict)
 end
 
-function MajoranaSum(nfermions::Int, ms::MajoranaString) where {CT}
-    TT = getinttype(nfermions)
+function MajoranaSum(nfermions::Int, ms::MajoranaString{TT}) where {TT,CT}
     return MajoranaSum(nfermions, Dict{TT,CT}(ms.gammas => CT(1.)))
 end
 
-function MajoranaSum(::Type{CT}, ms::MajoranaString) where {CT}
-    TT = getinttype(ms.nfermions)
+function MajoranaSum(::Type{CT}, ms::MajoranaString{TT}) where {TT,CT}
     return MajoranaSum(ms.nfermions, Dict{TT,CT}(ms.gammas => CT(1.)))
 end
 
-function MajoranaSum(ms::MajoranaString)
-    TT = getinttype(ms.nfermions)
+function MajoranaSum(ms::MajoranaString{TT}) where {TT}
     return MajoranaSum(ms.nfermions, Dict{TT,Float64}(ms.gammas => 1.))
 end
 
 
-function add!(ms::MajoranaSum{TT,CT}, symbol::Symbol, sites)
+function add!(ms::MajoranaSum{TT,CT}, symbol::Symbol, sites) where {TT<:Integer,CT}
     add!(ms, MajoranaSum(ms.nfermions, symbol, sites))
     return ms
 end
 
-function add!(ms::MajoranaSum{TT,CT}, symbols::Vector{Symbol}, sites)
+function add!(ms::MajoranaSum{TT,CT}, symbols::Vector{Symbol}, sites) where {TT<:Integer,CT}
     add!(ms, MajoranaSum(ms.nfermions, symbols, sites))
     return ms
 end
