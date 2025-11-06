@@ -236,13 +236,6 @@ function omega_mult(ms::MajoranaString)
     return omega_L_mult(ms, ms)
 end
 
-function Base.:(==)(ms1::MajoranaString, ms2::MajoranaString)
-    if ms1.nfermions != ms2.nfermions
-        return false
-    end
-    return ms1.gammas == ms2.gammas
-end
-
 function Base.:(==)(ms1::MajoranaSum, ms2::MajoranaSum)
     if ms1.nfermions != ms2.nfermions
         return false
@@ -254,20 +247,20 @@ function mstring_additon(ms1::TT, ms2::TT) where {TT<:Integer}
     return ms1 ⊻ ms2
 end
 function Base.:(+)(ms1::MajoranaString, ms2::MajoranaString)
-    if ms1.nfermions != ms2.nfermions
-        throw(ArgumentError("Majorana strings must have the same length, but have lengths $(ms1.nfermions) and $(ms2.nfermions)"))
-    end
+    _checknfermions(ms1, ms2)
     return MajoranaString(ms1.nfermions, mstring_additon(ms1.gammas, ms2.gammas))
 end
 
 
 function Base.:(+)(msum1::MajoranaSum, msum2::MajoranaSum)
+    _checknfermions(msum1, msum2)
     msum1 = deepcopy(msum1)
     add!(msum1, msum2)
     return msum1
 end
 
 function Base.:(*)(msum1::MajoranaSum, msum2::MajoranaSum)
+    _checknfermions(msum1, msum2)
     res = MajoranaSum(msum1.nfermions, coefftype(msum1))
     for (ms1, coeff1) in msum1.Majoranas
         for (ms2, coeff2) in msum2.Majoranas
@@ -400,4 +393,23 @@ end
 
 function _bitonesat(::Type{TT}, index::Integer) where {TT<:Integer}
     return TT(1) << (index - 1)
+end
+
+function _checknfermions(msum1::MajoranaSum, msum2::MajoranaSum)
+    if msum1.nfermions != msum2.nfermions
+        throw(ArgumentError("MajoranaSums must have the same nfermions, but have $(msum1.nfermions) and $(msum2.nfermions)"))
+    end
+
+end
+
+function _checknfermions(msum::MajoranaSum, ms::MajoranaString)
+    if msum.nfermions != ms.nfermions
+        throw(ArgumentError("MajoranaSum and MajoranaString must have the same nfermions, but have $(msum.nfermions) and $(ms.nfermions)"))
+    end
+end
+
+function _checknfermions(ms1::MajoranaString, ms2::MajoranaString)
+    if ms1.nfermions != ms2.nfermions
+        throw(ArgumentError("Majorana strings must have the same length, but have lengths $(ms1.nfermions) and $(ms2.nfermions)"))
+    end
 end
