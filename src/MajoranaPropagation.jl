@@ -61,3 +61,5 @@ export
     MajoranaFrequencyTracker,
     wrapcoefficients,
     reset_tracker!
+
+end
