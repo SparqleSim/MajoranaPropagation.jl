@@ -168,7 +168,7 @@ function coefftype(::MajoranaSum{TT,CT}) where {TT,CT}
 end
 
 function similar(msum::MajoranaSum)
-    new_msum = MajoranaSum(msum.nfermions, coefftype(msum))
+    new_msum = MajoranaSum(coefftype(msum), msum.nfermions)
     sizehint!(new_msum.Majoranas, length(msum.Majoranas))
     return new_msum
 end
