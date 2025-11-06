@@ -59,10 +59,6 @@ function MajoranaSum(nfermions::Int, ms_and_values::Vector{Tuple{CT,MajoranaStri
     return MajoranaSum(nfermions, sum_dict)
 end
 
-function MajoranaSum(nfermions::Int, ms::MajoranaString{TT}) where {TT,CT}
-    return MajoranaSum(nfermions, Dict{TT,CT}(ms.gammas => CT(1.)))
-end
-
 function MajoranaSum(::Type{CT}, ms::MajoranaString{TT}) where {TT,CT}
     return MajoranaSum(ms.nfermions, Dict{TT,CT}(ms.gammas => CT(1.)))
 end
