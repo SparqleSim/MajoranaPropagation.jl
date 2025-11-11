@@ -261,7 +261,7 @@ end
 
 function Base.:(*)(msum1::MajoranaSum, msum2::MajoranaSum)
     _checknfermions(msum1, msum2)
-    res = MajoranaSum(msum1.nfermions, coefftype(msum1))
+    res = MajoranaSum(coefftype(msum1), msum1.nfermions)
     for (ms1, coeff1) in msum1.Majoranas
         for (ms2, coeff2) in msum2.Majoranas
             prefactor, ms3 = ms_mult(MajoranaString(msum1.nfermions, ms1), MajoranaString(msum2.nfermions, ms2))
@@ -269,6 +269,14 @@ function Base.:(*)(msum1::MajoranaSum, msum2::MajoranaSum)
             prefactor = real(prefactor)
             add!(res, ms3, prefactor * tonumber(coeff1) * tonumber(coeff2))
         end
+    end
+    return res
+end
+
+function Base.:(*)(coeff::CT, msum::MajoranaSum{TT,CT}) where {TT<:Integer,CT}
+    res = similar(msum)
+    for (ms1, coeff1) in msum.Majoranas
+        set!(res, ms1, coeff * coeff1)
     end
     return res
 end
