@@ -71,9 +71,12 @@ function applytoall!(gate::MajoranaRotation, theta, msum::MajoranaSum{TT,CT}, au
     applytoall!(gate.ms.gammas, theta, msum, aux_msum; kwargs...)
 end
 
-function applytoall!(gate::FermionicGate, theta, msum::MajoranaSum{TT,CT}, aux_msum::MajoranaSum{TT,CT}; kwargs...) where {TT<:Integer,CT}
+function applymergetruncate!(gate::FermionicGate, msum::MajoranaSum{TT,CT}, aux_msum::MajoranaSum{TT,CT}, thetas, param_idx; kwargs...) where {TT<:Integer,CT}
     # get the Majorana strings and coefficients corresponding to the fermionic gate
     ms_rotations, coeffs = getmajoranarotations(gate)
+
+    # get the current parameter
+    theta = thetas[param_idx]
 
     # iterate over individual Majorana rotations and apply them to the Majorana sum
     for (gate_ms, coeff) in zip(ms_rotations, coeffs)
@@ -88,5 +91,6 @@ function applytoall!(gate::FermionicGate, theta, msum::MajoranaSum{TT,CT}, aux_m
         checktruncationonall!(msum; kwargs...)
     end
 
-    return
+    # decrement parameter index during back propagation
+    return msum, aux_msum, param_idx - 1
 end
