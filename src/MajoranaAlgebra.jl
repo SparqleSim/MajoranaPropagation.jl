@@ -192,17 +192,37 @@ function int_to_binary_array(var::TT, N::Int) where {TT<:Integer}
     return bits_array
 end
 
-# TODO: vectorize via masks
 function compute_parity_bits_and_shift(u::TT, Nbits::Int) where {TT<:Integer}
-    p::TT = 0
-    parity::TT = 0
-    for k in TT(0):TT(Nbits - 2)
-        if (u >> k) & 1 == 1
-            parity ⊻= 1
-        end
-        p |= parity << (k + 1)
+
+    # If Nbits=1 there is no parity
+    if Nbits <= 1
+        return TT(0)
     end
-    return p
+
+    # TODO: these masks can be precomputed for efficiency
+
+    # mask for all active bits
+    full_mask = (TT(1) << Nbits) - TT(1)
+
+    # mask for Nbits - 1 bits.
+    mask = (full_mask >> 1)
+
+    # crop last bit
+    p = u & mask
+
+    # this is a parallel prefix xor operation
+    # runs in log2(Nbits) steps
+    s = 1
+    while s < Nbits
+        p ⊻= (p << s)
+        s <<= 1
+    end
+
+    # shift necessary for consistency with site convention
+    p = p << 1
+
+    # mask all bits
+    return p & full_mask
 end
 
 function omega_L_mult(ms1::MajoranaString, ms2::MajoranaString)
