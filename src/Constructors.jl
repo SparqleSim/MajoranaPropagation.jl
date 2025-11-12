@@ -11,13 +11,15 @@ end
 # higher-level constructor for when passing symbols
 # they wrap Symbol into Val for dispatch
 """ 
-    spinfulmajoranasum(n_sites::Int, symb::Symbol, sites::Vector{Int})
+    MajoranaSum(n_sites::Integer, symb::Symbol, sites::Integer)
+    MajoranaSum(n_sites::Integer, symb::Symbol, sites)
 
-Returns a `MajoranaSum` corresponding to the observable defined by the symbol `symb` acting on the sites in `sites`.
+Returns a `MajoranaSum` corresponding to the observable defined by the symbol `symb` acting on one `site` or multiple `sites`.
+Multiple sites can be passed as a vector or any iterable collection of integers.
 The supported symbols are:
 - Spinless operators 
-    - `:n`: number operator on the given site
-    - `:hop`: hopping operator between the two given sites
+    - `:n`: number operator on one given site
+    - `:hop`: hopping operator between two given sites
     - `:nn`: number-number operator between the two given sites
 
 - Spinful operators:
@@ -29,7 +31,7 @@ The supported symbols are:
     - `:hole`: hole operator on the given site
 """
 
-function MajoranaSum(nfermions::Integer, symb::Symbol, sites::Vector{Int})
+function MajoranaSum(nfermions::Integer, symb::Symbol, sites)
     return MajoranaSum(nfermions, Val(symb), sites)
 end
 
@@ -54,7 +56,9 @@ end
 # hopping operator
 function MajoranaSum(nfermions::Integer, ::Val{:hop}, sites)
     TT = getinttype(nfermions)
-    site1, site2 = order_sites(collect(sites))
+    sites = _tovec(sites)
+    @assert length(sites) == 2 "Hopping operator requires exactly two site indices."
+    site1, site2 = order_sites(sites)
     term1 = _bitonesat(TT, (2 * site1 - 1, 2 * site2))
     term2 = _bitonesat(TT, (2 * site1, 2 * site2 - 1))
     obs = MajoranaSum{TT,Float64}(nfermions, Dict(term1 => 0.5, term2 => -0.5))
@@ -64,7 +68,9 @@ end
 # number-number operator
 function MajoranaSum(nfermions::Integer, ::Val{:nn}, sites)
     TT = getinttype(nfermions)
-    site1, site2 = order_sites(collect(sites))
+    sites = _tovec(sites)
+    @assert length(sites) == 2 "Number-number operator requires exactly two site indices."
+    site1, site2 = order_sites(sites)
     term1 = _bitonesat(TT, (2 * site1 - 1, 2 * site1))
     term2 = _bitonesat(TT, (2 * site2 - 1, 2 * site2))
     term3 = _bitonesat(TT, (2 * site1 - 1, 2 * site1, 2 * site2 - 1, 2 * site2))
@@ -101,7 +107,7 @@ end
 function MajoranaSum(spinful_sites::Integer, ::Val{:hopup}, sites::Vector{Int})
     nfermions = 2 * spinful_sites
     TT = getinttype(nfermions)
-    site1, site2 = order_sites(collect(sites))
+    site1, site2 = order_sites(_tovec(sites))
     term1 = _bitonesat(TT, (4 * site1 - 3, 4 * site2 - 2))
     term2 = _bitonesat(TT, (4 * site1 - 2, 4 * site2 - 3))
     obs = MajoranaSum{TT,Float64}(nfermions, Dict(term1 => 0.5, term2 => -0.5))
@@ -111,7 +117,7 @@ end
 function MajoranaSum(spinful_sites::Integer, ::Val{:hopdn}, sites::Vector{Int})
     nfermions = 2 * spinful_sites
     TT = getinttype(nfermions)
-    site1, site2 = order_sites(collect(sites))
+    site1, site2 = order_sites(_tovec(sites))
     term1 = _bitonesat(TT, (4 * site1 - 1, 4 * site2))
     term2 = _bitonesat(TT, (4 * site1, 4 * site2 - 1))
     obs = MajoranaSum{TT,Float64}(nfermions, Dict(term1 => 0.5, term2 => -0.5))
@@ -154,3 +160,5 @@ function MajoranaSum(nfermions::Integer, ::Val{symb}, sites) where {symb}
 end
 
 
+_tovec(x) = collect(x)
+_tovec(x::Number) = [x]
