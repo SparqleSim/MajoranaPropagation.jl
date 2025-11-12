@@ -1,4 +1,4 @@
-
+# TODO: figure out the fate of this gate. Is it needed?
 struct MajoranaRotation <: PauliPropagation.ParametrizedGate
     ms::MajoranaString
     function MajoranaRotation(ms::MajoranaString)
@@ -24,9 +24,7 @@ end
 
 function getmajoranarotations(gate::FermionicGate)
     # construct msum encoding the fermionic gate
-    # multiply coefficient by 2 since exponential implements exp(-i * theta/2 * mstring)
-    # TODO: fix where we multiply by 2
-    msum = 2. * MajoranaSum(gate.nsites, gate.symbol, gate.sites)
+    msum = MajoranaSum(gate.nsites, gate.symbol, gate.sites)
 
     #remove coefficient associated to identity
     pop_id!(msum)
@@ -71,23 +69,24 @@ end
 
 function applytoall!(gate::MajoranaRotation, theta, msum::MajoranaSum{TT,CT}, aux_msum::MajoranaSum{TT,CT}; kwargs...) where {TT<:Integer,CT}
     applytoall!(gate.ms.gammas, theta, msum, aux_msum; kwargs...)
-end 
+end
 
 function applytoall!(gate::FermionicGate, theta, msum::MajoranaSum{TT,CT}, aux_msum::MajoranaSum{TT,CT}; kwargs...) where {TT<:Integer,CT}
-    #get the Majorana strings and coefficients corresponding to the fermionic gate
-    #@show gate.symbol gate.sites
+    # get the Majorana strings and coefficients corresponding to the fermionic gate
     ms_rotations, coeffs = getmajoranarotations(gate)
 
-    #iterate over individual Majorana rotations and apply them to the Majorana sum
+    # iterate over individual Majorana rotations and apply them to the Majorana sum
     for (gate_ms, coeff) in zip(ms_rotations, coeffs)
-        applytoall!(gate_ms, theta * coeff, msum, aux_msum; kwargs...)
+        # multiply coefficient by 2 since exponential implements exp(-i * theta/2 * mstring)
+        applytoall!(gate_ms, theta * coeff * 2.0, msum, aux_msum; kwargs...)
 
         # merge the auxiliary Majorana sum into the original one and empty the auxiliary one
         msum, aux_msum = mergeandempty!(msum, aux_msum)
 
         # truncate after each Majorana rotation 
+        # TODO: this truncates more than necessary. Last iteration could skip truncation.
         checktruncationonall!(msum; kwargs...)
     end
 
-    return 
+    return
 end
