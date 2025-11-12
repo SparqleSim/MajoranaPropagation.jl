@@ -1,3 +1,64 @@
+
+""" 
+    trotter_layer(groups::Vector{Vector{Tuple{FermionicGate,Float64}}}, order::Symbol; rotation_prefactor=2., kwargs...)
+Construct a trotter layer for a specified `order` from groups of fermionic gates and their associated angles.
+Currently supported orders are `:first` and `:second`.
+
+`:first` implements a first-order Trotter layer by applying each group of gates sequentially.
+`:second` implements a second-order Trotter layer by applying half of the gates from each group in the forward order, then applying the last group fully, and finally applying the first groups in reverse order with half angles.
+
+`rotation_prefactor` is set to 2. by default as the Majorana rotations implement exp(-i * theta/2 * mstring).
+"""
+function trotter_layer(groups::Vector{Vector{Tuple{FermionicGate,Float64}}}, order::Symbol; rotation_prefactor=2., kwargs...)
+    return trotter_layer(groups, Val(order); rotation_prefactor=rotation_prefactor, kwargs...)
+end
+
+""" 
+    first order trotter layer
+"""
+function trotter_layer(groups::Vector{Vector{Tuple{FermionicGate,Float64}}}, ::Val{:first}; rotation_prefactor=2., kwargs...)
+    circuit::Vector{FermionicGate} = []
+    thetas::Vector{Float64} = []
+    for group in groups
+        for (gate, theta) in group
+            push!(circuit, gate)
+            push!(thetas, theta * rotation_prefactor)
+        end
+    end
+    return circuit, thetas
+end
+
+""" 
+    second order trotter layer
+"""
+function trotter_layer(groups::Vector{Vector{Tuple{FermionicGate,Float64}}}, ::Val{:second}; rotation_prefactor=2., kwargs...)
+    circuit::Vector{FermionicGate} = []
+    thetas::Vector{Float64} = []
+    for j = 1:length(groups)-1
+        for (gate, theta) in groups[j]
+            push!(circuit, gate)
+            push!(thetas, theta * rotation_prefactor / 2)
+        end
+    end
+
+    for (gate, theta) in groups[end]
+        push!(circuit, gate)
+        push!(thetas, theta * rotation_prefactor)
+    end
+
+    for j = length(groups)-1:-1:1
+        for (gate, theta) in reverse(groups[j])
+            push!(circuit, gate)
+            push!(thetas, theta * rotation_prefactor / 2)
+        end
+    end
+    return circuit, thetas
+end
+
+function trotter_layer(groups::Vector{Vector{Tuple{FermionicGate,Float64}}}, ::Val{symb}; kwargs...) where {symb}
+    error("Trotter order $symb not recognized.")
+end
+
 function hubbard_circ_fermionic_sites_single_layer(topology, N_spinful_sites::Int, t::Float64, U::Float64, dt::Float64; return_mps_instructions=false, return_separated=false)
     mps_instructions = []
     mps_thetas = []
