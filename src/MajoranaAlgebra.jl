@@ -269,10 +269,10 @@ end
 
 function Base.:(*)(msum1::MajoranaSum, msum2::MajoranaSum)
     _checknfermions(msum1, msum2)
-    res = MajoranaSum(coefftype(msum1), msum1.nfermions)
+    res = MajoranaSum(coefftype(msum1), msum1.nsites, msum1.spinful_sites)
     for (ms1, coeff1) in msum1.Majoranas
         for (ms2, coeff2) in msum2.Majoranas
-            prefactor, ms3 = ms_mult(MajoranaString(msum1.nfermions, ms1), MajoranaString(msum2.nfermions, ms2))
+            prefactor, ms3 = ms_mult(ms1, ms2, nfermions(msum1))
             @assert imag(prefactor) ≈ 0
             prefactor = real(prefactor)
             add!(res, ms3, prefactor * tonumber(coeff1) * tonumber(coeff2))
