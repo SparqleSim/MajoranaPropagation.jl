@@ -48,10 +48,10 @@ function getmajoranarotations(gate::FermionicGate)
     return rotations, coefficients
 end
 
-function _applycos(coeff::CT, cos_theta::CT) where {CT}
+function _applycos(coeff, cos_theta)
     return coeff * cos_theta
 end
-function _applysin(coeff::CT, sin_theta::CT) where {CT}
+function _applysin(coeff, sin_theta)
     return coeff * sin_theta
 end
 
