@@ -7,6 +7,7 @@ include("MajoranaAlgebra.jl")
 export
     MajoranaSum,
     MajoranaString,
+    nfermions,
     set!,
     length,
     get_weight,

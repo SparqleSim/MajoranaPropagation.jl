@@ -13,27 +13,26 @@ struct MajoranaRotation{TT<:Integer} <: PauliPropagation.ParametrizedGate
 end
 
 """
-    FermionicGate(symbol::Symbol, sites::Vector{Int}, nfermions::Int)
+    FermionicGate(symbol::Symbol, sites::Vector{Int})
 Structure to represent fermionic gates, constructed from a symbol. See `Constructors.jl` for supported symbols.
 """
 struct FermionicGate <: PauliPropagation.ParametrizedGate
     symbol::Symbol
     sites::Vector{Int}
-    nsites::Int
 end
 
-function FermionicGate(symbol::Symbol, site::Int, nfermions::Int)
-    return FermionicGate(symbol, [site], nfermions)
+function FermionicGate(symbol::Symbol, site::Integer)
+    return FermionicGate(symbol, [site])
 end
 
 
 """
-    getmajoranarotations(gate::FermionicGate)
+    getmajoranarotations(gate::FermionicGate, n_sites::Integer)
 Given a `FermionicGate`, returns the Majorana rotations and coefficients corresponding to it.
 """
-function getmajoranarotations(gate::FermionicGate)
+function getmajoranarotations(gate::FermionicGate, n_sites::Integer)
     # construct msum encoding the fermionic gate
-    msum = MajoranaSum(gate.nsites, gate.symbol, gate.sites)
+    msum = MajoranaSum(n_sites, gate.symbol, gate.sites)
 
     #remove coefficient associated to identity
     pop_id!(msum)
@@ -41,7 +40,7 @@ function getmajoranarotations(gate::FermionicGate)
     rotations::Vector{MajoranaRotation} = []
     coefficients::Vector{Float64} = []
     for (ms, coeff) in msum
-        push!(rotations, MajoranaRotation(MajoranaString(msum.nfermions, ms)))
+        push!(rotations, MajoranaRotation(MajoranaString(nfermions(msum), ms)))
         push!(coefficients, coeff)
     end
 
@@ -71,7 +70,7 @@ function applytoall!(gate::MajoranaRotation, theta, msum::MajoranaSum{TT,CT}, au
 
         # else we know the gate will split the Majorana string into two
         coeff1 = _applycos(coeff, cos_val)
-        sign, new_ms = ms_mult(gate_int, ms_int, msum.nfermions)
+        sign, new_ms = ms_mult(gate_int, ms_int, nfermions(msum))
         coeff2 = _applysin(coeff, sin_val * real((-1im) * sign))
 
         # set the coefficient of the original Majorana string
@@ -87,7 +86,7 @@ end
 
 function applymergetruncate!(gate::FermionicGate, msum::MajoranaSum{TT,CT}, aux_msum::MajoranaSum{TT,CT}, thetas, param_idx; kwargs...) where {TT<:Integer,CT}
     # get the Majorana strings and coefficients corresponding to the fermionic gate
-    ms_rotations, coeffs = getmajoranarotations(gate)
+    ms_rotations, coeffs = getmajoranarotations(gate, msum.nsites)
 
     # get the current parameter
     theta = thetas[param_idx]

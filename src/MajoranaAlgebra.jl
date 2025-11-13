@@ -20,61 +20,44 @@ function MajoranaString(nfermions::Int, gammas::Int64)
 end
 
 struct MajoranaSum{TT<:Integer,CT}
-    nfermions::Int
+    nsites::Integer
+    spinful_sites::Bool
     Majoranas::Dict{TT,CT}
 end
 
-
-function MajoranaSum(nfermions::Int)
+""" 
+    MajoranaSum(n_fermions::Integer)
+Create a MajoranaSum for `nfermions` spinless fermions and coefficient type `CT`.
+"""
+function MajoranaSum(nfermions::Integer)
     return MajoranaSum(Float64, nfermions)
 end
 
-function MajoranaSum(::Type{CT}, nfermions::Int) where {CT}
-    TT = getinttype(nfermions)
-    return MajoranaSum(nfermions, Dict{TT,CT}())
+""" 
+    MajoranaSum(::Type{CT}, n_fermions::Integer) where {CT}
+Create a MajoranaSum for `nfermions` spinless fermions and coefficient type `CT`.
+"""
+function MajoranaSum(::Type{CT}, n_fermions::Integer) where {CT}
+    TT = getinttype(n_fermions)
+    spinful_sites = false
+    return MajoranaSum(n_fermions, spinful_sites, Dict{TT,CT}())
 end
 
-# function MajoranaSum(nfermions::Int, sumdict::Dict{Int,CT}) where {CT}
-#     TT = getinttype(nfermions)
-#     new_sumdict = Dict{TT,CT}()
-#     for (key, value) in sumdict
-#         new_sumdict[convert(TT, key)] = value
-#     end
-#     return MajoranaSum(nfermions, new_sumdict)
-# end
-
-function MajoranaSum(nfermions::Int, ms::MajoranaString{TT}, value::CT) where {TT,CT}
-    return MajoranaSum(nfermions, Dict{TT,CT}(ms.gammas => value))
-end
-function MajoranaSum(ms::MajoranaString{TT}, value::CT) where {TT,CT}
-    return MajoranaSum(ms.nfermions, Dict{TT,CT}(ms.gammas => value))
-end
-
-function MajoranaSum(nfermions::Int, ms_and_values::Vector{Tuple{CT,MajoranaString}}) where {CT}
-    TT = getinttype(nfermions)
-    sum_dict = Dict{TT,CT}()
-    for (value, ms) in ms_and_values
-        sum_dict[ms.gammas] = value
+""" 
+    MajoranaSum(::Type{CT}, n_sites::Integer, spinful_sites::Bool) where {CT}
+Create a MajoranaSum for with `n_sites` that can be both spinful or spinless (depending on `spinful_sites::Bool`) and coefficient type `CT`.
+"""
+function MajoranaSum(::Type{CT}, n_sites::Integer, spinful_sites::Bool) where {CT}
+    if spinful_sites
+        TT = getinttype(2 * n_sites)
+    else 
+        TT = getinttype(n_sites)
     end
-    return MajoranaSum(nfermions, sum_dict)
+    return MajoranaSum(n_sites, spinful_sites, Dict{TT,CT}())
 end
-
-function MajoranaSum(::Type{CT}, ms::MajoranaString{TT}) where {TT,CT}
-    return MajoranaSum(ms.nfermions, Dict{TT,CT}(ms.gammas => CT(1.)))
-end
-
-function MajoranaSum(ms::MajoranaString{TT}) where {TT}
-    return MajoranaSum(ms.nfermions, Dict{TT,Float64}(ms.gammas => 1.))
-end
-
 
 function add!(ms::MajoranaSum{TT,CT}, symbol::Symbol, sites) where {TT<:Integer,CT}
-    add!(ms, MajoranaSum(ms.nfermions, symbol, sites))
-    return ms
-end
-
-function add!(ms::MajoranaSum{TT,CT}, symbols::Vector{Symbol}, sites) where {TT<:Integer,CT}
-    add!(ms, MajoranaSum(ms.nfermions, symbols, sites))
+    add!(ms, MajoranaSum(ms.nsites, symbol, sites))
     return ms
 end
 
@@ -114,14 +97,26 @@ function coefficients(ms::MajoranaSum)
     return values(ms.Majoranas)
 end
 
-function Base.delete!(ms::MajoranaSum, ms2::MajoranaString)
+function nfermions(ms::MajoranaSum)
+    if ms.spinful_sites
+        return 2 * ms.nsites
+    else
+        return ms.nsites
+    end
+end
+
+function nfermions(ms::MajoranaString)
+    return ms.nfermions
+end
+
+function Base.delete!(ms::MajoranaSum{TT, CT}, ms2::MajoranaString{TT}) where {TT<:Integer,CT}
     delete!(ms.Majoranas, ms2.gammas)
 end
-function Base.delete!(ms::MajoranaSum, ms2_gammas::TT) where {TT<:Integer}
+function Base.delete!(ms::MajoranaSum{TT, CT}, ms2_gammas::TT) where {TT<:Integer,CT}
     delete!(ms.Majoranas, ms2_gammas)
 end
 
-function Base.pop!(ms::MajoranaSum, ms2_gammas::TT) where {TT<:Integer}
+function Base.pop!(ms::MajoranaSum{TT, CT}, ms2_gammas::TT) where {TT<:Integer, CT}
     return pop!(ms.Majoranas, ms2_gammas, 0.)
 end
 
@@ -149,7 +144,7 @@ function Base.show(io::IO, ms::MajoranaSum)
     for (i, (mstring, coeff)) in enumerate(ms.Majoranas)
         if i <= max_display
             print(io, "\n")
-            print(io, "    $(coeff) * $(reverse(string(mstring; base=2, pad=2 * ms.nfermions)))")
+            print(io, "    $(coeff) * $(reverse(string(mstring; base=2, pad=2 * nfermions(ms))))")
         else
             print(io, "\n    ...")
             break
@@ -168,7 +163,7 @@ function coefftype(::MajoranaSum{TT,CT}) where {TT,CT}
 end
 
 function similar(msum::MajoranaSum)
-    new_msum = MajoranaSum(coefftype(msum), msum.nfermions)
+    new_msum = MajoranaSum(coefftype(msum), msum.nsites, msum.spinful_sites)
     sizehint!(new_msum.Majoranas, length(msum.Majoranas))
     return new_msum
 end
@@ -180,16 +175,6 @@ function get_weight(ms::MajoranaString)
 end
 function get_weight(gammas::TT) where {TT<:Integer}
     return Bits.weight(gammas)
-end
-
-function int_to_binary_array(var::TT, N::Int) where {TT<:Integer}
-    var_string = string(var; base=2, pad=N)
-
-    bits_array = zeros(Int, N)
-    for i in 1:N
-        bits_array[i] = parse(Int, var_string[N+1-i])
-    end
-    return bits_array
 end
 
 function compute_parity_bits_and_shift(u::TT, Nbits::Int) where {TT<:Integer}
@@ -257,7 +242,10 @@ function omega_mult(ms::MajoranaString)
 end
 
 function Base.:(==)(ms1::MajoranaSum, ms2::MajoranaSum)
-    if ms1.nfermions != ms2.nfermions
+    if ms1.nsites != ms2.nsites
+        return false
+    end
+    if ms1.spinful_sites != ms2.spinful_sites
         return false
     end
     return ms1.Majoranas == ms2.Majoranas
@@ -365,9 +353,9 @@ end
 
 function fock_filter(msum::MajoranaSum)
     clean_res = similar(msum)
-    singles_filter = create_max_single_filter(msum.nfermions)
+    singles_filter = create_max_single_filter(nfermions(msum))
     for (ms, coeff) in msum.Majoranas
-        if compute_max_single(ms, 2 * msum.nfermions, singles_filter) > 0
+        if compute_max_single(ms, 2 * nfermions(msum), singles_filter) > 0
             continue
         end
         set!(clean_res, ms, coeff)
@@ -377,8 +365,7 @@ end
 
 function overlap_with_fock(msum::MajoranaSum, fock_state; add_pref=0.)
     res = 0.
-    non_contributing = 0
-    singles_filter = create_max_single_filter(msum.nfermions)
+    singles_filter = create_max_single_filter(nfermions(msum))
     for (ms, coeff) in msum.Majoranas
         res += fockevaluate(ms, coeff, singles_filter, fock_state)
     end
@@ -424,20 +411,20 @@ function _bitonesat(::Type{TT}, index::Integer) where {TT<:Integer}
 end
 
 function _checknfermions(msum1::MajoranaSum, msum2::MajoranaSum)
-    if msum1.nfermions != msum2.nfermions
-        throw(ArgumentError("MajoranaSums must have the same nfermions, but have $(msum1.nfermions) and $(msum2.nfermions)"))
+    if nfermions(msum1) != nfermions(msum2)
+        throw(ArgumentError("MajoranaSums must have the same nfermions, but have $(nfermions(msum1)) and $(nfermions(msum2))"))
     end
 
 end
 
 function _checknfermions(msum::MajoranaSum, ms::MajoranaString)
-    if msum.nfermions != ms.nfermions
-        throw(ArgumentError("MajoranaSum and MajoranaString must have the same nfermions, but have $(msum.nfermions) and $(ms.nfermions)"))
+    if nfermions(msum) != nfermions(ms)
+        throw(ArgumentError("MajoranaSum and MajoranaString must have the same nfermions, but have $(nfermions(msum)) and $(nfermions(ms))"))
     end
 end
 
 function _checknfermions(ms1::MajoranaString, ms2::MajoranaString)
-    if ms1.nfermions != ms2.nfermions
-        throw(ArgumentError("Majorana strings must have the same length, but have lengths $(ms1.nfermions) and $(ms2.nfermions)"))
+    if nfermions(ms1) != nfermions(ms2)
+        throw(ArgumentError("Majorana strings must have the same length, but have lengths $(nfermions(ms1)) and $(nfermions(ms2))"))
     end
 end
