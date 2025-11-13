@@ -40,7 +40,7 @@ function getmajoranarotations(gate::FermionicGate)
 
     rotations::Vector{MajoranaRotation} = []
     coefficients::Vector{Float64} = []
-    for (ms, coeff) in msum 
+    for (ms, coeff) in msum
         push!(rotations, MajoranaRotation(MajoranaString(msum.nfermions, ms)))
         push!(coefficients, coeff)
     end
@@ -101,7 +101,6 @@ function applymergetruncate!(gate::FermionicGate, msum::MajoranaSum{TT,CT}, aux_
         msum, aux_msum = mergeandempty!(msum, aux_msum)
 
         # truncate after each Majorana rotation 
-        # TODO: this truncates more than necessary. Last iteration could skip truncation.
         checktruncationonall!(msum; kwargs...)
     end
 
