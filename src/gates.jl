@@ -1,16 +1,21 @@
-# TODO: figure out the fate of this gate. Is it needed?
-struct MajoranaRotation <: PauliPropagation.ParametrizedGate
-    ms::MajoranaString
-    function MajoranaRotation(ms::MajoranaString)
+
+"""
+    MajoranaRotation(ms::MajoranaString{TT}) where {TT<:Integer}
+Basic structure to represent a Majorana rotation gate exp(-i * theta/2 * ms).
+Defined by passing a Majorana string `ms` of even weight.
+"""
+struct MajoranaRotation{TT<:Integer} <: PauliPropagation.ParametrizedGate
+    ms::MajoranaString{TT}
+    function MajoranaRotation(ms::MajoranaString{TT}) where {TT<:Integer}
         @assert get_weight(ms) % 2 == 0 # only even parity operations
-        return new(ms)
+        return new{TT}(ms)
     end
 end
 
-function commutes(gate::MajoranaRotation, ms::MajoranaString)
-    return commutes(gate.ms, ms)
-end
-
+"""
+    FermionicGate(symbol::Symbol, sites::Vector{Int}, nfermions::Int)
+Structure to represent fermionic gates, constructed from a symbol. See `Constructors.jl` for supported symbols.
+"""
 struct FermionicGate <: PauliPropagation.ParametrizedGate
     symbol::Symbol
     sites::Vector{Int}
@@ -22,6 +27,10 @@ function FermionicGate(symbol::Symbol, site::Int, nfermions::Int)
 end
 
 
+"""
+    getmajoranarotations(gate::FermionicGate)
+Given a `FermionicGate`, returns the Majorana rotations and coefficients corresponding to it.
+"""
 function getmajoranarotations(gate::FermionicGate)
     # construct msum encoding the fermionic gate
     msum = MajoranaSum(gate.nsites, gate.symbol, gate.sites)
@@ -29,7 +38,14 @@ function getmajoranarotations(gate::FermionicGate)
     #remove coefficient associated to identity
     pop_id!(msum)
 
-    return majoranas(msum), coefficients(msum)
+    rotations::Vector{MajoranaRotation} = []
+    coefficients::Vector{Float64} = []
+    for (ms, coeff) in msum 
+        push!(rotations, MajoranaRotation(MajoranaString(msum.nfermions, ms)))
+        push!(coefficients, coeff)
+    end
+
+    return rotations, coefficients
 end
 
 function _applycos(coeff::CT, cos_theta::CT) where {CT}
@@ -40,9 +56,11 @@ function _applysin(coeff::CT, sin_theta::CT) where {CT}
 end
 
 
-function applytoall!(gate_int::TT, theta, msum::MajoranaSum{TT,CT}, aux_msum::MajoranaSum{TT,CT}; kwargs...) where {TT<:Integer,CT}
+function applytoall!(gate::MajoranaRotation, theta, msum::MajoranaSum{TT,CT}, aux_msum::MajoranaSum{TT,CT}; kwargs...) where {TT<:Integer,CT}
     cos_val = cos(theta)
     sin_val = sin(theta)
+
+    gate_int = gate.ms.gammas
 
     # loop over all Majorana strings and their coefficients in the Majorana sum
     for (ms_int, coeff) in msum.Majoranas
@@ -65,10 +83,6 @@ function applytoall!(gate_int::TT, theta, msum::MajoranaSum{TT,CT}, aux_msum::Ma
     end
 
     return
-end
-
-function applytoall!(gate::MajoranaRotation, theta, msum::MajoranaSum{TT,CT}, aux_msum::MajoranaSum{TT,CT}; kwargs...) where {TT<:Integer,CT}
-    applytoall!(gate.ms.gammas, theta, msum, aux_msum; kwargs...)
 end
 
 function applymergetruncate!(gate::FermionicGate, msum::MajoranaSum{TT,CT}, aux_msum::MajoranaSum{TT,CT}, thetas, param_idx; kwargs...) where {TT<:Integer,CT}
