@@ -1,3 +1,31 @@
+""" 
+    general_trotter_layer(groups::Vector{Vector{Tuple{FermionicGate,Float64}}}, group_indices::Vector{Int}, invert_groups::Vector{Bool}, group_prefactors::Vector{Float64})
+General implementation of a single Trotter layer.
+Given the terms in the Hamiltonian are separated in `groups`, implement a Trotter step 
+exp(-i groups[j_1] * group_prefactors[j_1]) ... exp(groups[j_N] * group_prefactors[j_N])
+where the order of appearence j_1, ..., j_N = group_indices (a single group can appear multiple times in higher order trotterizations),
+and different Trotterization schemes can be specified by changing `group_prefactors`.
+The boolean `invert_groups[j]` prescribes the current group is to be implemented in reverse oder or not.
+"""
+function general_trotter_layer(groups::Vector{Vector{Tuple{FermionicGate,Float64}}}, group_indices::Vector{Int}, invert_groups::Vector{Bool}, group_prefactors::Vector{Float64})
+    @assert length(group_indices) == length(invert_groups)
+    @assert length(group_indices) == length(group_prefactors)
+
+    circuit::Vector{FermionicGate} = []
+    thetas::Vector{Float64} = []
+
+    for j = 1:length(group_indices)
+        group_index = group_indices[j]
+        group_to_pass = invert_groups[j] == false ? groups[group_index] : reverse(groups[group_index])
+        for (gate, theta) in group_to_pass
+            push!(circuit, gate)
+            push!(thetas, theta * group_prefactors[j])
+        end
+    end
+
+    return circuit, thetas
+end
+
 
 """ 
     trotter_layer(groups::Vector{Vector{Tuple{FermionicGate,Float64}}}, order::Symbol; rotation_prefactor=2., kwargs...)
@@ -7,7 +35,7 @@ Currently supported orders are `:first` and `:second`.
 `:first` implements a first-order Trotter layer by applying each group of gates sequentially.
 `:second` implements a second-order Trotter layer by applying half of the gates from each group in the forward order, then applying the last group fully, and finally applying the first groups in reverse order with half angles.
 
-`rotation_prefactor` is set to 2. by default as the Majorana rotations implement exp(-i * theta/2 * mstring).
+`rotation_prefactor` is set to 2. by default as the Majorana rotations implement exp(-i * theta/2 * mstring), whereas fermionic gates are typically defined as exp(-i * theta * operator). This prefactor adjusts the angles accordingly.
 """
 function trotter_layer(groups::Vector{Vector{Tuple{FermionicGate,Float64}}}, order::Symbol; rotation_prefactor=2., kwargs...)
     return trotter_layer(groups, Val(order); rotation_prefactor=rotation_prefactor, kwargs...)
@@ -17,42 +45,22 @@ end
     first order trotter layer
 """
 function trotter_layer(groups::Vector{Vector{Tuple{FermionicGate,Float64}}}, ::Val{:first}; rotation_prefactor=2., kwargs...)
-    circuit::Vector{FermionicGate} = []
-    thetas::Vector{Float64} = []
-    for group in groups
-        for (gate, theta) in group
-            push!(circuit, gate)
-            push!(thetas, theta * rotation_prefactor)
-        end
-    end
-    return circuit, thetas
+    group_indices::Vector{Int} = collect(1:length(groups))
+    invert_groups::Vector{Bool} = fill(false, length(groups))
+    group_prefactors::Vector{Float64} = fill(rotation_prefactor, length(groups))
+    return general_trotter_layer(groups, group_indices, invert_groups, group_prefactors)
 end
 
 """ 
     second order trotter layer
 """
 function trotter_layer(groups::Vector{Vector{Tuple{FermionicGate,Float64}}}, ::Val{:second}; rotation_prefactor=2., kwargs...)
-    circuit::Vector{FermionicGate} = []
-    thetas::Vector{Float64} = []
-    for j = 1:length(groups)-1
-        for (gate, theta) in groups[j]
-            push!(circuit, gate)
-            push!(thetas, theta * rotation_prefactor / 2)
-        end
-    end
-
-    for (gate, theta) in groups[end]
-        push!(circuit, gate)
-        push!(thetas, theta * rotation_prefactor)
-    end
-
-    for j = length(groups)-1:-1:1
-        for (gate, theta) in reverse(groups[j])
-            push!(circuit, gate)
-            push!(thetas, theta * rotation_prefactor / 2)
-        end
-    end
-    return circuit, thetas
+    group_indices::Vector{Int} = vcat(collect(1:length(groups)), reverse(collect(1:length(groups)-1)))
+    invert_groups::Vector{Bool} = vcat(fill(false, length(groups)), fill(true, length(groups) - 1))
+    group_prefactors::Vector{Float64} = vcat(fill(rotation_prefactor / 2., length(groups) - 1),
+        [rotation_prefactor],
+        fill(rotation_prefactor / 2., length(groups) - 1))
+    return general_trotter_layer(groups, group_indices, invert_groups, group_prefactors)
 end
 
 function trotter_layer(groups::Vector{Vector{Tuple{FermionicGate,Float64}}}, ::Val{symb}; kwargs...) where {symb}
