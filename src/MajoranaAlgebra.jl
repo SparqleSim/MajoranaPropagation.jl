@@ -25,7 +25,7 @@ struct MajoranaSum{TT<:Integer,CT}
     Majoranas::Dict{TT,CT}
 end
 
-""" 
+"""
     MajoranaSum(n_fermions::Integer)
 Create a MajoranaSum for `nfermions` spinless fermions and coefficient type `CT`.
 """
@@ -33,7 +33,7 @@ function MajoranaSum(nfermions::Integer)
     return MajoranaSum(Float64, nfermions)
 end
 
-""" 
+"""
     MajoranaSum(::Type{CT}, n_fermions::Integer) where {CT}
 Create a MajoranaSum for `nfermions` spinless fermions and coefficient type `CT`.
 """
@@ -43,7 +43,7 @@ function MajoranaSum(::Type{CT}, n_fermions::Integer) where {CT}
     return MajoranaSum(n_fermions, is_spinful, Dict{TT,CT}())
 end
 
-""" 
+"""
     MajoranaSum(::Type{CT}, n_sites::Integer, is_spinful::Bool) where {CT}
 Create a MajoranaSum for with `n_sites` that can be both spinful or spinless (depending on `is_spinful::Bool`) and coefficient type `CT`.
 """
