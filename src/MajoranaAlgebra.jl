@@ -21,7 +21,7 @@ end
 
 struct MajoranaSum{TT<:Integer,CT}
     nsites::Int
-    spinful_sites::Bool
+    is_spinful::Bool
     Majoranas::Dict{TT,CT}
 end
 
@@ -39,21 +39,21 @@ Create a MajoranaSum for `nfermions` spinless fermions and coefficient type `CT`
 """
 function MajoranaSum(::Type{CT}, n_fermions::Integer) where {CT}
     TT = getinttype(n_fermions)
-    spinful_sites = false
-    return MajoranaSum(n_fermions, spinful_sites, Dict{TT,CT}())
+    is_spinful = false
+    return MajoranaSum(n_fermions, is_spinful, Dict{TT,CT}())
 end
 
 """ 
-    MajoranaSum(::Type{CT}, n_sites::Integer, spinful_sites::Bool) where {CT}
-Create a MajoranaSum for with `n_sites` that can be both spinful or spinless (depending on `spinful_sites::Bool`) and coefficient type `CT`.
+    MajoranaSum(::Type{CT}, n_sites::Integer, is_spinful::Bool) where {CT}
+Create a MajoranaSum for with `n_sites` that can be both spinful or spinless (depending on `is_spinful::Bool`) and coefficient type `CT`.
 """
-function MajoranaSum(::Type{CT}, n_sites::Integer, spinful_sites::Bool) where {CT}
-    if spinful_sites
+function MajoranaSum(::Type{CT}, n_sites::Integer, is_spinful::Bool) where {CT}
+    if is_spinful
         TT = getinttype(2 * n_sites)
     else
         TT = getinttype(n_sites)
     end
-    return MajoranaSum(n_sites, spinful_sites, Dict{TT,CT}())
+    return MajoranaSum(n_sites, is_spinful, Dict{TT,CT}())
 end
 
 function add!(ms::MajoranaSum{TT,CT}, symbol::Symbol, sites) where {TT<:Integer,CT}
@@ -98,7 +98,7 @@ function coefficients(ms::MajoranaSum)
 end
 
 function nfermions(ms::MajoranaSum)
-    if ms.spinful_sites
+    if ms.is_spinful
         return 2 * ms.nsites
     else
         return ms.nsites
@@ -163,7 +163,7 @@ function coefftype(::MajoranaSum{TT,CT}) where {TT,CT}
 end
 
 function similar(msum::MajoranaSum)
-    new_msum = MajoranaSum(coefftype(msum), msum.nsites, msum.spinful_sites)
+    new_msum = MajoranaSum(coefftype(msum), msum.nsites, msum.is_spinful)
     sizehint!(new_msum.Majoranas, length(msum.Majoranas))
     return new_msum
 end
@@ -245,7 +245,7 @@ function Base.:(==)(ms1::MajoranaSum, ms2::MajoranaSum)
     if ms1.nsites != ms2.nsites
         return false
     end
-    if ms1.spinful_sites != ms2.spinful_sites
+    if ms1.is_spinful != ms2.is_spinful
         return false
     end
     return ms1.Majoranas == ms2.Majoranas
@@ -269,7 +269,7 @@ end
 
 function Base.:(*)(msum1::MajoranaSum, msum2::MajoranaSum)
     _checknfermions(msum1, msum2)
-    res = MajoranaSum(coefftype(msum1), msum1.nsites, msum1.spinful_sites)
+    res = MajoranaSum(coefftype(msum1), msum1.nsites, msum1.is_spinful)
     for (ms1, coeff1) in msum1.Majoranas
         for (ms2, coeff2) in msum2.Majoranas
             prefactor, ms3 = ms_mult(ms1, ms2, nfermions(msum1))

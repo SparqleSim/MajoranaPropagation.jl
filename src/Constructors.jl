@@ -42,31 +42,31 @@ end
 # number operator
 function MajoranaSum(nfermions::Integer, ::Val{:n}, site)
     TT = getinttype(nfermions)
-    spinful_sites = false
+    is_spinful = false
     site = _tonum(site)
     term1 = _bitonesat(TT, (2 * site - 1, 2 * site))
     term2 = TT(0)
-    obs = MajoranaSum{TT,Float64}(nfermions, spinful_sites, Dict(term1 => 0.5, term2 => 0.5))
+    obs = MajoranaSum{TT,Float64}(nfermions, is_spinful, Dict(term1 => 0.5, term2 => 0.5))
     return obs
 end
 
 # hopping operator
 function MajoranaSum(nfermions::Integer, ::Val{:hop}, sites)
     TT = getinttype(nfermions)
-    spinful_sites = false
+    is_spinful = false
     sites = _tovec(sites)
     @assert length(sites) == 2 "Hopping operator requires exactly two site indices."
     site1, site2 = order_sites(sites)
     term1 = _bitonesat(TT, (2 * site1 - 1, 2 * site2))
     term2 = _bitonesat(TT, (2 * site1, 2 * site2 - 1))
-    obs = MajoranaSum{TT,Float64}(nfermions, spinful_sites, Dict(term1 => 0.5, term2 => -0.5))
+    obs = MajoranaSum{TT,Float64}(nfermions, is_spinful, Dict(term1 => 0.5, term2 => -0.5))
     return obs
 end
 
 # number-number operator
 function MajoranaSum(nfermions::Integer, ::Val{:nn}, sites)
     TT = getinttype(nfermions)
-    spinful_sites = false
+    is_spinful = false
     sites = _tovec(sites)
     @assert length(sites) == 2 "Number-number operator requires exactly two site indices."
     site1, site2 = order_sites(sites)
@@ -76,7 +76,7 @@ function MajoranaSum(nfermions::Integer, ::Val{:nn}, sites)
     term4 = TT(0)
     obs = MajoranaSum{TT,Float64}(
         nfermions,
-        spinful_sites,
+        is_spinful,
         Dict(term1 => 0.25, term2 => 0.25, term3 => -0.25, term4 => 0.25)
     )
     return obs
@@ -86,47 +86,47 @@ end
 # Spinful operators
 function MajoranaSum(n_sites::Integer, ::Val{:nup}, site)
     TT = getinttype(2 * n_sites)
-    spinful_sites = true
+    is_spinful = true
     site = _tonum(site)
     term1 = _bitonesat(TT, (4 * site - 3, 4 * site - 2))
     term2 = TT(0)
-    obs = MajoranaSum{TT,Float64}(n_sites, spinful_sites, Dict(term1 => 0.5, term2 => 0.5))
+    obs = MajoranaSum{TT,Float64}(n_sites, is_spinful, Dict(term1 => 0.5, term2 => 0.5))
     return obs
 end
 
 function MajoranaSum(n_sites::Integer, ::Val{:ndn}, site)
     TT = getinttype(2 * n_sites)
-    spinful_sites = true
+    is_spinful = true
     site = _tonum(site)
     term1 = _bitonesat(TT, (4 * site - 1, 4 * site))
     term2 = TT(0)
-    obs = MajoranaSum{TT,Float64}(n_sites, spinful_sites, Dict(term1 => 0.5, term2 => 0.5))
+    obs = MajoranaSum{TT,Float64}(n_sites, is_spinful, Dict(term1 => 0.5, term2 => 0.5))
     return obs
 end
 
 function MajoranaSum(n_sites::Integer, ::Val{:hopup}, sites)
     TT = getinttype(2 * n_sites)
-    spinful_sites = true
+    is_spinful = true
     site1, site2 = order_sites(_tovec(sites))
     term1 = _bitonesat(TT, (4 * site1 - 3, 4 * site2 - 2))
     term2 = _bitonesat(TT, (4 * site1 - 2, 4 * site2 - 3))
-    obs = MajoranaSum{TT,Float64}(n_sites, spinful_sites, Dict(term1 => 0.5, term2 => -0.5))
+    obs = MajoranaSum{TT,Float64}(n_sites, is_spinful, Dict(term1 => 0.5, term2 => -0.5))
     return obs
 end
 
 function MajoranaSum(n_sites::Integer, ::Val{:hopdn}, sites)
     TT = getinttype(2 * n_sites)
-    spinful_sites = true
+    is_spinful = true
     site1, site2 = order_sites(_tovec(sites))
     term1 = _bitonesat(TT, (4 * site1 - 1, 4 * site2))
     term2 = _bitonesat(TT, (4 * site1, 4 * site2 - 1))
-    obs = MajoranaSum{TT,Float64}(n_sites, spinful_sites, Dict(term1 => 0.5, term2 => -0.5))
+    obs = MajoranaSum{TT,Float64}(n_sites, is_spinful, Dict(term1 => 0.5, term2 => -0.5))
     return obs
 end
 
 function MajoranaSum(n_sites::Integer, ::Val{:hole}, site)
     TT = getinttype(2 * n_sites)
-    spinful_sites = true
+    is_spinful = true
     site = _tonum(site)
     term1 = _bitonesat(TT, (4 * site - 3, 4 * site - 2))
     term2 = _bitonesat(TT, (4 * site - 1, 4 * site))
@@ -134,7 +134,7 @@ function MajoranaSum(n_sites::Integer, ::Val{:hole}, site)
     term4 = TT(0)
     obs = MajoranaSum{TT,Float64}(
         n_sites,
-        spinful_sites,
+        is_spinful,
         Dict(term1 => -0.25, term2 => -0.25, term3 => -0.25, term4 => 0.25)
     )
     return obs
@@ -142,7 +142,7 @@ end
 
 function MajoranaSum(n_sites::Integer, ::Val{:nupndn}, site)
     TT = getinttype(2 * n_sites)
-    spinful_sites = true
+    is_spinful = true
     site = _tonum(site)
     term1 = _bitonesat(TT, (4 * site - 3, 4 * site - 2))
     term2 = _bitonesat(TT, (4 * site - 1, 4 * site))
@@ -150,7 +150,7 @@ function MajoranaSum(n_sites::Integer, ::Val{:nupndn}, site)
     term4 = TT(0)
     obs = MajoranaSum{TT,Float64}(
         n_sites,
-        spinful_sites,
+        is_spinful,
         Dict(term1 => 0.25, term2 => 0.25, term3 => -0.25, term4 => 0.25)
     )
     return obs
