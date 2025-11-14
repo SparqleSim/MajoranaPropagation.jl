@@ -20,7 +20,7 @@ function MajoranaString(nfermions::Int, gammas::Int64)
 end
 
 struct MajoranaSum{TT<:Integer,CT}
-    nsites::Integer
+    nsites::Int
     spinful_sites::Bool
     Majoranas::Dict{TT,CT}
 end
@@ -50,7 +50,7 @@ Create a MajoranaSum for with `n_sites` that can be both spinful or spinless (de
 function MajoranaSum(::Type{CT}, n_sites::Integer, spinful_sites::Bool) where {CT}
     if spinful_sites
         TT = getinttype(2 * n_sites)
-    else 
+    else
         TT = getinttype(n_sites)
     end
     return MajoranaSum(n_sites, spinful_sites, Dict{TT,CT}())
@@ -109,14 +109,14 @@ function nfermions(ms::MajoranaString)
     return ms.nfermions
 end
 
-function Base.delete!(ms::MajoranaSum{TT, CT}, ms2::MajoranaString{TT}) where {TT<:Integer,CT}
+function Base.delete!(ms::MajoranaSum{TT,CT}, ms2::MajoranaString{TT}) where {TT<:Integer,CT}
     delete!(ms.Majoranas, ms2.gammas)
 end
-function Base.delete!(ms::MajoranaSum{TT, CT}, ms2_gammas::TT) where {TT<:Integer,CT}
+function Base.delete!(ms::MajoranaSum{TT,CT}, ms2_gammas::TT) where {TT<:Integer,CT}
     delete!(ms.Majoranas, ms2_gammas)
 end
 
-function Base.pop!(ms::MajoranaSum{TT, CT}, ms2_gammas::TT) where {TT<:Integer, CT}
+function Base.pop!(ms::MajoranaSum{TT,CT}, ms2_gammas::TT) where {TT<:Integer,CT}
     return pop!(ms.Majoranas, ms2_gammas, 0.)
 end
 
