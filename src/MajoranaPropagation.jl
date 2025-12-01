@@ -1,7 +1,9 @@
 module MajoranaPropagation
 
 using PauliPropagation
-import PauliPropagation: set!, coefftype, countparameters, similar, applytoall!, applymergetruncate!, checktruncationonall!, wrapcoefficients, truncatemincoeff, truncatefrequency, truncatesins
+#using ThreadPools
+using Base.Threads
+import PauliPropagation: set!, coefftype, countparameters, similar, propagate!, applytoall!, applymergetruncate!, checktruncationonall!, mergeandempty!, wrapcoefficients, truncatemincoeff, truncatefrequency, truncatesins, _checkfreqandsinfields, _checkcircandthetas, _promotecircandthetas
 
 include("MajoranaAlgebra.jl")
 export
@@ -64,4 +66,13 @@ export
     reset_tracker!
 
 include("Constructors.jl")
+
+include("multidict.jl")
+export
+    MajoranaSumMulti, 
+    propagate!,
+    show_stats,
+    applymergetruncate!,
+    mergeandempty!,
+    applytoall!
 end

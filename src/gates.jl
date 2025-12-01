@@ -94,7 +94,7 @@ function applymergetruncate!(gate::FermionicGate, msum::MajoranaSum{TT,CT}, aux_
     # iterate over individual Majorana rotations and apply them to the Majorana sum
     for (gate_ms, coeff) in zip(ms_rotations, coeffs)
         # multiply coefficient by 2 since exponential implements exp(-i * theta/2 * mstring)
-        applytoall!(gate_ms, theta * coeff * 2.0, msum, aux_msum; kwargs...)
+        applytoall!(gate_ms, theta * coeff * 2., msum, aux_msum; kwargs...)
 
         # merge the auxiliary Majorana sum into the original one and empty the auxiliary one
         msum, aux_msum = mergeandempty!(msum, aux_msum)
