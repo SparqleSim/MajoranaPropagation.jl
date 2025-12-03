@@ -22,6 +22,7 @@ export
     getinttype,
     ms_mult,
     add!,
+    pop_id!,
     commutator,
     commutes,
     norm,

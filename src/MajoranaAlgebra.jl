@@ -344,11 +344,11 @@ function commutator(msum1::MajoranaSum, msum2::MajoranaSum)
     return res
 end
 
-function pop_id!(msum::MajoranaSum)
-    if haskey(msum.Majoranas, 0)
-        delete!(msum.Majoranas, 0)
+function pop_id!(msum::MajoranaSum{TT,CT}) where {TT<:Integer,CT}
+    if haskey(msum.Majoranas, TT(0))
+        return pop!(msum.Majoranas, TT(0))
     end
-    return
+    return 0.
 end
 
 function fock_filter(msum::MajoranaSum)

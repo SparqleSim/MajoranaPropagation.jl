@@ -111,14 +111,6 @@ function applymergetruncate!(gate::FermionicGate, msum::MajoranaSumMulti{TT, CT}
     # Apply the gate to all Pauli strings in psum, potentially writing into auxillary aux_psum in the process.
     # The pauli sums will be changed in-place
 
-    all_aux_msums = Dict()
-
-    for weight_key in keys(msum.MultiMajoranas)
-        all_aux_msums[weight_key] = similar(msum, weight_key)
-    end
-
-    msum_keys = collect(keys(msum.MultiMajoranas))
-
     #=dicts_lengths = [length(msum.MultiMajoranas[k]) for k in msum_keys]
     sorting_indices = sortperm(dicts_lengths; rev=true)
 
@@ -137,6 +129,12 @@ function applymergetruncate!(gate::FermionicGate, msum::MajoranaSumMulti{TT, CT}
 
     merge_in_apply=true
     for (gate_ms, coeff) in zip(ms_rotations, coeffs)
+        all_aux_msums = Dict()
+        for weight_key in keys(msum.MultiMajoranas)
+            all_aux_msums[weight_key] = similar(msum, weight_key)
+        end
+        msum_keys = collect(keys(msum.MultiMajoranas))
+
         @threads for iw=1:length(msum_keys)
             weight_key = msum_keys[iw]
             aux_psum = all_aux_msums[weight_key]
@@ -200,7 +198,7 @@ end
 function mergeandempty!(msums::MajoranaSumMulti{TT,CT}, aux_psum; merge_sector=true) where {TT<:Integer,CT}
     #@show "hi"
     sorted_keys = sort(collect(keys(msums.MultiMajoranas)))
-    @show sorted_keys
+    #@show sorted_keys
 
     #do the Delta W = 0 merges first
     if merge_sector 
@@ -211,9 +209,17 @@ function mergeandempty!(msums::MajoranaSumMulti{TT,CT}, aux_psum; merge_sector=t
     end
 
     # do the Delta W = +2 merges 
-    @threads for weight_key in sorted_keys
-    #for weight_key in sorted_keys
-        @show weight_key
+    #@threads for weight_key in sorted_keys
+    for weight_key in sorted_keys
+        if haskey(aux_psum, weight_key) == false
+            @show sorted_keys 
+            println(gfhj)
+        end
+        #@show weight_key
+        if haskey(aux_psum[weight_key].MultiMajoranas, weight_key+2) == false
+            @show sorted_keys 
+            println(gfhjdfghjk)
+        end
         if length(aux_psum[weight_key].MultiMajoranas[weight_key+2])>0
             if haskey(msums.MultiMajoranas, weight_key+2) == false
                 #create new dict in msusm 
