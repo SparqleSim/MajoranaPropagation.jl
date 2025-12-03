@@ -64,4 +64,25 @@ export
     reset_tracker!
 
 include("Constructors.jl")
+
+include("HybridAlgebra.jl")
+export
+    hybridString,
+    hybridSum,
+    coefftype,
+    similar,
+    set!,
+    sum_add!,
+    fock_computational_evaluate,
+    create_filters
+include("hybrid_gates.jl")
+export
+    hybridRotation,
+    HybridGate,
+    propagate!,
+    applytoall!
+include("hybrid_truncations.jl")
+export 
+    truncate_hybrid_string
+include("HybridConstructors.jl")
 end
