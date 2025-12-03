@@ -56,52 +56,52 @@ function MajoranaSum(::Type{CT}, n_sites::Integer, is_spinful::Bool) where {CT}
     return MajoranaSum(n_sites, is_spinful, Dict{TT,CT}())
 end
 
-function add!(ms::MajoranaSum{TT,CT}, symbol::Symbol, sites) where {TT<:Integer,CT}
-    add!(ms, MajoranaSum(ms.nsites, symbol, sites))
-    return ms
+function add!(msum::MajoranaSum{TT,CT}, symbol::Symbol, sites) where {TT<:Integer,CT}
+    add!(msum, MajoranaSum(msum.nsites, symbol, sites))
+    return msum
 end
 
-function add!(ms::MajoranaSum{TT,CT}, ms2::MajoranaSum{TT,CT}) where {TT<:Integer,CT}
-    mergewith!(+, ms.Majoranas, ms2.Majoranas)
-    return ms
+function add!(msum::MajoranaSum{TT,CT}, ms2::MajoranaSum{TT,CT}) where {TT<:Integer,CT}
+    mergewith!(+, msum.Majoranas, ms2.Majoranas)
+    return msum
 end
 
 
-function add!(ms::MajoranaSum{TT,CT}, ms2::MajoranaString{TT}, value::CT) where {TT<:Integer,CT}
-    add!(ms, ms2.gammas, value)
+function add!(msum::MajoranaSum{TT,CT}, ms::MajoranaString{TT}, value::CT) where {TT<:Integer,CT}
+    add!(msum, ms.gammas, value)
 end
 
-function add!(ms::MajoranaSum, ms2_gammas::TT, value::CT) where {TT<:Integer,CT}
-    if haskey(ms.Majoranas, ms2_gammas)
-        ms.Majoranas[ms2_gammas] += value
+function add!(msum::MajoranaSum, ms_gammas::TT, value::CT) where {TT<:Integer,CT}
+    if haskey(msum.Majoranas, ms_gammas)
+        msum.Majoranas[ms_gammas] += value
     else
-        ms.Majoranas[ms2_gammas] = value
+        msum.Majoranas[ms_gammas] = value
     end
 end
 
-function set!(ms::MajoranaSum{TT,CT}, ms2::MajoranaString, value::CT) where {TT<:Integer,CT}
-    set!(ms, ms2.gammas, value)
+function set!(msum::MajoranaSum{TT,CT}, ms::MajoranaString, value::CT) where {TT<:Integer,CT}
+    set!(msum, ms.gammas, value)
     return
 end
 
-function set!(ms::MajoranaSum{TT,CT}, ms2::TT, value::CT) where {TT<:Integer,CT}
-    ms.Majoranas[ms2] = value
+function set!(msum::MajoranaSum{TT,CT}, ms::TT, value::CT) where {TT<:Integer,CT}
+    msum.Majoranas[ms] = value
     return
 end
 
-function majoranas(ms::MajoranaSum)
-    return keys(ms.Majoranas)
+function majoranas(msum::MajoranaSum)
+    return keys(msum.Majoranas)
 end
 
-function coefficients(ms::MajoranaSum)
-    return values(ms.Majoranas)
+function coefficients(msum::MajoranaSum)
+    return values(msum.Majoranas)
 end
 
-function nfermions(ms::MajoranaSum)
-    if ms.is_spinful
-        return 2 * ms.nsites
+function nfermions(msum::MajoranaSum)
+    if msum.is_spinful
+        return 2 * msum.nsites
     else
-        return ms.nsites
+        return msum.nsites
     end
 end
 
@@ -109,19 +109,19 @@ function nfermions(ms::MajoranaString)
     return ms.nfermions
 end
 
-function Base.delete!(ms::MajoranaSum{TT,CT}, ms2::MajoranaString{TT}) where {TT<:Integer,CT}
-    delete!(ms.Majoranas, ms2.gammas)
+function Base.delete!(msum::MajoranaSum{TT,CT}, ms::MajoranaString{TT}) where {TT<:Integer,CT}
+    delete!(msum.Majoranas, ms.gammas)
 end
-function Base.delete!(ms::MajoranaSum{TT,CT}, ms2_gammas::TT) where {TT<:Integer,CT}
-    delete!(ms.Majoranas, ms2_gammas)
-end
-
-function Base.pop!(ms::MajoranaSum{TT,CT}, ms2_gammas::TT) where {TT<:Integer,CT}
-    return pop!(ms.Majoranas, ms2_gammas, 0.)
+function Base.delete!(msum::MajoranaSum{TT,CT}, ms_gammas::TT) where {TT<:Integer,CT}
+    delete!(msum.Majoranas, ms_gammas)
 end
 
-function Base.length(ms::MajoranaSum)
-    return length(ms.Majoranas)
+function Base.pop!(msum::MajoranaSum{TT,CT}, ms_gammas::TT) where {TT<:Integer,CT}
+    return pop!(msum.Majoranas, ms_gammas, 0.)
+end
+
+function Base.length(msum::MajoranaSum)
+    return length(msum.Majoranas)
 end
 
 function Base.mergewith!(merge, msum1::MajoranaSum, msum2::MajoranaSum)
@@ -138,13 +138,13 @@ function Base.show(io::IO, ms::MajoranaString)
     print(io, "$(reverse(string(ms.gammas; base=2, pad=2 * ms.nfermions)))")
 end
 
-function Base.show(io::IO, ms::MajoranaSum)
+function Base.show(io::IO, msum::MajoranaSum)
     max_display = 8
-    print(io, "MajoranaSum with $(length(ms)) term(s):(")
-    for (i, (mstring, coeff)) in enumerate(ms.Majoranas)
+    print(io, "MajoranaSum with $(length(msum)) term$(length(msum) == 1 ? "" : "s"):(")
+    for (i, (mstring, coeff)) in enumerate(msum.Majoranas)
         if i <= max_display
             print(io, "\n")
-            print(io, "    $(coeff) * $(reverse(string(mstring; base=2, pad=2 * nfermions(ms))))")
+            print(io, "    $(coeff) * $(reverse(string(mstring; base=2, pad=2 * nfermions(msum))))")
         else
             print(io, "\n    ...")
             break
