@@ -45,8 +45,9 @@ function show_stats(msum::MajoranaSumMulti{TT,CT}) where {TT<:Integer,CT}
         nstrings = length(dict)
         total_strings += nstrings
     end
-    for (weight_key, dict) in msum.MultiMajoranas
-        nstrings = length(dict)
+    sorted_keys = sort(collect(keys(msum.MultiMajoranas)))
+    for weight_key in sorted_keys
+        nstrings = length(msum.MultiMajoranas[weight_key])
         println("Weight $weight_key: $nstrings strings ($(round(100. * nstrings / total_strings))%)")
     end
     println("Total strings: $total_strings")
