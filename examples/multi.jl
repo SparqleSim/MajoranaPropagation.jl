@@ -2,23 +2,38 @@ using Revise
 using MajoranaPropagation
 using PauliPropagation
 
-using Plots 
-using LaTeXStrings
-using ProgressMeter
-using TimerOutputs
+#using Plots 
+#using LaTeXStrings
+#using ProgressMeter
+#using TimerOutputs
 using Base.Threads
 
 @show nthreads()
 
+function print_time(seconds)
+    hours = div(seconds, 3600)
+    minutes = div(seconds % 3600, 60)
+    seconds = seconds % 60
+    if hours > 0
+        return "$(round(Int, hours))h $(round(Int, minutes))m $(round(Int, seconds))s"
+    elseif minutes > 0
+        return "$(round(Int, minutes))m $(round(Int, seconds))s"
+    else
+        return "$(seconds)s"
+    end
+end
+
 
 let 
-    nx = 7 
-    ny = 7
+    nx = 6 
+    ny = 6
     nspinful = nx * ny 
     topo = rectangletopology(nx, ny)
+    #nspinful = 40
+    #topo = bricklayertopology(nspinful)
 
-    U = 1.
-    t = 2.
+    U = 4.
+    t = 1.
     dt = 0.06 
 
     circ_single = []
@@ -27,13 +42,13 @@ let
     #up hoppings 
     for (i, j) in topo
         push!(circ_single, FermionicGate(:hopup, [i, j]))
-        push!(thetas_single, -t * dt)
+        push!(thetas_single, -t * dt / 2.)
     end
 
     #down hoppings 
     for (i, j) in topo
         push!(circ_single, FermionicGate(:hopdn, [i, j]))
-        push!(thetas_single, -t * dt)
+        push!(thetas_single, -t * dt / 2.)
     end
 
     #on-site repulsion 
@@ -42,15 +57,38 @@ let
         push!(thetas_single, U * dt)
     end
 
-    msum = MajoranaSum(nspinful, :nupndn, 3)
+    #down hoppings 
+    for (i, j) in reverse(topo)
+        push!(circ_single, FermionicGate(:hopdn, [i, j]))
+        push!(thetas_single, -t * dt / 2.)
+    end
+
+    #up hoppings 
+    for (i, j) in reverse(topo)
+        push!(circ_single, FermionicGate(:hopup, [i, j]))
+        push!(thetas_single, -t * dt / 2.)
+    end
+
+    msum = MajoranaSum(nspinful, :nupndn, 3) #* MajoranaSum(nspinful, :nupndn, 5)
+    @show msum 
     id_val = pop_id!(msum)
     multi_msum = MajoranaSumMulti(msum)
 
     @show multi_msum.MultiMajoranas
 
-    min_abs_coeff = 1.e-6
+    min_abs_coeff = 5.e-7
+    max_single_filter = create_max_single_filter(2 * nspinful)
+    max_singles = 8
 
-    n_reps = 5
+    if max_singles < Inf 
+        custom_trunc = let max_single_filter=max_single_filter, max_singles = max_singles
+            (mstr, coeff) -> (compute_max_single(mstr, 0, max_single_filter) > max_singles)
+        end
+    else
+        custom_trunc = nothing
+    end
+
+    n_reps = 10
 
     times_multi = zeros(n_reps)
     times_normal = zeros(n_reps)
@@ -60,12 +98,12 @@ let
     for k = 1:n_reps
         println("---$(k)---")
         # multisum 
-        times_multi[k] = @elapsed  propagate!(circ_single, multi_msum, thetas_single; min_abs_coeff=min_abs_coeff)
+        times_multi[k] = @elapsed  propagate!(circ_single, multi_msum, thetas_single; min_abs_coeff=min_abs_coeff, customtruncfunc=custom_trunc)
+        println("time multi: $(print_time(times_multi[k]))")
         #println(gfhj)
         #normal mode 
-        times_normal[k] = @elapsed  propagate!(circ_single, msum, thetas_single; min_abs_coeff=min_abs_coeff)
-        @show times_multi[k]
-        @show times_normal[k]
+        times_normal[k] = @elapsed  propagate!(circ_single, msum, thetas_single; min_abs_coeff=min_abs_coeff, customtruncfunc=custom_trunc)
+        println("time normal: $(print_time(times_normal[k]))")
         show_stats(multi_msum)
         #@show length(multi_msum)
         @show length(msum)
@@ -74,6 +112,6 @@ let
     end
 
     #profile 
-    #@profview propagate!(circ_single, multi_msum, thetas_single; min_abs_coeff=min_abs_coeff)
+    #@profview propagate!(circ_single, multi_msum, thetas_single; min_abs_coeff=min_abs_coeff, customtruncfunc=custom_trunc)
 
 end
