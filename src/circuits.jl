@@ -1,3 +1,24 @@
+"""
+    gate_layer(symb::Symbol, itr, theta::CT) where {CT<:Real}
+Constructs a layer of fermionic gates specified by `symb` acting on the sites specified by `itr` (which can be an integer or an iterable of site indices), each with angle `theta`.
+"""
+function gate_layer(symb::Symbol, itr, theta::CT) where {CT<:Real}
+    gates::Vector{Tuple{FermionicGate, CT}} = []
+    if itr isa Integer
+        for site in 1:itr
+            push!(gates, (FermionicGate(symb, site), theta))
+        end
+        return gates
+    else 
+        for sites in itr
+            sites_vec = collect(sites)
+            push!(gates, (FermionicGate(symb, sites_vec), theta))
+        end
+        return gates
+    end
+end
+
+
 """ 
     general_trotter_layer(groups::Vector{Vector{Tuple{FermionicGate,Float64}}}, group_indices::Vector{Int}, invert_groups::Vector{Bool}, group_prefactors::Vector{Float64})
 General implementation of a single Trotter layer.
@@ -34,32 +55,30 @@ Currently supported orders are `:first` and `:second`.
 
 `:first` implements a first-order Trotter layer by applying each group of gates sequentially.
 `:second` implements a second-order Trotter layer by applying half of the gates from each group in the forward order, then applying the last group fully, and finally applying the first groups in reverse order with half angles.
-
-`rotation_prefactor` is set to 2. by default as the Majorana rotations implement exp(-i * theta/2 * mstring), whereas fermionic gates are typically defined as exp(-i * theta * operator). This prefactor adjusts the angles accordingly.
 """
-function trotter_layer(groups::Vector{Vector{Tuple{FermionicGate,Float64}}}, order::Symbol; rotation_prefactor=2., kwargs...)
-    return trotter_layer(groups, Val(order); rotation_prefactor=rotation_prefactor, kwargs...)
+function trotter_layer(groups::Vector{Vector{Tuple{FermionicGate,Float64}}}, order::Symbol; kwargs...)
+    return trotter_layer(groups, Val(order); kwargs...)
 end
 
 """ 
     first order trotter layer
 """
-function trotter_layer(groups::Vector{Vector{Tuple{FermionicGate,Float64}}}, ::Val{:first}; rotation_prefactor=2., kwargs...)
+function trotter_layer(groups::Vector{Vector{Tuple{FermionicGate,Float64}}}, ::Val{:first}; kwargs...)
     group_indices::Vector{Int} = collect(1:length(groups))
     invert_groups::Vector{Bool} = fill(false, length(groups))
-    group_prefactors::Vector{Float64} = fill(rotation_prefactor, length(groups))
+    group_prefactors::Vector{Float64} = fill(1., length(groups))
     return general_trotter_layer(groups, group_indices, invert_groups, group_prefactors)
 end
 
 """ 
     second order trotter layer
 """
-function trotter_layer(groups::Vector{Vector{Tuple{FermionicGate,Float64}}}, ::Val{:second}; rotation_prefactor=2., kwargs...)
+function trotter_layer(groups::Vector{Vector{Tuple{FermionicGate,Float64}}}, ::Val{:second}; kwargs...)
     group_indices::Vector{Int} = vcat(collect(1:length(groups)), reverse(collect(1:length(groups)-1)))
     invert_groups::Vector{Bool} = vcat(fill(false, length(groups)), fill(true, length(groups) - 1))
-    group_prefactors::Vector{Float64} = vcat(fill(rotation_prefactor / 2., length(groups) - 1),
-        [rotation_prefactor],
-        fill(rotation_prefactor / 2., length(groups) - 1))
+    group_prefactors::Vector{Float64} = vcat(fill(0.5, length(groups) - 1),
+        [1.],
+        fill(0.5, length(groups) - 1))
     return general_trotter_layer(groups, group_indices, invert_groups, group_prefactors)
 end
 
