@@ -1,3 +1,91 @@
+"""
+    gate_layer(symb::Symbol, itr, theta::CT) where {CT<:Real}
+Constructs a layer of fermionic gates specified by `symb` acting on the sites specified by `itr` (which can be an integer or an iterable of site indices), each with angle `theta`.
+"""
+function gate_layer(symb::Symbol, itr, theta::CT) where {CT<:Real}
+    gates::Vector{Tuple{FermionicGate, CT}} = []
+    if itr isa Integer
+        for site in 1:itr
+            push!(gates, (FermionicGate(symb, site), theta))
+        end
+        return gates
+    else 
+        for sites in itr
+            sites_vec = collect(sites)
+            push!(gates, (FermionicGate(symb, sites_vec), theta))
+        end
+        return gates
+    end
+end
+
+
+""" 
+    general_trotter_layer(groups::Vector{Vector{Tuple{FermionicGate,Float64}}}, group_indices::Vector{Int}, invert_groups::Vector{Bool}, group_prefactors::Vector{Float64})
+General implementation of a single Trotter layer.
+Given the terms in the Hamiltonian are separated in `groups`, implement a Trotter step 
+exp(-i groups[j_1] * group_prefactors[j_1]) ... exp(groups[j_N] * group_prefactors[j_N])
+where the order of appearence j_1, ..., j_N = group_indices (a single group can appear multiple times in higher order trotterizations),
+and different Trotterization schemes can be specified by changing `group_prefactors`.
+The boolean `invert_groups[j]` prescribes the current group is to be implemented in reverse oder or not.
+"""
+function general_trotter_layer(groups::Vector{Vector{Tuple{FermionicGate,Float64}}}, group_indices::Vector{Int}, invert_groups::Vector{Bool}, group_prefactors::Vector{Float64})
+    @assert length(group_indices) == length(invert_groups)
+    @assert length(group_indices) == length(group_prefactors)
+
+    circuit::Vector{FermionicGate} = []
+    thetas::Vector{Float64} = []
+
+    for j = 1:length(group_indices)
+        group_index = group_indices[j]
+        group_to_pass = invert_groups[j] == false ? groups[group_index] : reverse(groups[group_index])
+        for (gate, theta) in group_to_pass
+            push!(circuit, gate)
+            push!(thetas, theta * group_prefactors[j])
+        end
+    end
+
+    return circuit, thetas
+end
+
+
+""" 
+    trotter_layer(groups::Vector{Vector{Tuple{FermionicGate,Float64}}}, order::Symbol; rotation_prefactor=2., kwargs...)
+Construct a trotter layer for a specified `order` from groups of fermionic gates and their associated angles.
+Currently supported orders are `:first` and `:second`.
+
+`:first` implements a first-order Trotter layer by applying each group of gates sequentially.
+`:second` implements a second-order Trotter layer by applying half of the gates from each group in the forward order, then applying the last group fully, and finally applying the first groups in reverse order with half angles.
+"""
+function trotter_layer(groups::Vector{Vector{Tuple{FermionicGate,Float64}}}, order::Symbol; kwargs...)
+    return trotter_layer(groups, Val(order); kwargs...)
+end
+
+""" 
+    first order trotter layer
+"""
+function trotter_layer(groups::Vector{Vector{Tuple{FermionicGate,Float64}}}, ::Val{:first}; kwargs...)
+    group_indices::Vector{Int} = collect(1:length(groups))
+    invert_groups::Vector{Bool} = fill(false, length(groups))
+    group_prefactors::Vector{Float64} = fill(1., length(groups))
+    return general_trotter_layer(groups, group_indices, invert_groups, group_prefactors)
+end
+
+""" 
+    second order trotter layer
+"""
+function trotter_layer(groups::Vector{Vector{Tuple{FermionicGate,Float64}}}, ::Val{:second}; kwargs...)
+    group_indices::Vector{Int} = vcat(collect(1:length(groups)), reverse(collect(1:length(groups)-1)))
+    invert_groups::Vector{Bool} = vcat(fill(false, length(groups)), fill(true, length(groups) - 1))
+    group_prefactors::Vector{Float64} = vcat(fill(0.5, length(groups) - 1),
+        [1.],
+        fill(0.5, length(groups) - 1))
+    return general_trotter_layer(groups, group_indices, invert_groups, group_prefactors)
+end
+
+function trotter_layer(groups::Vector{Vector{Tuple{FermionicGate,Float64}}}, ::Val{symb}; kwargs...) where {symb}
+    error("Trotter order $symb not recognized.")
+end
+
 function hubbard_circ_fermionic_sites_single_layer(topology, N_spinful_sites::Int, t::Float64, U::Float64, dt::Float64; return_mps_instructions=false, return_separated=false)
     mps_instructions = []
     mps_thetas = []

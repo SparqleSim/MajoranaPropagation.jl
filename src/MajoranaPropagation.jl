@@ -51,6 +51,8 @@ export
 
 include("circuits.jl")
 export
+    gate_layer,
+    trotter_layer,
     hubbard_circ_fermionic_sites,
     hubbard_circ_fermionic_sites_single_layer,
     fermionic_hubbard_circ_fermionic_sites_single_layer,
