@@ -1,7 +1,8 @@
 module MajoranaPropagation
 
 using PauliPropagation
-import PauliPropagation: set!, coefftype, countparameters, similar, applytoall!, applymergetruncate!, checktruncationonall!, wrapcoefficients, truncatemincoeff, truncatefrequency, truncatesins
+using PauliPropagation.PropagationBase
+import PauliPropagation.PropagationBase: propagate, propagate!
 
 include("MajoranaAlgebra.jl")
 export
@@ -26,28 +27,27 @@ export
     omega_mult,
     omega_L_mult
 
-include("truncations.jl")
-export
-    checktruncationonall!,
-    create_max_single_filter,
-    create_doublons_filters,
-    compute_max_single,
-    compute_doublons,
-    truncatemajoranaweight,
-    checktruncationonall!
+
+include("propagationcache.jl")
+export MajoranaPropagationCache
 
 include("gates.jl")
 export
     MajoranaRotation,
     FermionicGate,
-    applytoall!,
     getnewmajoranastring,
     MajoranaRotation,
     countparameters,
-    applymergetruncate!,
-    mergeandempty!,
-    empty!
+    propagate,
+    propagate!
 
+include("truncations.jl")
+export
+    create_max_single_filter,
+    create_doublons_filters,
+    compute_max_single,
+    compute_doublons,
+    truncatemajoranaweight
 
 include("circuits.jl")
 export

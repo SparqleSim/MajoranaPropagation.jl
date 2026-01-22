@@ -19,15 +19,26 @@ function MajoranaString(nfermions::Int, gammas::Int64)
     return MajoranaString(nfermions, convert(TT, gammas))
 end
 
-struct MajoranaSum{TT<:Integer,CT}
+### 
+abstract type AbstractMajoranaSum <: AbstractTermSum end
+
+
+struct MajoranaSum{TT<:Integer,CT} <: AbstractMajoranaSum
     nsites::Int
     is_spinful::Bool
     Majoranas::Dict{TT,CT}
 end
 
+# necessary overloads for PropagationBase 
+PropagationBase.storage(msum::MajoranaSum) = msum.Majoranas
+PropagationBase.nsites(msum::MajoranaSum) = msum.nsites
+majoranas(msum::MajoranaSum) = keys(msum.Majoranas)
+PropagationBase.terms(msum::MajoranaSum) = majoranas(msum)
+PropagationBase.coefficients(msum::MajoranaSum) = values(msum.Majoranas)
+
 """ 
     MajoranaSum(n_fermions::Integer)
-Create a MajoranaSum for `nfermions` spinless fermions and coefficient type `CT`.
+Create a MajoranaSum for `nfermions` spinless fermions with Float64 coefficients.
 """
 function MajoranaSum(nfermions::Integer)
     return MajoranaSum(Float64, nfermions)
@@ -55,6 +66,9 @@ function MajoranaSum(::Type{CT}, n_sites::Integer, is_spinful::Bool) where {CT}
     end
     return MajoranaSum(n_sites, is_spinful, Dict{TT,CT}())
 end
+
+
+import PauliPropagation.PropagationBase: add!, set!, delete!, empty!
 
 function add!(ms::MajoranaSum{TT,CT}, symbol::Symbol, sites) where {TT<:Integer,CT}
     add!(ms, MajoranaSum(ms.nsites, symbol, sites))
@@ -89,13 +103,6 @@ function set!(ms::MajoranaSum{TT,CT}, ms2::TT, value::CT) where {TT<:Integer,CT}
     return
 end
 
-function majoranas(ms::MajoranaSum)
-    return keys(ms.Majoranas)
-end
-
-function coefficients(ms::MajoranaSum)
-    return values(ms.Majoranas)
-end
 
 function nfermions(ms::MajoranaSum)
     if ms.is_spinful

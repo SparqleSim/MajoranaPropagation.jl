@@ -38,7 +38,7 @@ end
 function create_doublons_filters(Nsites::Int)
     TT = getinttype(2 * Nsites)
     filters::Vector{TT} = []
-    for site=1:Nsites
+    for site = 1:Nsites
         filter::TT = 0
         for k = 0:3
             filter |= TT(1) << (4 * (site - 1) + k)
@@ -58,32 +58,35 @@ function compute_doublons(res::TT, filters::Vector{TT}) where {TT<:Integer}
     return ndoublons
 end
 
-
-@inline function PauliPropagation.checktruncationonone!(
-    psum::MajoranaSum, pstr, coeff;
+function PropagationBase.truncate!(
+    prop_cache::AbstractMajoranaPropagationCache;
     max_weight::Real=Inf, min_abs_coeff=1e-10,
     max_freq::Real=Inf, max_sins::Real=Inf,
     customtruncfunc=nothing,
     kwargs...
 )
-    # slight customization of the truncation function 
-    # to truncate majorana weight and single
-    is_truncated = false
-    if truncatemajoranaweight(pstr, max_weight)
-        is_truncated = true
-    #elseif truncatesingle(pstr, maxsingle, psum.nfermions)
-    #    is_truncated = true
-    elseif truncatemincoeff(coeff, min_abs_coeff)
-        is_truncated = true
-    elseif truncatefrequency(coeff, max_freq)
-        is_truncated = true
-    elseif truncatesins(coeff, max_sins)
-        is_truncated = true
-    elseif !isnothing(customtruncfunc) && customtruncfunc(pstr, coeff)
-        is_truncated = true
+    function truncfunc(mstr, coeff)
+        # slight customization of the truncation function 
+        # to truncate majorana weight and single
+        is_truncated = false
+        if truncatemajoranaweight(mstr, max_weight)
+            is_truncated = true
+            # TODO: add this as default truncation
+            # elseif truncatesingle(pstr, maxsingle, psum.nfermions)
+            # is_truncated = true
+        elseif PauliPropagation.truncatemincoeff(coeff, min_abs_coeff)
+            is_truncated = true
+        elseif PauliPropagation.truncatefrequency(coeff, max_freq)
+            is_truncated = true
+        elseif PauliPropagation.truncatesins(coeff, max_sins)
+            is_truncated = true
+        elseif !isnothing(customtruncfunc) && customtruncfunc(mstr, coeff)
+            is_truncated = true
+        end
+
+        return is_truncated
     end
-    if is_truncated
-        delete!(psum, pstr)
-    end
+    truncate!(truncfunc, prop_cache; kwargs...)
+
     return
 end
