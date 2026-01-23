@@ -43,9 +43,9 @@ export
 
 include("truncations.jl")
 export
-    create_max_single_filter,
+    create_unpaired_mask,
     create_doublons_filters,
-    compute_max_single,
+    compute_unpaired,
     compute_doublons,
     truncatemajoranaweight
 

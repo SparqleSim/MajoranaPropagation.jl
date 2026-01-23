@@ -156,9 +156,9 @@ end
 
 function fock_mask(msum::MajoranaSum)
     clean_res = similar(msum)
-    singles_filter = create_max_single_filter(nfermions(msum))
+    singles_filter = create_unpaired_mask(nfermions(msum))
     for (ms, coeff) in msum.Majoranas
-        if compute_max_single(ms, 2 * nfermions(msum), singles_filter) > 0
+        if compute_unpaired(ms, singles_filter) > 0
             continue
         end
         set!(clean_res, ms, coeff)
@@ -168,7 +168,7 @@ end
 
 function overlap_with_fock(msum::MajoranaSum, fock_state; add_pref=0.)
     res = 0.
-    singles_mask = create_max_single_filter(nfermions(msum))
+    singles_mask = create_unpaired_mask(nfermions(msum))
     for (ms, coeff) in msum.Majoranas
         res += fockevaluate(ms, coeff, singles_mask, fock_state)
     end
@@ -176,7 +176,7 @@ function overlap_with_fock(msum::MajoranaSum, fock_state; add_pref=0.)
 end
 
 function fockevaluate(ms::TT, coeff, singles_mask, fock_state) where {TT<:Integer}
-    if compute_max_single(ms, 2, singles_mask) > 0
+    if compute_unpaired(ms, singles_mask) > 0
         return 0.
     end
     num_pref = 0
