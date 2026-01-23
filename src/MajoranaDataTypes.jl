@@ -142,7 +142,7 @@ function Base.empty!(msum::MajoranaSum)
 end
 
 function Base.show(io::IO, ms::MajoranaString)
-    print(io, "$(reverse(string(ms.gammas; base=2, pad=2 * ms.nfermions)))")
+    print(io, "$(reverse(bitstring(ms.gammas)))")
 end
 
 function Base.show(io::IO, ms::MajoranaSum)
@@ -151,7 +151,7 @@ function Base.show(io::IO, ms::MajoranaSum)
     for (i, (mstring, coeff)) in enumerate(ms.Majoranas)
         if i <= max_display
             print(io, "\n")
-            print(io, "    $(coeff) * $(reverse(string(mstring; base=2, pad=2 * nfermions(ms))))")
+            print(io, "    $(coeff) * $(reverse(bitstring(mstring)))")
         else
             print(io, "\n    ...")
             break
