@@ -4,7 +4,7 @@ using PauliPropagation
 using PauliPropagation.PropagationBase
 import PauliPropagation.PropagationBase: propagate, propagate!
 
-include("MajoranaAlgebra.jl")
+include("MajoranaDataTypes.jl")
 export
     MajoranaSum,
     MajoranaString,
@@ -15,18 +15,18 @@ export
     coefftype,
     similar,
     iterate,
-    fock_filter,
+    add!
+include("MajoranaAlgebra.jl")
+export
+    fock_mask,
     overlap_with_fock,
     overlap_with_fock_spinful,
-    getinttype,
     ms_mult,
-    add!,
     commutator,
     commutes,
     norm,
     omega_mult,
     omega_L_mult
-
 
 include("propagationcache.jl")
 export MajoranaPropagationCache
