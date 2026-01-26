@@ -233,3 +233,7 @@ function _checknfermions(ms1::MajoranaString, ms2::MajoranaString)
         throw(ArgumentError("Majorana strings must have the same length, but have lengths $(nfermions(ms1)) and $(nfermions(ms2))"))
     end
 end
+
+
+include("vectormajoranasum.jl")
+include("conversions.jl")

@@ -198,3 +198,18 @@ function overlap_with_fock_spinful(mslist, up_sites_with_particle, down_sites_wi
     end
     return overlap_with_fock(mslist, fock_state; add_pref=add_pref)
 end
+
+#=#general overlap by orthogonality function
+function overlapbyorthogonality(orthogonalfunc::F, msum) where {F<:Function}
+    if length(msum) == 0
+        return 0.0
+    end
+
+    val = zero(numcoefftype(msum))
+    for (mstr, coeff) in zip(terms(msum), coefficients(msum))
+        if overlapbyorthogonality(orthogonalfunc, mstr)
+            val += tonumber(coeff)
+        end
+    end
+    return val
+end=#

@@ -15,7 +15,11 @@ export
     coefftype,
     similar,
     iterate,
-    add!
+    add!,
+    VectorMajoranaSum,
+    storage,
+    resize!
+
 include("MajoranaAlgebra.jl")
 export
     fock_mask,

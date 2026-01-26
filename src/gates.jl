@@ -93,7 +93,109 @@ function PropagationBase.applymergetruncate!(gate::FermionicGate, prop_cache::Ma
 
     # iterate over individual Majorana rotations and apply them to the Majorana sum
     for (gate_ms, coeff) in zip(ms_rotations, coeffs)
-        # multiply coefficient by 2 since exponential implements exp(-i * theta/2 * mstring)
+        # multiply coefficient by 2 since `::MajoranaRotation` implements exp(-i * theta/2 * mstring)
+        applytoall!(gate_ms, prop_cache, theta * coeff * 2.0; kwargs...)
+
+        # merge the auxiliary Majorana sum into the original one and empty the auxiliary one
+        merge!(prop_cache; kwargs...)
+
+        # truncate after each Majorana rotation 
+        truncate!(prop_cache; kwargs...)
+    end
+
+    return prop_cache
+end
+
+
+# ========== vector specializations ========== #
+
+function PropagationBase.applytoall!(gate::MajoranaRotation, prop_cache::VectorMajoranaPropagationCache, theta; kwargs...)
+
+    if prop_cache.active_size == 0
+        return prop_cache
+    end
+
+    n_old = prop_cache.active_size
+
+    # get the Majorana string integer representation because the gate cannot be in the function when using GPU
+    gate_ms = gate.ms.gammas
+
+    # flag terms that anticommute with the gate
+    anticommutesfunc(trm) = !commutes(trm, gate_ms)
+    flagterms!(anticommutesfunc, prop_cache)
+
+    # this runs a cumsum over the flags to get the indices
+    flagstoindices!(prop_cache)
+
+    # the final index is the number of new terms
+    n_noncommutes = lastactiveindex(prop_cache)
+
+    # split off into the same array
+    n_new = n_old + n_noncommutes
+
+    # potential resize factor
+    resize_factor = 2
+    if capacity(prop_cache) < n_new
+        resize!(prop_cache, n_new * resize_factor)
+    end
+
+    # does the branching logic
+    _applymajoranarotation!(prop_cache, gate_ms, theta)
+
+    # we now have n_new possibly duplicate Majorana strings in the array
+    setactivesize!(prop_cache, n_new)
+
+    return prop_cache
+end
+
+function _applymajoranarotation!(prop_cache::VectorMajoranaPropagationCache, gate_ms::TT, theta) where {TT}
+
+    # pre-compute the sine and cosine values because they are used for every Majorana string that does not commute with the gate
+    cos_val = cos(theta)
+    sin_val = sin(theta)
+
+    n = activesize(prop_cache)
+    n_max = n + lastactiveindex(prop_cache)
+
+    active_terms = activeterms(prop_cache)
+
+    # full-length terms so we can write new terms at the end
+    terms = majoranas(mainsum(prop_cache))
+    coeffs = coefficients(mainsum(prop_cache))
+    @assert length(terms) >= n_max "VectorMajoranaPropagationCache terms array is not large enough to hold new terms."
+    @assert length(coeffs) >= n_max "VectorMajoranaPropagationCache coeffs array is not large enough to hold new coeffs."
+
+    flags = activeflags(prop_cache)
+    indices = activeindices(prop_cache)
+
+    # branching pattern for Majorana rotations
+    AK.foreachindex(active_terms) do ii
+        # here it anticommutes
+        if flags[ii]
+            term = terms[ii]
+            coeff = coeffs[ii]
+
+            coeff1 = coeff * cos_val
+            sign, new_term = ms_mult(gate_ms, term, nsites(prop_cache))
+            coeff2 = coeff * sin_val * real((-1im) * sign)
+
+            coeffs[ii] = coeff1
+
+            terms[n+indices[ii]] = new_term
+            coeffs[n+indices[ii]] = coeff2
+        end
+    end
+
+    return
+end
+
+function PropagationBase.applymergetruncate!(gate::FermionicGate, prop_cache::VectorMajoranaPropagationCache, theta; kwargs...)
+    # get the Majorana strings and coefficients corresponding to the fermionic gate
+    ms_rotations, coeffs = getmajoranarotations(gate, nsites(prop_cache))
+
+    # iterate over individual Majorana rotations and apply them to the Majorana sum
+    for (gate_ms, coeff) in zip(ms_rotations, coeffs)
+        # multiply coefficient by 2 since `::MajoranaRotation` implements exp(-i * theta/2 * mstring)
         applytoall!(gate_ms, prop_cache, theta * coeff * 2.0; kwargs...)
 
         # merge the auxiliary Majorana sum into the original one and empty the auxiliary one
