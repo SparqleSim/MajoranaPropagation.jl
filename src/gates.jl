@@ -87,7 +87,7 @@ function PropagationBase.applytoall!(gate::MajoranaRotation, prop_cache::Majoran
     return
 end
 
-function PropagationBase.applymergetruncate!(gate::FermionicGate, prop_cache::MajoranaPropagationCache, theta; kwargs...)
+function PropagationBase.applymergetruncate!(gate::FermionicGate, prop_cache::AbstractMajoranaPropagationCache, theta; kwargs...)
     # get the Majorana strings and coefficients corresponding to the fermionic gate
     ms_rotations, coeffs = getmajoranarotations(gate, nsites(prop_cache))
 
@@ -187,23 +187,4 @@ function _applymajoranarotation!(prop_cache::VectorMajoranaPropagationCache, gat
     end
 
     return
-end
-
-function PropagationBase.applymergetruncate!(gate::FermionicGate, prop_cache::VectorMajoranaPropagationCache, theta; kwargs...)
-    # get the Majorana strings and coefficients corresponding to the fermionic gate
-    ms_rotations, coeffs = getmajoranarotations(gate, nsites(prop_cache))
-
-    # iterate over individual Majorana rotations and apply them to the Majorana sum
-    for (gate_ms, coeff) in zip(ms_rotations, coeffs)
-        # multiply coefficient by 2 since `::MajoranaRotation` implements exp(-i * theta/2 * mstring)
-        applytoall!(gate_ms, prop_cache, theta * coeff * 2.0; kwargs...)
-
-        # merge the auxiliary Majorana sum into the original one and empty the auxiliary one
-        merge!(prop_cache; kwargs...)
-
-        # truncate after each Majorana rotation 
-        truncate!(prop_cache; kwargs...)
-    end
-
-    return prop_cache
 end
