@@ -1,14 +1,18 @@
 
 """
-    MajoranaRotation(ms::MajoranaString{TT}) where {TT<:Integer}
+    MajoranaRotation(ms::{TT}) where {TT<:Integer}
 Basic structure to represent a Majorana rotation gate exp(-i * theta/2 * ms).
 Defined by passing a Majorana string `ms` of even weight.
 """
 struct MajoranaRotation{TT<:Integer} <: ParametrizedGate
-    ms::MajoranaString{TT}
+    ms_int::TT
     function MajoranaRotation(ms::MajoranaString{TT}) where {TT<:Integer}
         @assert get_weight(ms) % 2 == 0 # only even parity operations
-        return new{TT}(ms)
+        return new{TT}(ms.gammas)
+    end
+    function MajoranaRotation(ms_int::TT) where {TT<:Integer}
+        @assert get_weight(ms_int) % 2 == 0 # only even parity operations
+        return new{TT}(ms_int)
     end
 end
 
@@ -33,20 +37,22 @@ Given a `FermionicGate`, returns the Majorana rotations and coefficients corresp
 function getmajoranarotations(gate::FermionicGate, n_sites::Integer)
     # construct msum encoding the fermionic gate
     msum = MajoranaSum(n_sites, gate.symbol, gate.sites)
+    TT = getinttype(nfermions(msum))
+    truncate_after_each_majrot = !flag_non_number_preserving(gate.symbol)
 
     #remove coefficient associated to identity
     pop_id!(msum)
 
-    rotations::Vector{MajoranaRotation} = []
+    rotations::Vector{MajoranaRotation{TT}} = []
     coefficients::Vector{Float64} = []
     for (ms, coeff) in msum
-        push!(rotations, MajoranaRotation(MajoranaString(nfermions(msum), ms)))
+        push!(rotations, MajoranaRotation(ms))
         push!(coefficients, coeff)
     end
 
     # TODO: return flag on if truncate between rotations or not
 
-    return rotations, coefficients
+    return rotations, coefficients, truncate_after_each_majrot
 end
 
 function _applycos(coeff, cos_theta)
@@ -64,7 +70,7 @@ function PropagationBase.applytoall!(gate::MajoranaRotation, prop_cache::Majoran
     cos_val = cos(theta)
     sin_val = sin(theta)
 
-    gate_int = gate.ms.gammas
+    gate_int = gate.ms_int
 
     # loop over all Majorana strings and their coefficients in the Majorana sum
     for (ms_int, coeff) in msum
@@ -91,7 +97,7 @@ end
 
 function PropagationBase.applymergetruncate!(gate::FermionicGate, prop_cache::AbstractMajoranaPropagationCache, theta; kwargs...)
     # get the Majorana strings and coefficients corresponding to the fermionic gate
-    ms_rotations, coeffs = getmajoranarotations(gate, nsites(prop_cache))
+    ms_rotations, coeffs, truncate_after_each_majrot = getmajoranarotations(gate, nsites(prop_cache))
 
     # iterate over individual Majorana rotations and apply them to the Majorana sum
     for (gate_ms, coeff) in zip(ms_rotations, coeffs)
@@ -102,6 +108,11 @@ function PropagationBase.applymergetruncate!(gate::FermionicGate, prop_cache::Ab
         merge!(prop_cache; kwargs...)
 
         # truncate after each Majorana rotation 
+        if truncate_after_each_majrot
+            truncate!(prop_cache; kwargs...)
+        end
+    end
+    if !truncate_after_each_majrot
         truncate!(prop_cache; kwargs...)
     end
 
