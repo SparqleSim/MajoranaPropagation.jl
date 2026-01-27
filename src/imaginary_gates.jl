@@ -1,4 +1,5 @@
 using PauliPropagation.PropagationBase
+import PauliPropagation.PropagationBase: mainsum, auxsum
 using MajoranaPropagation: AbstractMajoranaPropagationCache, VectorMajoranaPropagationCache, AbstractMajoranaSum, majoranas
 import AcceleratedKernels
 const AK = AcceleratedKernels
@@ -22,6 +23,7 @@ function ImaginaryFermionicGate(symbol::Symbol, site::Integer)
 end
 
 
+MajoranaPropagation.nfermions(prop_cache::AbstractMajoranaPropagationCache) = nfermions(mainsum(prop_cache))
 
 function PropagationBase.applymergetruncate!(gate::ImaginaryFermionicGate, prop_cache::AbstractMajoranaPropagationCache, theta; kwargs...)
     # get the Majorana strings and coefficients corresponding to the fermionic gate
@@ -128,7 +130,7 @@ function _applyimaginarymajoranarotation!(prop_cache::VectorMajoranaPropagationC
             coeff = coeffs[ii]
 
             coeff1 = coeff * cosh_val
-            sign, new_term = ms_mult(gate_ms, term, PropagationBase.nsites(prop_cache))
+            sign, new_term = ms_mult(gate_ms, term, nfermions(prop_cache))
             coeff2 = coeff * sinh_val * real(sign) # TODO: there might be a -1 missing
 
             coeffs[ii] = coeff1
@@ -141,15 +143,3 @@ function _applyimaginarymajoranarotation!(prop_cache::VectorMajoranaPropagationC
     return
 end
 
-
-function scalarproduct(msum1::AbstractMajoranaSum, msum2::AbstractMajoranaSum)
-    if length(msum1) > length(msum2)
-        return scalarproduct(msum2, msum1)
-    end
-    res = zero(numcoefftype(msum1))
-    for (ms1, coeff1) in zip(majoranas(msum1), coefficients(msum1))
-        coeff2 = getcoeff(msum2, ms1)
-        res += coeff1 * coeff2
-    end
-    return res
-end

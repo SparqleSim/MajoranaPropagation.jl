@@ -176,7 +176,7 @@ function _applymajoranarotation!(prop_cache::VectorMajoranaPropagationCache, gat
             coeff = coeffs[ii]
 
             coeff1 = coeff * cos_val
-            sign, new_term = ms_mult(gate_ms, term, nsites(prop_cache))
+            sign, new_term = ms_mult(gate_ms, term, nfermions(prop_cache))
             coeff2 = coeff * sin_val * real((-1im) * sign)
 
             coeffs[ii] = coeff1
