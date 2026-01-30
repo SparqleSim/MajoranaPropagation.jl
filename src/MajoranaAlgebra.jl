@@ -267,15 +267,13 @@ function Base.:(+)(msum1::MajoranaSum, msum2::MajoranaSum)
     return msum1
 end
 
-function Base.:(*)(msum1::MajoranaSum, msum2::MajoranaSum)
+function Base.:(*)(msum1::MajoranaSum{TT,Float64}, msum2::MajoranaSum{TT,Float64}) where {TT<:Integer}
     _checknfermions(msum1, msum2)
-    res = MajoranaSum(coefftype(msum1), msum1.nsites, msum1.is_spinful)
+    res = MajoranaSum(ComplexF64, msum1.nsites, msum1.is_spinful)
     for (ms1, coeff1) in msum1.Majoranas
         for (ms2, coeff2) in msum2.Majoranas
             prefactor, ms3 = ms_mult(ms1, ms2, nfermions(msum1))
-            @assert imag(prefactor) ≈ 0
-            prefactor = real(prefactor)
-            add!(res, ms3, prefactor * tonumber(coeff1) * tonumber(coeff2))
+            add!(res, ms3, prefactor * coeff1 * coeff2)
         end
     end
     return res
@@ -330,15 +328,15 @@ function norm(msum::MajoranaSum, L=2)
     return LinearAlgebra.norm((coeff for coeff in coefficients(msum)), L)
 end
 
-function commutator(msum1::MajoranaSum, msum2::MajoranaSum)
-    res = MajoranaSum(msum1.nfermions, typeof(1.1im))
+function commutator(msum1::MajoranaSum{TT,Float64}, msum2::MajoranaSum{TT,Float64}) where {TT<:Integer}
+    res = MajoranaSum(ComplexF64, msum1.nsites, msum1.is_spinful)
     for (ms1, coeff1) in msum1.Majoranas
         for (ms2, coeff2) in msum2.Majoranas
             if commutes(ms1, ms2)
                 continue
             end
-            prefactor, ms3 = ms_mult(MajoranaString(msum1.nfermions, ms1), MajoranaString(msum2.nfermions, ms2))
-            add!(res, ms3, prefactor * tonumber(coeff1) * tonumber(coeff2))
+            prefactor, ms3 = ms_mult(ms1, ms2, nfermions(msum1))
+            add!(res, ms3, prefactor * coeff1 * coeff2)
         end
     end
     return res
