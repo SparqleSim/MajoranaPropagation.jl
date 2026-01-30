@@ -84,8 +84,6 @@ function Base.:(*)(msum1::MajoranaSum, msum2::MajoranaSum)
     for (ms1, coeff1) in msum1.Majoranas
         for (ms2, coeff2) in msum2.Majoranas
             prefactor, ms3 = ms_mult(ms1, ms2, nfermions(msum1))
-            @assert imag(prefactor) ≈ 0
-            prefactor = real(prefactor)
             add!(res, ms3, prefactor * tonumber(coeff1) * tonumber(coeff2))
         end
     end

@@ -96,6 +96,27 @@ function MajoranaSum(nfermions::Integer, ::Val{:pair}, sites)
     return obs
 end
 
+# annhililation operator
+function MajoranaSum(nfermions::Integer, ::Val{:f}, site)
+    TT = getinttype(nfermions)
+    is_spinful = false
+    site = _tonum(site)
+    term1 = _bitonesat(TT, (2 * site - 1))
+    term2 = _bitonesat(TT, (2 * site))
+    obs = MajoranaSum{TT,ComplexF64}(nfermions, is_spinful, Dict(term1 => 0.5 + 0.0im, term2 => 0.5im))
+    return obs
+end
+# creation operator
+function MajoranaSum(nfermions::Integer, ::Val{:fdag}, site)
+    TT = getinttype(nfermions)
+    is_spinful = false
+    site = _tonum(site)
+    term1 = _bitonesat(TT, (2 * site - 1))
+    term2 = _bitonesat(TT, (2 * site))
+    obs = MajoranaSum{TT,ComplexF64}(nfermions, is_spinful, Dict(term1 => 0.5 + 0.0im, term2 => -0.5im))
+    return obs
+end
+
 # ========== Spinful operators ==========
 
 # n_up operator
@@ -191,6 +212,47 @@ function MajoranaSum(n_sites::Integer, ::Val{:pairdn}, sites)
     term1 = _bitonesat(TT, (4 * site1 - 1, 4 * site2))
     term2 = _bitonesat(TT, (4 * site1, 4 * site2 - 1))
     obs = MajoranaSum{TT,Float64}(n_sites, is_spinful, Dict(term1 => -0.5, term2 => -0.5))
+    return obs
+end
+
+# up annihilation operator
+function MajoranaSum(n_sites::Integer, ::Val{:fup}, site)
+    TT = getinttype(2 * n_sites)
+    is_spinful = true
+    site = _tonum(site)
+    term1 = _bitonesat(TT, (4 * site - 3))
+    term2 = _bitonesat(TT, (4 * site - 2))
+    obs = MajoranaSum{TT,ComplexF64}(n_sites, is_spinful, Dict(term1 => 0.5 + 0.0im, term2 => 0.5im))
+    return obs
+end
+# up creation operator
+function MajoranaSum(n_sites::Integer, ::Val{:fupdag}, site)
+    TT = getinttype(2 * n_sites)
+    is_spinful = true
+    site = _tonum(site)
+    term1 = _bitonesat(TT, (4 * site - 3))
+    term2 = _bitonesat(TT, (4 * site - 2))
+    obs = MajoranaSum{TT,ComplexF64}(n_sites, is_spinful, Dict(term1 => 0.5 + 0.0im, term2 => -0.5im))
+    return obs
+end
+# down annihilation operator
+function MajoranaSum(n_sites::Integer, ::Val{:fdn}, site)
+    TT = getinttype(2 * n_sites)
+    is_spinful = true
+    site = _tonum(site)
+    term1 = _bitonesat(TT, (4 * site - 1))
+    term2 = _bitonesat(TT, (4 * site))
+    obs = MajoranaSum{TT,ComplexF64}(n_sites, is_spinful, Dict(term1 => 0.5 + 0.0im, term2 => 0.5im))
+    return obs
+end
+# down creation operator
+function MajoranaSum(n_sites::Integer, ::Val{:fdndag}, site)
+    TT = getinttype(2 * n_sites)
+    is_spinful = true
+    site = _tonum(site)
+    term1 = _bitonesat(TT, (4 * site - 1))
+    term2 = _bitonesat(TT, (4 * site))
+    obs = MajoranaSum{TT,ComplexF64}(n_sites, is_spinful, Dict(term1 => 0.5 + 0.0im, term2 => -0.5im))
     return obs
 end
 
