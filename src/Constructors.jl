@@ -21,6 +21,7 @@ The supported symbols are:
     - `:n`: number operator on one given site
     - `:hop`: hopping operator between two given sites
     - `:nn`: number-number operator between the two given sites
+    - `:pair`: pair creation operator between the two given sites
 
 - Spinful operators:
     - `:nup`: number operator for spin-up fermion on the given site
@@ -29,6 +30,8 @@ The supported symbols are:
     - `:hopup`: hopping operator for spin-up fermion between the two given sites
     - `:hopdn`: hopping operator for spin-down fermion between the two given sites
     - `:hole`: hole operator on the given site
+    - `:pairup`: pair creation operator for spin-up fermions between the two given sites
+    - `:pairdn`: pair creation operator for spin-down fermions between the two given
 """
 
 function MajoranaSum(n_sites::Integer, symb::Symbol, sites)
@@ -37,7 +40,7 @@ end
 
 # Lower-level constructors for specific operators
 
-# Spinless operators
+# ========== Spinless operators ==========
 
 # number operator
 function MajoranaSum(nfermions::Integer, ::Val{:n}, site)
@@ -82,8 +85,20 @@ function MajoranaSum(nfermions::Integer, ::Val{:nn}, sites)
     return obs
 end
 
+#pair operator
+function MajoranaSum(nfermions::Integer, ::Val{:pair}, sites)
+    TT = getinttype(nfermions)
+    is_spinful = false
+    site1, site2 = order_sites(_tovec(sites))
+    term1 = _bitonesat(TT, (2 * site1 - 1, 2 * site2))
+    term2 = _bitonesat(TT, (2 * site1, 2 * site2 - 1))
+    obs = MajoranaSum{TT,Float64}(nfermions, is_spinful, Dict(term1 => -0.5, term2 => -0.5))
+    return obs
+end
 
-# Spinful operators
+# ========== Spinful operators ==========
+
+# n_up operator
 function MajoranaSum(n_sites::Integer, ::Val{:nup}, site)
     TT = getinttype(2 * n_sites)
     is_spinful = true
@@ -94,6 +109,7 @@ function MajoranaSum(n_sites::Integer, ::Val{:nup}, site)
     return obs
 end
 
+# n_dn operator
 function MajoranaSum(n_sites::Integer, ::Val{:ndn}, site)
     TT = getinttype(2 * n_sites)
     is_spinful = true
@@ -104,6 +120,7 @@ function MajoranaSum(n_sites::Integer, ::Val{:ndn}, site)
     return obs
 end
 
+# up hopping operator
 function MajoranaSum(n_sites::Integer, ::Val{:hopup}, sites)
     TT = getinttype(2 * n_sites)
     is_spinful = true
@@ -114,6 +131,7 @@ function MajoranaSum(n_sites::Integer, ::Val{:hopup}, sites)
     return obs
 end
 
+# down hopping operator
 function MajoranaSum(n_sites::Integer, ::Val{:hopdn}, sites)
     TT = getinttype(2 * n_sites)
     is_spinful = true
@@ -153,6 +171,26 @@ function MajoranaSum(n_sites::Integer, ::Val{:nupndn}, site)
         is_spinful,
         Dict(term1 => 0.25, term2 => 0.25, term3 => -0.25, term4 => 0.25)
     )
+    return obs
+end
+
+function MajoranaSum(n_sites::Integer, ::Val{:pairup}, sites)
+    TT = getinttype(2 * n_sites)
+    is_spinful = true
+    site1, site2 = order_sites(_tovec(sites))
+    term1 = _bitonesat(TT, (4 * site1 - 3, 4 * site2 - 2))
+    term2 = _bitonesat(TT, (4 * site1 - 2, 4 * site2 - 3))
+    obs = MajoranaSum{TT,Float64}(n_sites, is_spinful, Dict(term1 => -0.5, term2 => -0.5))
+    return obs
+end
+
+function MajoranaSum(n_sites::Integer, ::Val{:pairdn}, sites)
+    TT = getinttype(2 * n_sites)
+    is_spinful = true
+    site1, site2 = order_sites(_tovec(sites))
+    term1 = _bitonesat(TT, (4 * site1 - 1, 4 * site2))
+    term2 = _bitonesat(TT, (4 * site1, 4 * site2 - 1))
+    obs = MajoranaSum{TT,Float64}(n_sites, is_spinful, Dict(term1 => -0.5, term2 => -0.5))
     return obs
 end
 

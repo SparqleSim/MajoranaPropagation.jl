@@ -353,9 +353,9 @@ end
 
 function fock_filter(msum::MajoranaSum)
     clean_res = similar(msum)
-    singles_filter = create_max_single_filter(nfermions(msum))
+    singles_filter = create_unpaired_mask(nfermions(msum))
     for (ms, coeff) in msum.Majoranas
-        if compute_max_single(ms, 2 * nfermions(msum), singles_filter) > 0
+        if compute_unpaired(ms, singles_filter) > 0
             continue
         end
         set!(clean_res, ms, coeff)
@@ -365,7 +365,7 @@ end
 
 function overlap_with_fock(msum::MajoranaSum, fock_state; add_pref=0.)
     res = 0.
-    singles_filter = create_max_single_filter(nfermions(msum))
+    singles_filter = create_unpaired_mask(nfermions(msum))
     for (ms, coeff) in msum.Majoranas
         res += fockevaluate(ms, coeff, singles_filter, fock_state)
     end
@@ -373,7 +373,7 @@ function overlap_with_fock(msum::MajoranaSum, fock_state; add_pref=0.)
 end
 
 function fockevaluate(ms::TT, coeff, singles_filter, fock_state) where {TT<:Integer}
-    if compute_max_single(ms, 2, singles_filter) > 0
+    if compute_unpaired(ms, singles_filter) > 0
         return 0.
     end
     num_pref = 0
@@ -385,7 +385,7 @@ function fockevaluate(ms::TT, coeff, singles_filter, fock_state) where {TT<:Inte
     return tonumber(coeff) * sign
 end
 
-function overlap_with_fock_spinful(mslist, up_sites_with_particle, down_sites_with_particle, nsites; add_pref=0.)
+function overlap_with_fock_spinful(mslist, up_sites_with_particle, down_sites_with_particle; add_pref=0.)
     fock_state = []
     for up_site in up_sites_with_particle
         push!(fock_state, 2 * up_site - 1)
