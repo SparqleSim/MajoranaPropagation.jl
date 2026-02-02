@@ -41,7 +41,7 @@ Pkg.activate("path/to/project")
 using MajoranaPropagation
 using PauliPropagation
 
-#set parameters
+# Set parameters
 L_sites = 10
 t_hop = 1.0
 U_repulsion = 2.0
