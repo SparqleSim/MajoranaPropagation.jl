@@ -63,6 +63,7 @@ end
 
 
 #set initial state
+# specify the sites where fermions are created
 create_part_at = [i for i = 1:2:L_sites]
 
 #set observable 
