@@ -63,15 +63,15 @@ for (i, j) in topo
 end
 
 
-#set initial state
+# Set initial state
 # specify the sites where fermions are created
 create_part_at = [i for i = 1:2:L_sites]
 
-#set observable 
+# Set observable 
 obs = MajoranaSum(L_sites, :n, 3) * MajoranaSum(L_sites, :n, 5)
 @show obs 
 
-#propagete 
+# Propagate 
 for step = 1:n_steps
     propagate!(circ_single_step, obs, thetas_single_step; min_abs_coeff=1.e-8)
     @show overlap_with_fock(obs, create_part_at)
