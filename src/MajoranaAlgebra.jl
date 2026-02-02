@@ -140,7 +140,7 @@ end
 
 function Base.show(io::IO, ms::MajoranaSum)
     max_display = 8
-    print(io, "MajoranaSum with $(length(ms)) term(s):(")
+    print(io, "MajoranaSum with $(length(ms)) term(s):")
     for (i, (mstring, coeff)) in enumerate(ms.Majoranas)
         if i <= max_display
             print(io, "\n")
@@ -150,7 +150,6 @@ function Base.show(io::IO, ms::MajoranaSum)
             break
         end
     end
-    print(io, ")")
 end
 
 
@@ -267,21 +266,31 @@ function Base.:(+)(msum1::MajoranaSum, msum2::MajoranaSum)
     return msum1
 end
 
-function Base.:(*)(msum1::MajoranaSum{TT,Float64}, msum2::MajoranaSum{TT,Float64}) where {TT<:Integer}
+function Base.:(*)(msum1::MajoranaSum{TT,CT1}, msum2::MajoranaSum{TT,CT2}) where {TT<:Integer,CT1,CT2}
     _checknfermions(msum1, msum2)
     res = MajoranaSum(ComplexF64, msum1.nsites, msum1.is_spinful)
-    for (ms1, coeff1) in msum1.Majoranas
-        for (ms2, coeff2) in msum2.Majoranas
+    for (ms1, coeff1) in msum1
+        for (ms2, coeff2) in msum2
             prefactor, ms3 = ms_mult(ms1, ms2, nfermions(msum1))
             add!(res, ms3, prefactor * coeff1 * coeff2)
         end
     end
+    all_real = sum(abs.(imag.(coefficients(res)))) ≈ 0.
+    #if all coefficients are real, convert back to real type and return that
+    if all_real
+        res_real = MajoranaSum(Float64, res.nsites, res.is_spinful)
+        for (ms, coeff) in res
+            set!(res_real, ms, real(coeff))
+        end
+        return res_real
+    end
+
     return res
 end
 
 function Base.:(*)(coeff::CT, msum::MajoranaSum{TT,CT}) where {TT<:Integer,CT}
     res = similar(msum)
-    for (ms1, coeff1) in msum.Majoranas
+    for (ms1, coeff1) in msum
         set!(res, ms1, coeff * coeff1)
     end
     return res
@@ -328,10 +337,10 @@ function norm(msum::MajoranaSum, L=2)
     return LinearAlgebra.norm((coeff for coeff in coefficients(msum)), L)
 end
 
-function commutator(msum1::MajoranaSum{TT,Float64}, msum2::MajoranaSum{TT,Float64}) where {TT<:Integer}
+function commutator(msum1::MajoranaSum{TT,CT1}, msum2::MajoranaSum{TT,CT2}) where {TT<:Integer,CT1,CT2}
     res = MajoranaSum(ComplexF64, msum1.nsites, msum1.is_spinful)
-    for (ms1, coeff1) in msum1.Majoranas
-        for (ms2, coeff2) in msum2.Majoranas
+    for (ms1, coeff1) in msum1
+        for (ms2, coeff2) in msum2
             if commutes(ms1, ms2)
                 continue
             end
@@ -352,7 +361,7 @@ end
 function fock_filter(msum::MajoranaSum)
     clean_res = similar(msum)
     singles_filter = create_unpaired_mask(nfermions(msum))
-    for (ms, coeff) in msum.Majoranas
+    for (ms, coeff) in msum
         if compute_unpaired(ms, singles_filter) > 0
             continue
         end
@@ -364,7 +373,7 @@ end
 function overlap_with_fock(msum::MajoranaSum, fock_state; add_pref=0.)
     res = 0.
     singles_filter = create_unpaired_mask(nfermions(msum))
-    for (ms, coeff) in msum.Majoranas
+    for (ms, coeff) in msum
         res += fockevaluate(ms, coeff, singles_filter, fock_state)
     end
     return res + add_pref
@@ -380,7 +389,7 @@ function fockevaluate(ms::TT, coeff, singles_filter, fock_state) where {TT<:Inte
     end
     ms_w = get_weight(ms)
     sign = (1im)^omega_L_mult(ms) * (1im)^(ms_w / 2) * (-1)^num_pref
-    return tonumber(coeff) * sign
+    return real(tonumber(coeff) * sign)
 end
 
 function overlap_with_fock_spinful(mslist, up_sites_with_particle, down_sites_with_particle; add_pref=0.)
