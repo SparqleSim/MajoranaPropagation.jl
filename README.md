@@ -1,5 +1,6 @@
 # MajoranaPropagation.jl
 A Julia library for Majorana propagation simulation of fermionic quantum circuits and quantum systems.
+The code is currently under active development, and new updates will come soon.
 
 ## Usage
 To install MajoranaPropagation.jl, you can use the following commands in Julia's REPL:
