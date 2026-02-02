@@ -76,3 +76,16 @@ for step = 1:n_steps
     @show overlap_with_fock(obs, create_part_at)
 end
 ```
+
+## Citation
+If you use `MajoranaPropagation.jl` in your research and find it useful, please consider citing our work
+```bibtex
+@misc{danna2025majorana,
+      title={Majorana string simulation of nonequilibrium dynamics in two-dimensional lattice fermion systems}, 
+      author={Matteo D'Anna and Jannes Nys and Juan Carrasquilla},
+      year={2025},
+      eprint={2511.02809},
+      archivePrefix={arXiv},
+      url={https://arxiv.org/abs/2511.02809}, 
+}
+```
