@@ -74,7 +74,7 @@ obs = MajoranaSum(L_sites, :n, 1) * MajoranaSum(L_sites, :n, 5)
 # Propagate 
 for step = 1:n_steps
     propagate!(circ_single_step, obs, thetas_single_step; min_abs_coeff=1.e-8)
-    @show overlap_with_fock(obs, fock_state)
+    @show overlapwithfock(obs, fock_state)
 end
 ```
 It's also posssible to consider superpositions of Fock states as initial states 
@@ -90,11 +90,11 @@ obs = MajoranaSum(L_sites, :n, 1) * MajoranaSum(L_sites, :n, 5)
 # Propagate
 for step = 1:n_steps
     propagate!(circ_single_step, obs, thetas_single_step; min_abs_coeff=1.e-8)
-    o1 = overlap_with_fock(obs, fock_state)
-    o2 = overlap_with_fock(obs, fock_state_2)
+    o1 = overlapwithfock(obs, fock_state)
+    o2 = overlapwithfock(obs, fock_state_2)
 
     # compute the overlap with the equal superposition of the two Fock states
-    osuper = overlap_with_fock_superposition(obs, [fock_state, fock_state_2], [1 / sqrt(2), 1 / sqrt(2)])
+    osuper = overlapwithfock(obs, [fock_state, fock_state_2], [1 / sqrt(2), 1 / sqrt(2)])
     @show osuper
 end
 ```
