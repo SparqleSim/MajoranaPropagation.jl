@@ -63,18 +63,39 @@ for (i, j) in topo
 end
 
 
-# Set initial state
+# Set initial Fock state
 # specify the sites where fermions are created
-create_part_at = [i for i = 1:2:L_sites]
+fock_state = [i for i = 1:2:L_sites]
 
 # Set observable 
-obs = MajoranaSum(L_sites, :n, 3) * MajoranaSum(L_sites, :n, 5)
+obs = MajoranaSum(L_sites, :n, 1) * MajoranaSum(L_sites, :n, 5)
 @show obs 
 
 # Propagate 
 for step = 1:n_steps
     propagate!(circ_single_step, obs, thetas_single_step; min_abs_coeff=1.e-8)
-    @show overlap_with_fock(obs, create_part_at)
+    @show overlap_with_fock(obs, fock_state)
+end
+```
+It's also posssible to consider superpositions of Fock states as initial states 
+```julia
+# Consider a second Fock state that only differs by the position of one fermion
+fock_state = [i for i = 1:2:L_sites]
+fock_state_2 = [i for i = 1:2:L_sites]
+fock_state_2[1] = 2
+
+# Set observable 
+obs = MajoranaSum(L_sites, :n, 1) * MajoranaSum(L_sites, :n, 5)
+
+# Propagate
+for step = 1:n_steps
+    propagate!(circ_single_step, obs, thetas_single_step; min_abs_coeff=1.e-8)
+    o1 = overlap_with_fock(obs, fock_state)
+    o2 = overlap_with_fock(obs, fock_state_2)
+
+    # compute the overlap with the equal superposition of the two Fock states
+    osuper = overlap_with_fock_superposition(obs, [fock_state, fock_state_2], [1 / sqrt(2), 1 / sqrt(2)])
+    @show osuper
 end
 ```
 

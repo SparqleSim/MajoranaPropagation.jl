@@ -17,6 +17,7 @@ export
     fock_filter,
     overlap_with_fock,
     overlap_with_fock_spinful,
+    overlap_with_fock_superposition,
     getinttype,
     ms_mult,
     add!,
