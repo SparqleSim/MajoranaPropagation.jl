@@ -387,6 +387,12 @@ function fockstate(occupied_sites::Vector)
     return fockstate(occupied_sites, false)
 end
 
+function fockstate(occupied_sites::StepRange)
+    return fockstate(collect(occupied_sites))
+end
+
+
+
 """ 
     fockstate(up_occupied_sites::Vector{Int}, down_occupied_sites::Vector{Int})
 Create a spinful Fock basis state given a list of occupied sites for spin-up and spin-down fermions.
@@ -401,6 +407,10 @@ function fockstate(up_occupied_sites::Vector, down_occupied_sites::Vector)
     end
     sort!(occupied_sites)
     return fockstate(occupied_sites, true)
+end
+
+function fockstate(up_occupied_sites::StepRange, down_occupied_sites::StepRange)
+    return fockstate(collect(up_occupied_sites), collect(down_occupied_sites))
 end
 
 """ 
@@ -479,21 +489,6 @@ function overlapwithfock(ms::TT, fock_state_1::fockstate, fock_state_2::fockstat
     return res
 end
 
-#=""" 
-    overlapwithfockspinful(msum::MajoranaSum, up_sites_with_particle::Vector{Int}, down_sites_with_particle::Vector{Int})
-Compute the overlap <fock_state|msum|fock_state> where fock_state is a Fock basis state given as list of integers indicating which sites are occupied for spin-up and spin-down fermions.
-"""
-function overlapwithfockspinful(msum::MajoranaSum, up_sites_with_particle::Vector{Int}, down_sites_with_particle::Vector{Int})
-    fock_state = []
-    for up_site in up_sites_with_particle
-        push!(fock_state, 2 * up_site - 1)
-    end
-    for down_site in down_sites_with_particle
-        push!(fock_state, 2 * down_site)
-    end
-    return overlapwithfock(msum, fock_state)
-end=#
-
 """ 
     overlapwithfock(msum::MajoranaSum, sites_with_particle_superposition::Vector{fockstate}, superposition_coefficients::Vector{<:Union{Real,Complex}})
 Compute the overlap <superposition|msum|superposition> where 
@@ -523,29 +518,6 @@ function overlapwithfock(msum::MajoranaSum, sites_with_particle_superposition::V
     end
     return res
 end
-
-#="""
-    overlapwithfockspinful(msum::MajoranaSum, sites_with_up_particle_superposition::Vector{Vector{Int}}, sites_with_down_particle_superposition::Vector{Vector{Int}}, superposition_coefficients::Vector{<:Union{Real,Complex}})
-Compute the overlap <superposition|msum|superposition> where 
-- superposition is a superposition of Fock basis states given by sites_with_up_particle_superposition and sites_with_down_particle_superposition
-- superposition_coefficients are the coefficients of the superposition (assumed normalized)
-"""
-function overlapwithfockspinful(msum::MajoranaSum, sites_with_up_particle_superposition::Vector{Vector{Int}}, sites_with_down_particle_superposition::Vector{Vector{Int}}, superposition_coefficients::Vector{<:Union{Real,Complex}})
-    @assert length(sites_with_up_particle_superposition) == length(sites_with_down_particle_superposition) "The number of superposition states for spin-up and spin-down must be the same."
-    fock_states = []
-    for (i, up_sites_with_particle) in enumerate(sites_with_up_particle_superposition)
-        down_sites_with_particle = sites_with_down_particle_superposition[i]
-        fock_state = []
-        for up_site in up_sites_with_particle
-            push!(fock_state, 2 * up_site - 1)
-        end
-        for down_site in down_sites_with_particle
-            push!(fock_state, 2 * down_site)
-        end
-        push!(fock_states, fock_state)
-    end
-    return overlapwithfock(msum, fock_states, superposition_coefficients)
-end=#
 
 # a function to get bits=1 at specified positions
 # indices here is some sort of iterable
