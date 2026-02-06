@@ -33,6 +33,7 @@ end
 PropagationBase.storage(msum::MajoranaSum) = msum.Majoranas
 PropagationBase.nsites(msum::MajoranaSum) = msum.nsites
 majoranas(msum::MajoranaSum) = keys(msum.Majoranas)
+is_spinful(msum::MajoranaSum) = msum.is_spinful
 PropagationBase.terms(msum::MajoranaSum) = majoranas(msum)
 PropagationBase.coefficients(msum::MajoranaSum) = values(msum.Majoranas)
 
@@ -71,37 +72,37 @@ end
 import PauliPropagation.PropagationBase: add!, set!, delete!, empty!
 
 function add!(ms::MajoranaSum{TT,CT}, symbol::Symbol, sites) where {TT<:Integer,CT}
-    add!(ms, MajoranaSum(ms.nsites, symbol, sites))
+    add!(ms, MajoranaSum(nsites(ms), symbol, sites))
     return ms
 end
 
-function add!(ms::MajoranaSum{TT,CT}, ms2::MajoranaSum{TT,CT}) where {TT<:Integer,CT}
+#=function add!(ms::MajoranaSum{TT,CT}, ms2::MajoranaSum{TT,CT}) where {TT<:Integer,CT}
     mergewith!(+, ms.Majoranas, ms2.Majoranas)
     return ms
-end
+end=#
 
 
 function add!(ms::MajoranaSum{TT,CT}, ms2::MajoranaString{TT}, value::CT) where {TT<:Integer,CT}
     add!(ms, ms2.gammas, value)
 end
 
-function add!(ms::MajoranaSum, ms2_gammas::TT, value::CT) where {TT<:Integer,CT}
+#=function add!(ms::MajoranaSum, ms2_gammas::TT, value::CT) where {TT<:Integer,CT}
     if haskey(ms.Majoranas, ms2_gammas)
         ms.Majoranas[ms2_gammas] += value
     else
         ms.Majoranas[ms2_gammas] = value
     end
-end
+end=#
 
 function set!(ms::MajoranaSum{TT,CT}, ms2::MajoranaString, value::CT) where {TT<:Integer,CT}
     set!(ms, ms2.gammas, value)
     return
 end
 
-function set!(ms::MajoranaSum{TT,CT}, ms2::TT, value::CT) where {TT<:Integer,CT}
+#=function set!(ms::MajoranaSum{TT,CT}, ms2::TT, value::CT) where {TT<:Integer,CT}
     ms.Majoranas[ms2] = value
     return
-end
+end=#
 
 
 function nfermions(ms::MajoranaSum)
@@ -116,12 +117,12 @@ function nfermions(ms::MajoranaString)
     return ms.nfermions
 end
 
-function Base.delete!(ms::MajoranaSum{TT,CT}, ms2::MajoranaString{TT}) where {TT<:Integer,CT}
+#=function Base.delete!(ms::MajoranaSum{TT,CT}, ms2::MajoranaString{TT}) where {TT<:Integer,CT}
     delete!(ms.Majoranas, ms2.gammas)
-end
-function Base.delete!(ms::MajoranaSum{TT,CT}, ms2_gammas::TT) where {TT<:Integer,CT}
+end=#
+#=function Base.delete!(ms::MajoranaSum{TT,CT}, ms2_gammas::TT) where {TT<:Integer,CT}
     delete!(ms.Majoranas, ms2_gammas)
-end
+end=#
 
 function Base.pop!(ms::MajoranaSum{TT,CT}, ms2_gammas::TT) where {TT<:Integer,CT}
     return pop!(ms.Majoranas, ms2_gammas, 0.)
@@ -136,10 +137,10 @@ function Base.mergewith!(merge, msum1::MajoranaSum, msum2::MajoranaSum)
     return msum1
 end
 
-function Base.empty!(msum::MajoranaSum)
+#=function Base.empty!(msum::MajoranaSum)
     empty!(msum.Majoranas)
     return msum
-end
+end=#
 
 function Base.show(io::IO, ms::MajoranaString)
     print(io, "$(reverse(bitstring(ms.gammas)))")
@@ -170,7 +171,7 @@ function coefftype(::MajoranaSum{TT,CT}) where {TT,CT}
 end
 
 function similar(msum::MajoranaSum)
-    new_msum = MajoranaSum(coefftype(msum), msum.nsites, msum.is_spinful)
+    new_msum = MajoranaSum(coefftype(msum), nsites(msum), is_spinful(msum))
     sizehint!(new_msum.Majoranas, length(msum.Majoranas))
     return new_msum
 end
@@ -185,10 +186,10 @@ function get_weight(gammas::TT) where {TT<:Integer}
 end
 
 function Base.:(==)(ms1::MajoranaSum, ms2::MajoranaSum)
-    if ms1.nsites != ms2.nsites
+    if nsites(ms1) != nsites(ms2)
         return false
     end
-    if ms1.is_spinful != ms2.is_spinful
+    if is_spinful(ms1) != is_spinful(ms2)
         return false
     end
     return ms1.Majoranas == ms2.Majoranas

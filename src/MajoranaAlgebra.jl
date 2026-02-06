@@ -157,7 +157,7 @@ end
 function fock_mask(msum::MajoranaSum)
     clean_res = similar(msum)
     singles_filter = create_unpaired_mask(nfermions(msum))
-    for (ms, coeff) in msum.Majoranas
+    for (ms, coeff) in msum
         if compute_unpaired(ms, singles_filter) > 0
             continue
         end
@@ -166,50 +166,144 @@ function fock_mask(msum::MajoranaSum)
     return clean_res
 end
 
-function overlap_with_fock(msum::MajoranaSum, fock_state; add_pref=0.)
-    res = 0.
-    singles_mask = create_unpaired_mask(nfermions(msum))
-    for (ms, coeff) in msum.Majoranas
-        res += fockevaluate(ms, coeff, singles_mask, fock_state)
-    end
-    return res + add_pref
+"""
+    fockstate
+A struct to represent a Fock basis state.
+"""
+struct fockstate{TT<:Integer}
+    n_sites::Int
+    is_spinful::Bool
+    occupied_sites::TT
 end
 
-function fockevaluate(ms::TT, coeff, singles_mask, fock_state) where {TT<:Integer}
-    if compute_unpaired(ms, singles_mask) > 0
+"""
+    fockstate(n_sites::Int, occupied_sites_list::Vector{Int})
+Create a spinless Fock basis state given a list of occupied sites.
+"""
+function fockstate(n_sites::Int, occupied_sites_list::Vector)
+    TT = getinttype(n_sites)
+    occupied_sites = _bitonesat(TT, (2 * site -1 for site in occupied_sites_list))
+    return fockstate(n_sites, false, occupied_sites)
+end
+
+"""
+    fockstate(n_sites::Int, up_occupied_sites_list::Vector, down_occupied_sites_list::Vector)
+Create a spinful Fock basis state given a list of occupied sites for spin-up and spin-down fermions.
+"""
+function fockstate(n_sites::Int, up_occupied_sites_list::Vector, down_occupied_sites_list::Vector)
+    TT = getinttype(2 * n_sites)
+    occupied_sites_list::Vector{Int} = []
+    for site in up_occupied_sites_list
+        push!(occupied_sites_list, 2 * site - 1)
+    end
+    for site in down_occupied_sites_list
+        push!(occupied_sites_list, 2 * site)
+    end
+    sort!(occupied_sites_list)
+    occupied_sites = _bitonesat(TT, (2 * site -1 for site in occupied_sites_list))
+    return fockstate(n_sites, true, occupied_sites)
+end
+
+"""
+    overlapwithfock(msum::MajoranaSum, fock_state::fockstate)
+Compute the overlap <fock_state|msum|fock_state> where fock_state is a `fockstate` object.
+"""
+function overlapwithfock(msum::AbstractMajoranaSum, fock_state::fockstate)
+    @assert is_spinful(msum) == fock_state.is_spinful "The MajoranaSum and the fock_state must both be spinful or both spinless."
+    res = 0.
+    unpaired_mask = create_unpaired_mask(nfermions(msum))
+    for (ms, coeff) in msum
+        res += tonumber(coeff) * overlapwithfock(ms, unpaired_mask, fock_state)
+    end
+    return res
+end
+
+"""
+    overlapwithfock(msum::MajoranaSum{TT,CT}, fock_state_1::fockstate, fock_state_2::fockstate) where {TT<:Integer,CT}
+
+Evaluate the matrix element <fock_state_1|ms|fock_state_2> where fock_state_j are Fock basis states given as list of integers indicating which sites are occupied.
+"""
+function overlapwithfock(msum::MajoranaSum{TT,CT}, fock_state_1::fockstate, fock_state_2::fockstate) where {TT<:Integer,CT}
+    @assert is_spinful(msum) == fock_state_1.is_spinful == fock_state_2.is_spinful "The MajoranaSum and the fock_states must both be spinful or both spinless."
+    res = 0.
+    n_fermions = nfermions(msum)
+    for (ms, coeff) in msum
+        res += coeff * overlapwithfock(ms, fock_state_1, fock_state_2, n_fermions)
+        @show bitstring(ms), res
+    end
+    return res
+end
+
+"""
+    overlapwithfock(ms::TT, unpaired_mask::TT, fock_state::fockstate) where {TT<:Integer}
+Compute the overlap <fock_state|ms|fock_state> where fock_state is a `fockstate` object.
+"""
+function overlapwithfock(ms::TT, unpaired_mask::TT, fock_state::fockstate) where {TT<:Integer}
+    if compute_unpaired(ms, unpaired_mask) > 0
         return 0.
     end
-    num_pref = 0
-    for site in fock_state
-        num_pref += (ms >> (2 * site - 1)) & 1
-    end
-    ms_w = get_weight(ms)
-    sign = (1im)^omega_L_mult(ms) * (1im)^(ms_w / 2) * (-1)^num_pref
-    return tonumber(coeff) * sign
+    number_pref = get_weight(ms & fock_state.occupied_sites)
+    sign = (1im)^omega_L_mult(ms) * (1im)^(get_weight(ms) / 2) * (-1)^number_pref
+    return real(sign)
 end
 
-function overlap_with_fock_spinful(mslist, up_sites_with_particle, down_sites_with_particle, nsites; add_pref=0.)
-    fock_state = []
-    for up_site in up_sites_with_particle
-        push!(fock_state, 2 * up_site - 1)
-    end
-    for down_site in down_sites_with_particle
-        push!(fock_state, 2 * down_site)
-    end
-    return overlap_with_fock(mslist, fock_state; add_pref=add_pref)
-end
+"""
+    overlapwithfock(ms::TT, fock_state_1::fockstate, fock_state_2::fockstate) where {TT<:Integer}
 
-#=#general overlap by orthogonality function
-function overlapbyorthogonality(orthogonalfunc::F, msum) where {F<:Function}
-    if length(msum) == 0
-        return 0.0
-    end
-
-    val = zero(numcoefftype(msum))
-    for (mstr, coeff) in zip(terms(msum), coefficients(msum))
-        if overlapbyorthogonality(orthogonalfunc, mstr)
-            val += tonumber(coeff)
+Evaluate the matrix element <fock_state_1|ms|fock_state_2> where fock_state_j are Fock basis states given as list of integers indicating which sites are occupied.
+"""
+function overlapwithfock(ms::TT, fock_state_1::fockstate, fock_state_2::fockstate, n_fermions) where {TT<:Integer}
+    res = (1im)^omega_L_mult(ms)
+    for i = 1:n_fermions
+        gamma = ((ms >> (2 * i - 2)) & TT(1))
+        gamma_prime = ((ms >> (2 * i - 1)) & TT(1))
+        if gamma == gamma_prime
+            if (i in fock_state_2.occupied_sites) != (i in fock_state_1.occupied_sites)
+                res *= 0.
+                break
+            else
+                res *= (1im * (-1)^(i in fock_state_2.occupied_sites))^gamma
+            end
+        else
+            if (i in fock_state_2.occupied_sites) == (i in fock_state_1.occupied_sites)
+                res *= 0.
+                break
+            else
+                res *= (1im * (-1)^(i in fock_state_2.occupied_sites))^gamma_prime * (-1)^(sum((j in fock_state_1.occupied_sites) for j = min(i + 1, n_fermions):n_fermions))
+            end
         end
     end
-    return val
-end=#
+    return res
+end
+
+"""
+    overlapwithfock(msum::MajoranaSum, sites_with_particle_superposition::Vector{fockstate}, superposition_coefficients::Vector{<:Union{Real,Complex}})
+Compute the overlap <superposition|msum|superposition> where
+- superposition is given as a vector of Fock basis states `sites_with_particle_superposition`
+- superposition_coefficients are the coefficients of the superposition (assumed normalized)
+"""
+# TODO: fix, now broken 
+function overlapwithfock(msum::MajoranaSum, sites_with_particle_superposition::Vector{fockstate}, superposition_coefficients::Vector{<:Union{Real,Complex}})
+    @error "Currently non supported"
+    # check normalization
+    @assert sum(abs2, superposition_coefficients) ≈ 1. "Superposition coefficients must be normalized."
+    res = 0.
+    unpaired_mask = create_unpaired_mask(nfermions(msum))
+
+    for (ms, coeff) in msum
+        for (sites_with_particle, superposition_coefficient) in zip(sites_with_particle_superposition, superposition_coefficients)
+            res += coeff * abs(superposition_coefficient)^2 * overlapwithfock(ms, unpaired_mask, sites_with_particle)
+        end
+
+        for k1 = 1:length(sites_with_particle_superposition)
+            for k2 = k1+1:length(sites_with_particle_superposition)
+                fock1 = sites_with_particle_superposition[k1]
+                fock2 = sites_with_particle_superposition[k2]
+                superposition_coeff1 = superposition_coefficients[k1]
+                superposition_coeff2 = superposition_coefficients[k2]
+                res += 2. * real(coeff * conj(superposition_coeff1) * superposition_coeff2 * overlapwithfock(ms, fock1, fock2, nfermions(msum)))
+            end
+        end
+    end
+    return res
+end

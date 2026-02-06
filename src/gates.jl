@@ -131,7 +131,7 @@ function PropagationBase.applytoall!(gate::MajoranaRotation, prop_cache::VectorM
     n_old = prop_cache.active_size
 
     # get the Majorana string integer representation because the gate cannot be in the function when using GPU
-    gate_ms = gate.ms.gammas
+    gate_ms = gate.ms_int
 
     # flag terms that anticommute with the gate
     anticommutesfunc(trm) = !commutes(trm, gate_ms)
