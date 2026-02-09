@@ -51,19 +51,22 @@ function PropagationBase.truncate!(
     prop_cache::AbstractMajoranaPropagationCache;
     max_weight::Real=Inf, min_abs_coeff=1e-10, max_unpaired::Real=Inf,
     max_freq::Real=Inf, max_sins::Real=Inf,
+    unpaired_mask=nothing,
     customtruncfunc=nothing,
     kwargs...
 )
-    unpaired_mask = create_unpaired_mask(nfermions(mainsum(prop_cache)))
+    if isnothing(unpaired_mask)
+        unpaired_mask = create_unpaired_mask(nfermions(mainsum(prop_cache)))
+    end
     function truncfunc(mstr, coeff)
         # slight customization of the truncation function 
         # to truncate majorana weight and single
         is_truncated = false
-        if truncatemajoranaweight(mstr, max_weight)
+        if PauliPropagation.truncatemincoeff(coeff, min_abs_coeff)
             is_truncated = true
         elseif truncateunpaired(mstr, max_unpaired, unpaired_mask)
             is_truncated = true
-        elseif PauliPropagation.truncatemincoeff(coeff, min_abs_coeff)
+        elseif truncatemajoranaweight(mstr, max_weight)
             is_truncated = true
         elseif PauliPropagation.truncatefrequency(coeff, max_freq)
             is_truncated = true

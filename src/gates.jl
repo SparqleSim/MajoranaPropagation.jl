@@ -95,9 +95,12 @@ function PropagationBase.applytoall!(gate::MajoranaRotation, prop_cache::Majoran
     return
 end
 
-function PropagationBase.applymergetruncate!(gate::FermionicGate, prop_cache::AbstractMajoranaPropagationCache, theta; kwargs...)
+function PropagationBase.applymergetruncate!(gate::FermionicGate, prop_cache::AbstractMajoranaPropagationCache, theta; truncate_each_mr=nothing, kwargs...)
     # get the Majorana strings and coefficients corresponding to the fermionic gate
     ms_rotations, coeffs, truncate_after_each_majrot = getmajoranarotations(gate, nsites(prop_cache))
+    if !isnothing(truncate_each_mr)
+        truncate_after_each_majrot = truncate_each_mr
+    end
 
     # iterate over individual Majorana rotations and apply them to the Majorana sum
     for (gate_ms, coeff) in zip(ms_rotations, coeffs)

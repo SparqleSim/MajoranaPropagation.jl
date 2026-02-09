@@ -76,34 +76,14 @@ function add!(ms::MajoranaSum{TT,CT}, symbol::Symbol, sites) where {TT<:Integer,
     return ms
 end
 
-#=function add!(ms::MajoranaSum{TT,CT}, ms2::MajoranaSum{TT,CT}) where {TT<:Integer,CT}
-    mergewith!(+, ms.Majoranas, ms2.Majoranas)
-    return ms
-end=#
-
-
 function add!(ms::MajoranaSum{TT,CT}, ms2::MajoranaString{TT}, value::CT) where {TT<:Integer,CT}
     add!(ms, ms2.gammas, value)
 end
 
-#=function add!(ms::MajoranaSum, ms2_gammas::TT, value::CT) where {TT<:Integer,CT}
-    if haskey(ms.Majoranas, ms2_gammas)
-        ms.Majoranas[ms2_gammas] += value
-    else
-        ms.Majoranas[ms2_gammas] = value
-    end
-end=#
-
-function set!(ms::MajoranaSum{TT,CT}, ms2::MajoranaString, value::CT) where {TT<:Integer,CT}
+function set!(ms::MajoranaSum{TT,CT}, ms2::MajoranaString{TT}, value::CT) where {TT<:Integer,CT}
     set!(ms, ms2.gammas, value)
     return
 end
-
-#=function set!(ms::MajoranaSum{TT,CT}, ms2::TT, value::CT) where {TT<:Integer,CT}
-    ms.Majoranas[ms2] = value
-    return
-end=#
-
 
 function nfermions(ms::MajoranaSum)
     if ms.is_spinful
@@ -117,13 +97,6 @@ function nfermions(ms::MajoranaString)
     return ms.nfermions
 end
 
-#=function Base.delete!(ms::MajoranaSum{TT,CT}, ms2::MajoranaString{TT}) where {TT<:Integer,CT}
-    delete!(ms.Majoranas, ms2.gammas)
-end=#
-#=function Base.delete!(ms::MajoranaSum{TT,CT}, ms2_gammas::TT) where {TT<:Integer,CT}
-    delete!(ms.Majoranas, ms2_gammas)
-end=#
-
 function Base.pop!(ms::MajoranaSum{TT,CT}, ms2_gammas::TT) where {TT<:Integer,CT}
     return pop!(ms.Majoranas, ms2_gammas, 0.)
 end
@@ -136,11 +109,6 @@ function Base.mergewith!(merge, msum1::MajoranaSum, msum2::MajoranaSum)
     mergewith!(merge, msum1.Majoranas, msum2.Majoranas)
     return msum1
 end
-
-#=function Base.empty!(msum::MajoranaSum)
-    empty!(msum.Majoranas)
-    return msum
-end=#
 
 function Base.show(io::IO, ms::MajoranaString)
     print(io, "$(reverse(bitstring(ms.gammas)))")
@@ -175,8 +143,6 @@ function similar(msum::MajoranaSum)
     sizehint!(new_msum.Majoranas, length(msum.Majoranas))
     return new_msum
 end
-
-Base.iterate(msum::MajoranaSum, state=1) = iterate(msum.Majoranas, state)
 
 function get_weight(ms::MajoranaString)
     return get_weight(ms.gammas)

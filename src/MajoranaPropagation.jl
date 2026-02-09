@@ -9,13 +9,10 @@ export
     MajoranaSum,
     MajoranaString,
     nfermions,
-    #set!,
     length,
     get_weight,
     coefftype,
     similar,
-    #iterate,
-    #add!,
     VectorMajoranaSum,
     storage,
     resize!
@@ -42,6 +39,11 @@ export
     getnewmajoranastring,
     MajoranaRotation,
     countparameters,
+    propagate,
+    propagate!
+
+include("propagation.jl")
+export
     propagate,
     propagate!
 
