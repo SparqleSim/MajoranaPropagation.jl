@@ -99,7 +99,7 @@ function Base.:(*)(msum1::MajoranaSum{TT,CT1}, msum2::MajoranaSum{TT,CT2}) where
     return res
 end
 
-function Base.:(*)(coeff::CT, msum::MajoranaSum{TT,CT}) where {TT<:Integer,CT}
+function Base.:(*)(coeff::Number, msum::MajoranaSum{TT,CT}) where {TT<:Integer,CT}
     res = similar(msum)
     for (ms1, coeff1) in zip(terms(msum), coefficients(msum))
         set!(res, ms1, coeff * coeff1)

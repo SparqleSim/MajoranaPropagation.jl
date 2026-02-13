@@ -115,8 +115,8 @@ function Base.show(io::IO, ms::MajoranaString)
 end
 
 function Base.show(io::IO, ms::MajoranaSum)
-    max_display = 8
-    print(io, "MajoranaSum with $(length(ms)) term(s):(")
+    max_display = 20
+    print(io, "MajoranaSum with $(length(ms)) terms:")
     for (i, (mstring, coeff)) in enumerate(ms.Majoranas)
         if i <= max_display
             print(io, "\n")
@@ -126,7 +126,6 @@ function Base.show(io::IO, ms::MajoranaSum)
             break
         end
     end
-    print(io, ")")
 end
 
 
