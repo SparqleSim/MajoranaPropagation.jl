@@ -169,6 +169,7 @@ function _applymajoranarotation!(prop_cache::VectorMajoranaPropagationCache, gat
     # pre-compute the sine and cosine values because they are used for every Majorana string that does not commute with the gate
     cos_val = cos(theta)
     sin_val = sin(theta)
+    n_fremions = nfermions(prop_cache)
 
     n = activesize(prop_cache)
     n_max = n + lastactiveindex(prop_cache)
@@ -192,7 +193,7 @@ function _applymajoranarotation!(prop_cache::VectorMajoranaPropagationCache, gat
             coeff = coeffs[ii]
 
             coeff1 = coeff * cos_val
-            sign, new_term = ms_mult(gate_ms, term, nsites(prop_cache))
+            sign, new_term = ms_mult(gate_ms, term, n_fremions)
             coeff2 = coeff * sin_val * real((-1im) * sign)
 
             coeffs[ii] = coeff1

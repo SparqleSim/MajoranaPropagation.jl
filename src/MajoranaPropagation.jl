@@ -30,7 +30,8 @@ export
     omega_L_mult
 
 include("propagationcache.jl")
-export MajoranaPropagationCache
+export
+    MajoranaPropagationCache
 
 include("gates.jl")
 export
