@@ -31,7 +31,8 @@ export
 
 include("propagationcache.jl")
 export
-    MajoranaPropagationCache
+    MajoranaPropagationCache,
+    nfermions
 
 include("gates.jl")
 export

@@ -219,7 +219,7 @@ function overlapwithfock(msum::AbstractMajoranaSum, fock_state::fockstate)
     @assert is_spinful(msum) == fock_state.is_spinful "The MajoranaSum and the fock_state must both be spinful or both spinless."
     res = 0.
     unpaired_mask = create_unpaired_mask(nfermions(msum))
-    for (ms, coeff) in zip(terms(msum), coefficients(msum))
+    for (ms, coeff) in zip(majoranas(msum), coefficients(msum))
         res += tonumber(coeff) * overlapwithfock(ms, unpaired_mask, fock_state)
     end
     return res

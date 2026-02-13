@@ -9,7 +9,6 @@ MajoranaPropagationCache(msum::MS) where {MS<:AbstractMajoranaSum} = MajoranaPro
 PropagationBase.PropagationCache(msum::MS) where {MS<:AbstractMajoranaSum} = MajoranaPropagationCache(msum)
 
 PropagationBase.nsites(prop_cache::MajoranaPropagationCache) = nsites(mainsum(prop_cache))
-nfermions(prop_cache::AbstractMajoranaPropagationCache) = nfermions(mainsum(prop_cache))
 majoranas(prop_cache::MajoranaPropagationCache) = majoranas(mainsum(prop_cache))
 PropagationBase.terms(prop_cache::MajoranaPropagationCache) = majoranas(prop_cache)
 PropagationBase.coefficients(prop_cache::MajoranaPropagationCache) = coefficients(mainsum(prop_cache))
@@ -50,6 +49,7 @@ end
 
 PropagationBase.mainsum(vprop_cache::VectorMajoranaPropagationCache) = vprop_cache.main_msum
 PropagationBase.auxsum(vprop_cache::VectorMajoranaPropagationCache) = vprop_cache.aux_msum
+nfermions(prop_cache::VectorMajoranaPropagationCache) = nfermions(mainsum(prop_cache))
 
 function VectorMajoranaPropagationCache(msum::MajoranaSum)
     return VectorMajoranaPropagationCache(VectorMajoranaSum(msum))
