@@ -49,14 +49,6 @@ export
     propagate,
     propagate!
 
-include("truncations.jl")
-export
-    create_unpaired_mask,
-    create_doublons_filters,
-    compute_unpaired,
-    compute_doublons,
-    truncatemajoranaweight
-
 include("circuits.jl")
 export
     hubbard_circ_fermionic_sites,
@@ -74,12 +66,17 @@ export
 include("Constructors.jl")
 include("intial_states.jl")
 
-include("multidict.jl")
+include("multidict/MultiDict.jl")
 export
     MajoranaSumMulti,
-    propagate!,
     show_stats,
-    applymergetruncate!,
-    mergeandempty!,
-    applytoall!
+    MajoranaMultiPropagationCache
+
+include("truncations.jl")
+export
+    create_unpaired_mask,
+    create_doublons_filters,
+    compute_unpaired,
+    compute_doublons,
+    truncatemajoranaweight
 end
