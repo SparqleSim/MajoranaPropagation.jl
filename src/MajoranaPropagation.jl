@@ -1,56 +1,61 @@
 module MajoranaPropagation
 
 using PauliPropagation
-#using ThreadPools
-using Base.Threads
-import PauliPropagation: set!, coefftype, countparameters, similar, propagate!, applytoall!, applymergetruncate!, checktruncationonall!, mergeandempty!, wrapcoefficients, truncatemincoeff, truncatefrequency, truncatesins, _checkfreqandsinfields, _checkcircandthetas, _promotecircandthetas
+using PauliPropagation.PropagationBase
+import PauliPropagation.PropagationBase: propagate, propagate!
 
-include("MajoranaAlgebra.jl")
+include("MajoranaDataTypes.jl")
 export
     MajoranaSum,
     MajoranaString,
     nfermions,
-    set!,
     length,
     get_weight,
     coefftype,
     similar,
-    iterate,
-    fock_filter,
-    overlap_with_fock,
-    overlap_with_fock_spinful,
-    getinttype,
+    VectorMajoranaSum,
+    storage,
+    resize!
+
+include("MajoranaAlgebra.jl")
+export
+    fock_mask,
+    fockstate,
+    overlapwithfock,
     ms_mult,
-    add!,
-    pop_id!,
     commutator,
     commutes,
     norm,
     omega_mult,
     omega_L_mult
 
-include("truncations.jl")
+include("propagationcache.jl")
 export
-    checktruncationonall!,
-    create_max_single_filter,
-    create_doublons_filters,
-    compute_max_single,
-    compute_doublons,
-    truncatemajoranaweight,
-    checktruncationonall!
+    MajoranaPropagationCache,
+    nfermions
 
 include("gates.jl")
 export
     MajoranaRotation,
     FermionicGate,
-    applytoall!,
     getnewmajoranastring,
     MajoranaRotation,
     countparameters,
-    applymergetruncate!,
-    mergeandempty!,
-    empty!
+    propagate,
+    propagate!
 
+include("propagation.jl")
+export
+    propagate,
+    propagate!
+
+include("truncations.jl")
+export
+    create_unpaired_mask,
+    create_doublons_filters,
+    compute_unpaired,
+    compute_doublons,
+    truncatemajoranaweight
 
 include("circuits.jl")
 export
@@ -67,10 +72,11 @@ export
     reset_tracker!
 
 include("Constructors.jl")
+include("intial_states.jl")
 
 include("multidict.jl")
 export
-    MajoranaSumMulti, 
+    MajoranaSumMulti,
     propagate!,
     show_stats,
     applymergetruncate!,
