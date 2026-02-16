@@ -25,14 +25,14 @@ end
 
 
 let 
-    nx = 6 
-    ny = 6
+    nx = 7 
+    ny = 7
     nspinful = nx * ny 
     topo = rectangletopology(nx, ny)
     #nspinful = 40
     #topo = bricklayertopology(nspinful)
 
-    U = 4.
+    U = 8.
     t = 1.
     dt = 0.06 
 
@@ -70,43 +70,41 @@ let
     end
 
     msum = MajoranaSum(nspinful, :nupndn, 3) #* MajoranaSum(nspinful, :nupndn, 5)
-    @show msum 
-    id_val = pop_id!(msum)
+    id_val = MajoranaPropagation.pop_id!(msum)
     multi_msum = MajoranaSumMulti(msum)
+    vec_msum = VectorMajoranaSum(msum)
 
     @show multi_msum.MultiMajoranas
 
     min_abs_coeff = 5.e-7
-    max_single_filter = create_max_single_filter(2 * nspinful)
     max_singles = 8
-
-    if max_singles < Inf 
-        custom_trunc = let max_single_filter=max_single_filter, max_singles = max_singles
-            (mstr, coeff) -> (compute_max_single(mstr, 0, max_single_filter) > max_singles)
-        end
-    else
-        custom_trunc = nothing
-    end
 
     n_reps = 10
 
     times_multi = zeros(n_reps)
     times_normal = zeros(n_reps)
+    times_vec = zeros(n_reps)
     lengths_multi = zeros(n_reps)
     lengths_normal = zeros(n_reps)
+    lengths_vec = zeros(n_reps)
 
     for k = 1:n_reps
         println("---$(k)---")
         # multisum 
-        times_multi[k] = @elapsed  propagate!(circ_single, multi_msum, thetas_single; min_abs_coeff=min_abs_coeff, customtruncfunc=custom_trunc)
+        times_multi[k] = @elapsed propagate!(circ_single, multi_msum, thetas_single; min_abs_coeff=min_abs_coeff, max_unpaired=max_singles)
         println("time multi: $(print_time(times_multi[k]))")
         #println(gfhj)
         #normal mode 
-        times_normal[k] = @elapsed  propagate!(circ_single, msum, thetas_single; min_abs_coeff=min_abs_coeff, customtruncfunc=custom_trunc)
+        times_normal[k] = @elapsed propagate!(circ_single, msum, thetas_single; min_abs_coeff=min_abs_coeff, max_unpaired=max_singles)
         println("time normal: $(print_time(times_normal[k]))")
+
+        times_vec[k] = @elapsed vec_msum = propagate!(circ_single, vec_msum, thetas_single; min_abs_coeff=min_abs_coeff, max_unpaired=max_singles)
+        println("time vec: $(print_time(times_vec[k]))")
+
         show_stats(multi_msum)
         #@show length(multi_msum)
         @show length(msum)
+        @show length(vec_msum)
         lengths_multi[k] = length(multi_msum)
         lengths_normal[k] = length(msum)
     end
