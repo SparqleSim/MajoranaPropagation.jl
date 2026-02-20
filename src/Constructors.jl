@@ -1,7 +1,7 @@
 function order_sites(site_indices)
     sorted_indices = sort(site_indices)
     if sorted_indices != site_indices
-        println("Warning: indices were not passed in ascending order")
+        #println("Warning: indices were not passed in ascending order")
         return sorted_indices
     end
     return site_indices
@@ -159,6 +159,30 @@ function MajoranaSum(n_sites::Integer, ::Val{:hopdn}, sites)
     site1, site2 = order_sites(_tovec(sites))
     term1 = _bitonesat(TT, (4 * site1 - 1, 4 * site2))
     term2 = _bitonesat(TT, (4 * site1, 4 * site2 - 1))
+    obs = MajoranaSum{TT,Float64}(n_sites, is_spinful, Dict(term1 => 0.5, term2 => -0.5))
+    return obs
+end
+
+# onsite hopping operator
+function MajoranaSum(n_sites::Integer, ::Val{:hop_on_site}, site)
+    TT = getinttype(2 * n_sites)
+    is_spinful = true
+    site = _tonum(site)
+    term1 = _bitonesat(TT, (4 * site - 3, 4 * site))
+    term2 = _bitonesat(TT, (4 * site - 2, 4 * site - 1))
+    obs = MajoranaSum{TT,Float64}(n_sites, is_spinful, Dict(term1 => 0.5, term2 => -0.5))
+    return obs
+end
+
+# up-down hopping operator
+# up: site[1]
+# down: site[2]
+function MajoranaSum(n_sites::Integer, ::Val{:hopupdn}, sites)
+    TT = getinttype(2 * n_sites)
+    is_spinful = true
+    site1, site2 = _tovec(sites) # here it's important to not order the sites, since they refer to different spins
+    term1 = _bitonesat(TT, (4 * site1 - 3, 4 * site2))
+    term2 = _bitonesat(TT, (4 * site1 - 2, 4 * site2 - 1))
     obs = MajoranaSum{TT,Float64}(n_sites, is_spinful, Dict(term1 => 0.5, term2 => -0.5))
     return obs
 end

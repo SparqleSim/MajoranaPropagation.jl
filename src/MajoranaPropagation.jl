@@ -68,4 +68,7 @@ export
     reset_tracker!
 
 include("Constructors.jl")
+
+include("QuantumChemistry/QuantumChemistry.jl")
+using .QuantumChemistry
 end

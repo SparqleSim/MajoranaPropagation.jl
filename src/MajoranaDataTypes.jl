@@ -70,36 +70,41 @@ end
 
 import PauliPropagation.PropagationBase: add!, set!, delete!, empty!
 
-function add!(ms::MajoranaSum{TT,CT}, symbol::Symbol, sites) where {TT<:Integer,CT}
-    add!(ms, MajoranaSum(ms.nsites, symbol, sites))
-    return ms
+function add!(msum::MajoranaSum{TT,CT}, symbol::Symbol, sites) where {TT<:Integer,CT}
+    add!(msum, MajoranaSum(msum.nsites, symbol, sites))
+    return msum
 end
 
-function add!(ms::MajoranaSum{TT,CT}, ms2::MajoranaSum{TT,CT}) where {TT<:Integer,CT}
-    mergewith!(+, ms.Majoranas, ms2.Majoranas)
-    return ms
+function add!(msum::MajoranaSum{TT,CT}, symbol::Symbol, sites, coeff) where {TT<:Integer,CT}
+    add!(msum, coeff * MajoranaSum(msum.nsites, symbol, sites))
+    return msum
+end
+
+function add!(msum::MajoranaSum{TT,CT}, ms2::MajoranaSum{TT,CT}) where {TT<:Integer,CT}
+    mergewith!(+, msum.Majoranas, ms2.Majoranas)
+    return msum
 end
 
 
-function add!(ms::MajoranaSum{TT,CT}, ms2::MajoranaString{TT}, value::CT) where {TT<:Integer,CT}
-    add!(ms, ms2.gammas, value)
+function add!(msum::MajoranaSum{TT,CT}, ms2::MajoranaString{TT}, value::CT) where {TT<:Integer,CT}
+    add!(msum, ms2.gammas, value)
 end
 
-function add!(ms::MajoranaSum, ms2_gammas::TT, value::CT) where {TT<:Integer,CT}
-    if haskey(ms.Majoranas, ms2_gammas)
-        ms.Majoranas[ms2_gammas] += value
+function add!(msum::MajoranaSum, ms2_gammas::TT, value::CT) where {TT<:Integer,CT}
+    if haskey(msum.Majoranas, ms2_gammas)
+        msum.Majoranas[ms2_gammas] += value
     else
-        ms.Majoranas[ms2_gammas] = value
+        msum.Majoranas[ms2_gammas] = value
     end
 end
 
-function set!(ms::MajoranaSum{TT,CT}, ms2::MajoranaString, value::CT) where {TT<:Integer,CT}
-    set!(ms, ms2.gammas, value)
+function set!(msum::MajoranaSum{TT,CT}, ms2::MajoranaString, value::CT) where {TT<:Integer,CT}
+    set!(msum, ms2.gammas, value)
     return
 end
 
-function set!(ms::MajoranaSum{TT,CT}, ms2::TT, value::CT) where {TT<:Integer,CT}
-    ms.Majoranas[ms2] = value
+function set!(msum::MajoranaSum{TT,CT}, ms2::TT, value::CT) where {TT<:Integer,CT}
+    msum.Majoranas[ms2] = value
     return
 end
 
