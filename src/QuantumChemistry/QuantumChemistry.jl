@@ -4,10 +4,10 @@ using MajoranaPropagation
 using PauliPropagation
 
 include("./Constructors.jl")
-export 
-    four_body_term,
-    two_body_term
+export
+	four_body_term,
+	two_body_term
 include("./parsers.jl")
-export 
-    parse_fcidump
+export
+	parse_fcidump
 end
