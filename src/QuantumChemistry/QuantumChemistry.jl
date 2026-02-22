@@ -5,9 +5,9 @@ using PauliPropagation
 
 include("./Constructors.jl")
 export
-	four_body_term,
-	two_body_term
+    four_body_term,
+    two_body_term
 include("./parsers.jl")
 export
-	parse_fcidump
+    parse_fcidump
 end
