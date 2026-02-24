@@ -57,32 +57,29 @@ function MajoranaSum(::Type{CT}, n_sites::Integer, is_spinful::Bool) where {CT}
 end
 
 """
-    MajoranaSum(::Type{CT}, n_sites::Integer, gammas_vector::Vector{Int}; coeff=1.) where {CT}
-Create ab spinless MajoranaSum for with `n_sites` and coefficient type `CT`
+    MajoranaSum(::Type{CT}, n_sites::Integer, gammas_vector::Vector{Int}, is_spinful::Bool; coeff=1.) where {CT}
+Create a MajoranaSum for with `n_sites` and coefficient type `CT`
 with a specific initial configuration of Majorana operators given by a list of integers indicating which Majorana operators are present
-which is indexed as index = 2 * site -1 for gamma and index = 2 * site for gamma prime.
+which is indexed as 
+    [spinless fermions]:
+        index = 2 * site -1 for gamma
+        index = 2 * site for gamma prime
+and 
+    [spinful fermions]:
+        index = 4 * site - 3 for gamma up
+        index = 4 * site - 2  for gamma prime up
+        index = 4 * site - 1 for gamma down
+        index = 4 * site for gamma prime down
 """
-function MajoranaSum(::Type{CT}, n_sites::Integer, gammas_vector::Vector{Int}; coeff=1.) where {CT}
+function MajoranaSum(::Type{CT}, n_sites::Integer, gammas_vector::Vector{Int}, is_spinful::Bool; coeff=1.) where {CT}
     coeff = CT(coeff)
-    mstring = MajoranaString(n_sites, gammas_vector)
-    return MajoranaSum(n_sites, false, Dict(mstring.gammas => coeff))
+    n_fermions = is_spinful ? 2 * n_sites : n_sites
+    mstring = MajoranaString(n_fermions, gammas_vector)
+    return MajoranaSum(n_sites, is_spinful, Dict(mstring.gammas => coeff))
 end
 
-"""
-    MajoranaSum(::Type{CT}, n_sites::Integer, gammas_vector_up::Vector{Int}, gammas_vector_dn::Vector{Int}; coeff=1.) where {CT}
-Create a spinful MajoranaSum for with `n_sites` and coefficient type `CT`
-with a specific initial configuration of Majorana operators given by two lists of integers indicating which Majorana operators are present 
-for spin-up and spin-down fermions respectively, which are indexed as 
-    index = 4 * site - 3 for gamma up
-    index = 4 * site - 2  for gamma prime up
-    index = 4 * site - 1 for gamma down
-    index = 4 * site for gamma prime down
-"""
-function MajoranaSum(::Type{CT}, n_sites::Integer, gammas_vector_up::Vector{Int}, gammas_vector_dn::Vector{Int}; coeff=1.) where {CT}
-    coeff = CT(coeff)
-    gammas_vector = vcat(2 .* gammas_vector_up .- 1, 2 .* gammas_vector_dn)
-    mstring = MajoranaString(2 * n_sites, gammas_vector)
-    return MajoranaSum(n_sites, true, Dict(mstring.gammas => coeff))
+function MajoranaSum(n_sites::Integer, gammas_vector::Vector{Int}, is_spinful::Bool; coeff=1.)
+    return MajoranaSum(Float64, n_sites, gammas_vector, is_spinful; coeff=coeff)
 end
 
 function add!(ms::MajoranaSum{TT,CT}, symbol::Symbol, sites) where {TT<:Integer,CT}
