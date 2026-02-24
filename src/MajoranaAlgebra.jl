@@ -184,26 +184,26 @@ struct fockstate{TT<:Integer}
 end
 
 """
-    fockstate(n_sites::Int, occupied_sites_list::Vector{Int})
-Create a spinless Fock basis state given a list of occupied sites.
+    fockstate(n_sites::Int, occupied_sites_iter)
+Create a spinless Fock basis state given an iterable with the occupied sites.
 """
-function fockstate(n_sites::Int, occupied_sites_list::Vector)
+function fockstate(n_sites::Int, occupied_sites_iter)
     TT = getinttype(n_sites)
-    occupied_sites = _bitonesat(TT, (2 * site -1 for site in occupied_sites_list))
+    occupied_sites = _bitonesat(TT, (2 * site -1 for site in occupied_sites_iter))
     return fockstate(n_sites, false, occupied_sites)
 end
 
 """
-    fockstate(n_sites::Int, up_occupied_sites_list::Vector, down_occupied_sites_list::Vector)
-Create a spinful Fock basis state given a list of occupied sites for spin-up and spin-down fermions.
+    fockstate(n_sites::Int, up_occupied_sites_iter, down_occupied_sites_iter)
+Create a spinful Fock basis state given an iterable with the occupied sites for spin-up and a list of occupied sites for spin-down fermions.
 """
-function fockstate(n_sites::Int, up_occupied_sites_list::Vector, down_occupied_sites_list::Vector)
+function fockstate(n_sites::Int, up_occupied_sites_iter, down_occupied_sites_iter)
     TT = getinttype(2 * n_sites)
     occupied_sites_list::Vector{Int} = []
-    for site in up_occupied_sites_list
+    for site in up_occupied_sites_iter
         push!(occupied_sites_list, 2 * site - 1)
     end
-    for site in down_occupied_sites_list
+    for site in down_occupied_sites_iter
         push!(occupied_sites_list, 2 * site)
     end
     sort!(occupied_sites_list)

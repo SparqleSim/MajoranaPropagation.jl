@@ -29,6 +29,10 @@ function FermionicGate(symbol::Symbol, site::Integer)
     return FermionicGate(symbol, [site])
 end
 
+function FermionicGate(symbol::Symbol, sites::Tuple)
+    return FermionicGate(symbol, collect(sites))
+end
+
 
 """
     getmajoranarotations(gate::FermionicGate, n_sites::Integer)

@@ -1,7 +1,7 @@
 function order_sites(site_indices)
     sorted_indices = sort(site_indices)
     if sorted_indices != site_indices
-        println("Warning: indices were not passed in ascending order")
+        #println("Warning: indices were not passed in ascending order")
         return sorted_indices
     end
     return site_indices
