@@ -1,7 +1,3 @@
-using Pkg
-Pkg.activate(".") 
-
-using Revise
 using MajoranaPropagation
 using PauliPropagation
 using Test
