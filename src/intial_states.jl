@@ -31,36 +31,3 @@ function fockstate(n_sites::Integer, ::Val{:checkerboard}, is_spinful::Bool; hol
     end
     @error "Invalid symbol for fockstate constructor."
 end
-
-# printing for fock states
-#=function Base.show(io::IO, fock_state::fockstate)
-    is_spinful = fock_state.is_spinful
-    occupied_slots = fock_state.occupied_sites
-    
-    if is_spinful
-        up_fermions::Vector{Integer} = []
-        down_fermions::Vector{Integer} = []
-        #loop over bits of occupied sites and separate up and down fermions
-        for site in 1:fock_state.n_sites
-            upbit = (occupied_slots >> (4 * site - 4)) & 1
-            downbit = (occupied_slots >> (4 * site - 2)) & 1
-            if upbit == 1
-                push!(up_fermions, site)
-            end
-            if downbit == 1
-                push!(down_fermions, site)
-            end
-        end
-
-        print(io, "Fock state with $(length(up_fermions) + length(down_fermions)) fermions at positions\n    ↑: $(join(up_fermions, ", "))\n    ↓: $(join(down_fermions, ", "))\n")
-    else
-        occupied_sites = []
-        for site in 1:fock_state.n_sites
-            bit = (occupied_slots >> (site - 1)) & 1
-            if bit == 1
-                push!(occupied_sites, site)
-            end
-        end
-        print(io, "occupied sites: ", occupied_sites)
-    end
-end=#
