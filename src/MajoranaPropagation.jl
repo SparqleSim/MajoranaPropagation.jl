@@ -23,8 +23,8 @@ export
 include("MajoranaAlgebra.jl")
 export
     fock_mask,
-    overlap_with_fock,
-    overlap_with_fock_spinful,
+    fockstate,
+    overlapwithfock,
     ms_mult,
     commutator,
     commutes,

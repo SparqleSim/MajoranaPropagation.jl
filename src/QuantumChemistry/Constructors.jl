@@ -71,5 +71,9 @@ function compute_permutatation_four_body_term(nsites, p, q, r, s)
     op_mixed *= MajoranaSum(nsites, :fdndag, q)
     op_mixed *= MajoranaSum(nsites, :fup, r)
     op_mixed *= MajoranaSum(nsites, :fdn, s)
-    return op_up + op_dn + op_mixed
+    full_op = MajoranaSum(ComplexF64, nsites, true)
+    full_op += op_up
+    full_op += op_dn
+    full_op += op_mixed
+    return full_op
 end
