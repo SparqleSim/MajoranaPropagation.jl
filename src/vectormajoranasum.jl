@@ -35,17 +35,6 @@ Check if the `VectorMajoranaSum` is defined for spinful fermions.
 """
 is_spinful(vmsum::VectorMajoranaSum) = vmsum.is_spinful
 
-""" 
-    nfermions(vmsum::VectorMajoranaSum)
-Get the number of fermions that the `VectorMajoranaSum` is defined on.
-"""
-nfermions(vmsum::VectorMajoranaSum) = is_spinful(vmsum) ? 2 * nsites(vmsum) : nsites(vmsum)
-
-majoranas(vmsum::VectorMajoranaSum) = vmsum.terms
-PropagationBase.terms(vmsum::VectorMajoranaSum) = majoranas(vmsum)
-PropagationBase.coefficients(vmsum::VectorMajoranaSum) = vmsum.coeffs
-
-
 
 Base.similar(vmsum::VectorMajoranaSum) = VectorMajoranaSum(nsites(vmsum), is_spinful(vmsum), Base.similar(vmsum.terms), Base.similar(vmsum.coeffs))
 
