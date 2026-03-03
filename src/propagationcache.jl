@@ -1,6 +1,7 @@
 abstract type AbstractMajoranaPropagationCache <: AbstractPropagationCache end
 
-PropagationBase.numcoefftype(prop_cache::AbstractMajoranaPropagationCache) = numcoefftype(mainsum(prop_cache))
+nfermions(prop_cache::AbstractMajoranaPropagationCache) = nfermions(mainsum(prop_cache))
+
 
 mutable struct MajoranaPropagationCache{MS<:AbstractMajoranaSum} <: AbstractMajoranaPropagationCache
     main_msum::MS
@@ -10,7 +11,6 @@ end
 MajoranaPropagationCache(msum::MS) where {MS<:AbstractMajoranaSum} = MajoranaPropagationCache(msum, similar(msum))
 PropagationBase.PropagationCache(msum::MS) where {MS<:AbstractMajoranaSum} = MajoranaPropagationCache(msum)
 
-PropagationBase.nsites(prop_cache::MajoranaPropagationCache) = nsites(mainsum(prop_cache))
 majoranas(prop_cache::MajoranaPropagationCache) = majoranas(mainsum(prop_cache))
 PropagationBase.terms(prop_cache::MajoranaPropagationCache) = majoranas(prop_cache)
 PropagationBase.coefficients(prop_cache::MajoranaPropagationCache) = coefficients(mainsum(prop_cache))
@@ -57,11 +57,11 @@ function VectorMajoranaPropagationCache(msum::MajoranaSum)
 end
 
 # Convert back to vector and dense sums
-# function VectorMajoranaSum(prop_cache::VectorMajoranaPropagationCache)
-#     vecmsum = deepcopy(mainsum(prop_cache))
-#     resize!(vecmsum, activesize(prop_cache))
-#     return vecmsum
-# end
+function VectorMajoranaSum(prop_cache::VectorMajoranaPropagationCache)
+    vecmsum = deepcopy(mainsum(prop_cache))
+    resize!(vecmsum, activesize(prop_cache))
+    return vecmsum
+end
 
 function MajoranaSum(prop_cache::VectorMajoranaPropagationCache)
     merge!(prop_cache)

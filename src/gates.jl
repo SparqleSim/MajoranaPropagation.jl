@@ -1,14 +1,18 @@
 
 """
-    MajoranaRotation(ms::MajoranaString{TT}) where {TT<:Integer}
+    MajoranaRotation(ms::{TT}) where {TT<:Integer}
 Basic structure to represent a Majorana rotation gate exp(-i * theta/2 * ms).
 Defined by passing a Majorana string `ms` of even weight.
 """
 struct MajoranaRotation{TT<:Integer} <: ParametrizedGate
-    ms::MajoranaString{TT}
+    ms_int::TT
     function MajoranaRotation(ms::MajoranaString{TT}) where {TT<:Integer}
         @assert get_weight(ms) % 2 == 0 # only even parity operations
-        return new{TT}(ms)
+        return new{TT}(ms.gammas)
+    end
+    function MajoranaRotation(ms_int::TT) where {TT<:Integer}
+        @assert get_weight(ms_int) % 2 == 0 # only even parity operations
+        return new{TT}(ms_int)
     end
 end
 
@@ -25,6 +29,10 @@ function FermionicGate(symbol::Symbol, site::Integer)
     return FermionicGate(symbol, [site])
 end
 
+function FermionicGate(symbol::Symbol, sites::Tuple)
+    return FermionicGate(symbol, collect(sites))
+end
+
 
 """
     getmajoranarotations(gate::FermionicGate, n_sites::Integer)
@@ -33,18 +41,22 @@ Given a `FermionicGate`, returns the Majorana rotations and coefficients corresp
 function getmajoranarotations(gate::FermionicGate, n_sites::Integer)
     # construct msum encoding the fermionic gate
     msum = MajoranaSum(n_sites, gate.symbol, gate.sites)
+    TT = getinttype(nfermions(msum))
+    truncate_after_each_majrot = !flag_non_number_preserving(gate.symbol)
 
     #remove coefficient associated to identity
     pop_id!(msum)
 
-    rotations::Vector{MajoranaRotation} = []
+    rotations::Vector{MajoranaRotation{TT}} = []
     coefficients::Vector{Float64} = []
     for (ms, coeff) in msum
-        push!(rotations, MajoranaRotation(MajoranaString(nfermions(msum), ms)))
+        push!(rotations, MajoranaRotation(ms))
         push!(coefficients, coeff)
     end
 
-    return rotations, coefficients
+    # TODO: return flag on if truncate between rotations or not
+
+    return rotations, coefficients, truncate_after_each_majrot
 end
 
 function _applycos(coeff, cos_theta)
@@ -62,7 +74,7 @@ function PropagationBase.applytoall!(gate::MajoranaRotation, prop_cache::Majoran
     cos_val = cos(theta)
     sin_val = sin(theta)
 
-    gate_int = gate.ms.gammas
+    gate_int = gate.ms_int
 
     # loop over all Majorana strings and their coefficients in the Majorana sum
     for (ms_int, coeff) in msum
@@ -87,9 +99,12 @@ function PropagationBase.applytoall!(gate::MajoranaRotation, prop_cache::Majoran
     return
 end
 
-function PropagationBase.applymergetruncate!(gate::FermionicGate, prop_cache::AbstractMajoranaPropagationCache, theta; kwargs...)
+function PropagationBase.applymergetruncate!(gate::FermionicGate, prop_cache::AbstractMajoranaPropagationCache, theta; truncate_each_mr=nothing, kwargs...)
     # get the Majorana strings and coefficients corresponding to the fermionic gate
-    ms_rotations, coeffs = getmajoranarotations(gate, nsites(prop_cache))
+    ms_rotations, coeffs, truncate_after_each_majrot = getmajoranarotations(gate, nsites(prop_cache))
+    if !isnothing(truncate_each_mr)
+        truncate_after_each_majrot = truncate_each_mr
+    end
 
     # iterate over individual Majorana rotations and apply them to the Majorana sum
     for (gate_ms, coeff) in zip(ms_rotations, coeffs)
@@ -100,6 +115,11 @@ function PropagationBase.applymergetruncate!(gate::FermionicGate, prop_cache::Ab
         merge!(prop_cache; kwargs...)
 
         # truncate after each Majorana rotation 
+        if truncate_after_each_majrot
+            truncate!(prop_cache; kwargs...)
+        end
+    end
+    if !truncate_after_each_majrot
         truncate!(prop_cache; kwargs...)
     end
 
@@ -118,7 +138,7 @@ function PropagationBase.applytoall!(gate::MajoranaRotation, prop_cache::VectorM
     n_old = prop_cache.active_size
 
     # get the Majorana string integer representation because the gate cannot be in the function when using GPU
-    gate_ms = gate.ms.gammas
+    gate_ms = gate.ms_int
 
     # flag terms that anticommute with the gate
     anticommutesfunc(trm) = !commutes(trm, gate_ms)
@@ -153,6 +173,7 @@ function _applymajoranarotation!(prop_cache::VectorMajoranaPropagationCache, gat
     # pre-compute the sine and cosine values because they are used for every Majorana string that does not commute with the gate
     cos_val = cos(theta)
     sin_val = sin(theta)
+    n_fermions = nfermions(prop_cache)
 
     n = activesize(prop_cache)
     n_max = n + lastactiveindex(prop_cache)
@@ -176,7 +197,7 @@ function _applymajoranarotation!(prop_cache::VectorMajoranaPropagationCache, gat
             coeff = coeffs[ii]
 
             coeff1 = coeff * cos_val
-            sign, new_term = ms_mult(gate_ms, term, nfermions(prop_cache))
+            sign, new_term = ms_mult(gate_ms, term, n_fermions)
             coeff2 = coeff * sin_val * real((-1im) * sign)
 
             coeffs[ii] = coeff1

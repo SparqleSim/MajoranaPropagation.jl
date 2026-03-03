@@ -1,7 +1,7 @@
 function order_sites(site_indices)
     sorted_indices = sort(site_indices)
     if sorted_indices != site_indices
-        println("Warning: indices were not passed in ascending order")
+        #println("Warning: indices were not passed in ascending order")
         return sorted_indices
     end
     return site_indices
@@ -204,3 +204,29 @@ _tovec(x) = collect(x)
 _tovec(x::Number) = [x]
 _tonum(x::Vector) = only(x)
 _tonum(x::Number) = x
+
+
+""" 
+    flag_non_number_preserving(symb::Symbol)
+Given a fermionic gate symbol, returns true if the decomposition of the gate into
+Majorana rotations would lead to an unphysical non-number-preserving operation (e.g., hoppings), false otherwise.
+This is then used to determine whether to truncate after each Majorana rotation when applying the gate.
+"""
+function flag_non_number_preserving(symb::Symbol)
+    return flag_non_number_preserving(Val(symb))
+end
+
+# default val, don't flag
+function flag_non_number_preserving(::Val{symb}) where {symb}
+    return false
+end
+#flag hoppings 
+function flag_non_number_preserving(::Val{:hop})
+    return true
+end
+function flag_non_number_preserving(::Val{:hopup})
+    return true
+end
+function flag_non_number_preserving(::Val{:hopdn})
+    return true
+end
