@@ -47,6 +47,11 @@ export
     propagate,
     propagate!
 
+include("imaginary_gates.jl")
+export
+    ImaginaryMajoranaRotation,
+    ImaginaryFermionicGate
+
 include("propagation.jl")
 export
     propagate,

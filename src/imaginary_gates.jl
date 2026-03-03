@@ -1,14 +1,18 @@
-using PauliPropagation.PropagationBase
-import PauliPropagation.PropagationBase: mainsum, auxsum
-using MajoranaPropagation: AbstractMajoranaPropagationCache, VectorMajoranaPropagationCache, AbstractMajoranaSum, majoranas
-import AcceleratedKernels
-const AK = AcceleratedKernels
+#using PauliPropagation.PropagationBase
+#import PauliPropagation.PropagationBase: mainsum, auxsum
+#using MajoranaPropagation: AbstractMajoranaPropagationCache, VectorMajoranaPropagationCache, AbstractMajoranaSum, majoranas
+#import AcceleratedKernels
+#const AK = AcceleratedKernels
 
 struct ImaginaryMajoranaRotation{TT<:Integer} <: ParametrizedGate
-    ms::MajoranaString{TT}
+    ms_int::TT
     function ImaginaryMajoranaRotation(ms::MajoranaString{TT}) where {TT<:Integer}
         @assert get_weight(ms) % 2 == 0 # only even parity operations
-        return new{TT}(ms)
+        return new{TT}(ms.gammas)
+    end
+    function ImaginaryMajoranaRotation(ms_int::TT) where {TT<:Integer}
+        @assert get_weight(ms_int) % 2 == 0 # only even parity operations
+        return new{TT}(ms_int)
     end
 end
 
@@ -22,48 +26,36 @@ function ImaginaryFermionicGate(symbol::Symbol, site::Integer)
     return ImaginaryFermionicGate(symbol, [site])
 end
 
-
-MajoranaPropagation.nfermions(prop_cache::AbstractMajoranaPropagationCache) = nfermions(mainsum(prop_cache))
-
-function PropagationBase.applymergetruncate!(gate::ImaginaryFermionicGate, prop_cache::AbstractMajoranaPropagationCache, theta; kwargs...)
+function PropagationBase.applymergetruncate!(gate::ImaginaryFermionicGate, prop_cache::AbstractMajoranaPropagationCache, theta; truncate_each_mr=nothing, kwargs...)
     # get the Majorana strings and coefficients corresponding to the fermionic gate
-    ms_rotations, coeffs = MajoranaPropagation.getmajoranarotations(gate, nsites(prop_cache))
+    ms_rotations, coeffs, truncate_after_each_majrot = getmajoranarotations(gate, nsites(prop_cache))
+    if !isnothing(truncate_each_mr)
+        truncate_after_each_majrot = truncate_each_mr
+    end
 
     # iterate over individual Majorana rotations and apply them to the Majorana sum
     for (gate_ms, coeff) in zip(ms_rotations, coeffs)
         # multiply coefficient by 2 since `::MajoranaRotation` implements exp(-i * theta/2 * mstring)
-        MajoranaPropagation.applytoall!(gate_ms, prop_cache, theta * coeff * 2.0; kwargs...)
+        applytoall!(gate_ms, prop_cache, theta * coeff * 2.0; kwargs...)
 
         # merge the auxiliary Majorana sum into the original one and empty the auxiliary one
-        MajoranaPropagation.merge!(prop_cache; kwargs...)
+        merge!(prop_cache; kwargs...)
 
         # truncate after each Majorana rotation 
-        MajoranaPropagation.truncate!(prop_cache; kwargs...)
+        if truncate_after_each_majrot
+            truncate!(prop_cache; kwargs...)
+        end
+    end
+    if !truncate_after_each_majrot
+        truncate!(prop_cache; kwargs...)
     end
 
     return prop_cache
 end
 
-function MajoranaPropagation.getmajoranarotations(gate::ImaginaryFermionicGate, n_sites::Integer)
-    # construct msum encoding the fermionic gate
-    msum = MajoranaSum(n_sites, gate.symbol, gate.sites)
-
-    #remove coefficient associated to identity
-    MajoranaPropagation.pop_id!(msum)
-
-    rotations::Vector{ImaginaryMajoranaRotation} = []
-    coefficients::Vector{Float64} = []
-    for (ms, coeff) in msum
-        push!(rotations, ImaginaryMajoranaRotation(MajoranaString(nfermions(msum), ms)))
-        push!(coefficients, coeff)
-    end
-
-    return rotations, coefficients
-end
-
 # ========== vector specializations ========== #
 
-function MajoranaPropagation.applytoall!(gate::ImaginaryMajoranaRotation, prop_cache::VectorMajoranaPropagationCache, theta; kwargs...)
+function PropagationBase.applytoall!(gate::ImaginaryMajoranaRotation, prop_cache::VectorMajoranaPropagationCache, theta; kwargs...)
 
     if prop_cache.active_size == 0
         return prop_cache
@@ -72,7 +64,7 @@ function MajoranaPropagation.applytoall!(gate::ImaginaryMajoranaRotation, prop_c
     n_old = prop_cache.active_size
 
     # get the Majorana string integer representation because the gate cannot be in the function when using GPU
-    gate_ms = gate.ms.gammas
+    gate_ms = gate.ms_int
 
     # in imaginary time we split upon commutation
     commutesfunc(trm) = MajoranaPropagation.commutes(trm, gate_ms)

@@ -54,8 +54,6 @@ function getmajoranarotations(gate::FermionicGate, n_sites::Integer)
         push!(coefficients, coeff)
     end
 
-    # TODO: return flag on if truncate between rotations or not
-
     return rotations, coefficients, truncate_after_each_majrot
 end
 
