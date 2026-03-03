@@ -85,7 +85,7 @@ function MajoranaSum(nfermions::Integer, ::Val{:nn}, sites)
     return obs
 end
 
-#pair operator 
+#pair operator
 function MajoranaSum(nfermions::Integer, ::Val{:pair}, sites)
     TT = getinttype(nfermions)
     is_spinful = false
@@ -116,6 +116,8 @@ function MajoranaSum(nfermions::Integer, ::Val{:fdag}, site)
     obs = MajoranaSum{TT,ComplexF64}(nfermions, is_spinful, Dict(term1 => 0.5 + 0.0im, term2 => -0.5im))
     return obs
 end
+
+# ========== Spinful operators ==========
 
 # ========== Spinful operators ==========
 
@@ -292,7 +294,7 @@ _tonum(x::Vector) = only(x)
 _tonum(x::Number) = x
 
 
-""" 
+"""
     flag_non_number_preserving(symb::Symbol)
 Given a fermionic gate symbol, returns true if the decomposition of the gate into
 Majorana rotations would lead to an unphysical non-number-preserving operation (e.g., hoppings), false otherwise.
@@ -306,7 +308,7 @@ end
 function flag_non_number_preserving(::Val{symb}) where {symb}
     return false
 end
-#flag hoppings 
+#flag hoppings
 function flag_non_number_preserving(::Val{:hop})
     return true
 end

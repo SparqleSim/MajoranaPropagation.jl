@@ -9,22 +9,16 @@ export
     MajoranaSum,
     MajoranaString,
     nfermions,
-    set!,
     length,
     get_weight,
     coefftype,
     similar,
-    iterate,
-    add!,
     VectorMajoranaSum,
     storage,
     resize!
 
 include("MajoranaAlgebra.jl")
 export
-    fock_mask,
-    fockstate,
-    overlapwithfock,
     ms_mult,
     commutator,
     commutes,
@@ -32,8 +26,16 @@ export
     omega_mult,
     omega_L_mult
 
+include("initial_states.jl")
+export
+fock_mask,
+    FockState,
+    overlapwithfock
+
 include("propagationcache.jl")
-export MajoranaPropagationCache
+export
+    MajoranaPropagationCache,
+    nfermions
 
 include("gates.jl")
 export
@@ -42,6 +44,11 @@ export
     getnewmajoranastring,
     MajoranaRotation,
     countparameters,
+    propagate,
+    propagate!
+
+include("propagation.jl")
+export
     propagate,
     propagate!
 

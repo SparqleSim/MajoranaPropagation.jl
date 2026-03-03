@@ -29,6 +29,10 @@ function FermionicGate(symbol::Symbol, site::Integer)
     return FermionicGate(symbol, [site])
 end
 
+function FermionicGate(symbol::Symbol, sites::Tuple)
+    return FermionicGate(symbol, collect(sites))
+end
+
 
 """
     getmajoranarotations(gate::FermionicGate, n_sites::Integer)
@@ -95,9 +99,12 @@ function PropagationBase.applytoall!(gate::MajoranaRotation, prop_cache::Majoran
     return
 end
 
-function PropagationBase.applymergetruncate!(gate::FermionicGate, prop_cache::AbstractMajoranaPropagationCache, theta; kwargs...)
+function PropagationBase.applymergetruncate!(gate::FermionicGate, prop_cache::AbstractMajoranaPropagationCache, theta; truncate_each_mr=nothing, kwargs...)
     # get the Majorana strings and coefficients corresponding to the fermionic gate
     ms_rotations, coeffs, truncate_after_each_majrot = getmajoranarotations(gate, nsites(prop_cache))
+    if !isnothing(truncate_each_mr)
+        truncate_after_each_majrot = truncate_each_mr
+    end
 
     # iterate over individual Majorana rotations and apply them to the Majorana sum
     for (gate_ms, coeff) in zip(ms_rotations, coeffs)
@@ -131,7 +138,7 @@ function PropagationBase.applytoall!(gate::MajoranaRotation, prop_cache::VectorM
     n_old = prop_cache.active_size
 
     # get the Majorana string integer representation because the gate cannot be in the function when using GPU
-    gate_ms = gate.ms.gammas
+    gate_ms = gate.ms_int
 
     # flag terms that anticommute with the gate
     anticommutesfunc(trm) = !commutes(trm, gate_ms)
@@ -166,6 +173,7 @@ function _applymajoranarotation!(prop_cache::VectorMajoranaPropagationCache, gat
     # pre-compute the sine and cosine values because they are used for every Majorana string that does not commute with the gate
     cos_val = cos(theta)
     sin_val = sin(theta)
+    n_fermions = nfermions(prop_cache)
 
     n = activesize(prop_cache)
     n_max = n + lastactiveindex(prop_cache)
@@ -189,7 +197,7 @@ function _applymajoranarotation!(prop_cache::VectorMajoranaPropagationCache, gat
             coeff = coeffs[ii]
 
             coeff1 = coeff * cos_val
-            sign, new_term = ms_mult(gate_ms, term, nsites(prop_cache))
+            sign, new_term = ms_mult(gate_ms, term, n_fermions)
             coeff2 = coeff * sin_val * real((-1im) * sign)
 
             coeffs[ii] = coeff1

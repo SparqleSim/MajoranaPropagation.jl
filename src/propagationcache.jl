@@ -1,5 +1,8 @@
 abstract type AbstractMajoranaPropagationCache <: AbstractPropagationCache end
 
+nfermions(prop_cache::AbstractMajoranaPropagationCache) = nfermions(mainsum(prop_cache))
+
+
 mutable struct MajoranaPropagationCache{MS<:AbstractMajoranaSum} <: AbstractMajoranaPropagationCache
     main_msum::MS
     aux_msum::MS
@@ -8,7 +11,6 @@ end
 MajoranaPropagationCache(msum::MS) where {MS<:AbstractMajoranaSum} = MajoranaPropagationCache(msum, similar(msum))
 PropagationBase.PropagationCache(msum::MS) where {MS<:AbstractMajoranaSum} = MajoranaPropagationCache(msum)
 
-PropagationBase.nsites(prop_cache::MajoranaPropagationCache) = nsites(mainsum(prop_cache))
 majoranas(prop_cache::MajoranaPropagationCache) = majoranas(mainsum(prop_cache))
 PropagationBase.terms(prop_cache::MajoranaPropagationCache) = majoranas(prop_cache)
 PropagationBase.coefficients(prop_cache::MajoranaPropagationCache) = coefficients(mainsum(prop_cache))
