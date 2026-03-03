@@ -112,8 +112,8 @@ end
 
 import PauliPropagation.PropagationBase: add!, set!, delete!, empty!
 
-function add!(ms::MajoranaSum{TT,CT}, symbol::Symbol, sites) where {TT<:Integer,CT}
-    add!(ms, MajoranaSum(nsites(ms), symbol, sites))
+function add!(ms::MajoranaSum{TT,CT}, symbol::Symbol, sites, coeff=1.) where {TT<:Integer,CT}
+    add!(ms, coeff * MajoranaSum(nsites(ms), symbol, sites))
     return ms
 end
 
