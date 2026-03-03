@@ -24,7 +24,8 @@ export
     commutes,
     norm,
     omega_mult,
-    omega_L_mult
+    omega_L_mult,
+    scalarproduct
 
 include("initial_states.jl")
 export

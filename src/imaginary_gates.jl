@@ -26,7 +26,39 @@ function ImaginaryFermionicGate(symbol::Symbol, site::Integer)
     return ImaginaryFermionicGate(symbol, [site])
 end
 
-function PropagationBase.applymergetruncate!(gate::ImaginaryFermionicGate, prop_cache::AbstractMajoranaPropagationCache, theta; truncate_each_mr=nothing, kwargs...)
+function PauliPropagation._toheisenberg(gate::Union{ImaginaryFermionicGate,ImaginaryMajoranaRotation}, τ)
+    throw(error("$(typeof(gate)) gates are currently not defined in the Heisenberg picture."))
+end
+
+function PauliPropagation._toschrodinger(gate::Union{ImaginaryFermionicGate,ImaginaryMajoranaRotation}, τ)
+    return gate, τ
+end
+
+"""
+    getmajoranarotations(gate::ImaginaryFermionicGate, n_sites::Integer)
+Given a `ImaginaryFermionicGate`, returns the Majorana rotations and coefficients corresponding to it.
+"""
+function getmajoranarotations(gate::ImaginaryFermionicGate, n_sites::Integer)
+    # construct msum encoding the fermionic gate
+    msum = MajoranaSum(n_sites, gate.symbol, gate.sites)
+    TT = getinttype(nfermions(msum))
+    truncate_after_each_majrot = !flag_non_number_preserving(gate.symbol)
+
+    #remove coefficient associated to identity
+    pop_id!(msum)
+
+    rotations::Vector{ImaginaryMajoranaRotation{TT}} = []
+    coefficients::Vector{Float64} = []
+    for (ms, coeff) in msum
+        push!(rotations, ImaginaryMajoranaRotation(ms))
+        push!(coefficients, coeff)
+    end
+
+    return rotations, coefficients, truncate_after_each_majrot
+end
+
+
+function PropagationBase.applymergetruncate!(gate::ImaginaryFermionicGate, prop_cache::AbstractMajoranaPropagationCache, theta; truncate_each_mr=nothing, normalize_coeffs=true, kwargs...)
     # get the Majorana strings and coefficients corresponding to the fermionic gate
     ms_rotations, coeffs, truncate_after_each_majrot = getmajoranarotations(gate, nsites(prop_cache))
     if !isnothing(truncate_each_mr)
@@ -41,6 +73,11 @@ function PropagationBase.applymergetruncate!(gate::ImaginaryFermionicGate, prop_
         # merge the auxiliary Majorana sum into the original one and empty the auxiliary one
         merge!(prop_cache; kwargs...)
 
+        # normalize coefficients to preserve state normalization
+        if normalize_coeffs
+            mult!(prop_cache, 1 / getmergedcoeff(mainsum(prop_cache), 0))
+        end
+
         # truncate after each Majorana rotation 
         if truncate_after_each_majrot
             truncate!(prop_cache; kwargs...)
@@ -51,6 +88,38 @@ function PropagationBase.applymergetruncate!(gate::ImaginaryFermionicGate, prop_
     end
 
     return prop_cache
+end
+
+function PropagationBase.applytoall!(gate::ImaginaryMajoranaRotation, prop_cache::MajoranaPropagationCache, theta; kwargs...)
+    msum = mainsum(prop_cache)
+    aux_msum = auxsum(prop_cache)
+
+    cosh_val = cosh(theta)
+    sinh_val = sinh(theta)
+
+    gate_int = gate.ms_int
+
+    # loop over all Majorana strings and their coefficients in the Majorana sum
+    for (ms_int, coeff) in msum
+        if commutes(gate_int, ms_int)
+
+            # the imaginary gate will split the Majorana string into two
+            coeff1 = coeff * cosh_val
+            sign, new_ms = ms_mult(gate_int, ms_int, nfermions(msum))
+            coeff2 = coeff * sinh_val * real(sign) # TODO: there might be a -1 missing
+
+            # set the coefficient of the original Majorana string
+            set!(msum, ms_int, coeff1)
+
+            # set the coefficient of the new Majorana string in the aux_psum
+            set!(aux_msum, new_ms, coeff2)
+        else
+            continue
+        end
+    end
+
+    return
+
 end
 
 # ========== vector specializations ========== #

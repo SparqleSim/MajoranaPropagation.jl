@@ -160,3 +160,16 @@ function commutator(msum1::MajoranaSum{TT,CT1}, msum2::MajoranaSum{TT,CT2}) wher
     end
     return res
 end
+
+function scalarproduct(msum1::AbstractMajoranaSum, msum2::AbstractMajoranaSum)
+    res = zero(eltype(coefficients(msum1)))
+    if length(msum1) > length(msum2)
+        # if msum1 has more terms than msum2, it's more efficient to loop over msum2 and check for each term if it is in msum1
+        return scalarproduct(msum2, msum1)
+    end
+    for (ms1, coeff1) in zip(terms(msum1), coefficients(msum1))
+        coeff2 = getmergedcoeff(msum2, ms1)
+        res += coeff1 * coeff2
+    end
+    return res
+end
