@@ -1,53 +1,64 @@
 module MajoranaPropagation
 
 using PauliPropagation
-import PauliPropagation: set!, coefftype, countparameters, similar, applytoall!, applymergetruncate!, checktruncationonall!, wrapcoefficients, truncatemincoeff, truncatefrequency, truncatesins
+using PauliPropagation.PropagationBase
+import PauliPropagation.PropagationBase: propagate, propagate!
 
-include("MajoranaAlgebra.jl")
+include("MajoranaDataTypes.jl")
 export
     MajoranaSum,
     MajoranaString,
     nfermions,
-    set!,
     length,
     get_weight,
     coefftype,
     similar,
-    iterate,
-    fock_filter,
-    overlap_with_fock,
-    overlap_with_fock_spinful,
-    getinttype,
+    VectorMajoranaSum,
+    storage,
+    resize!
+
+include("MajoranaAlgebra.jl")
+export
     ms_mult,
-    add!,
     commutator,
     commutes,
     norm,
     omega_mult,
     omega_L_mult
 
-include("truncations.jl")
+include("initial_states.jl")
 export
-    checktruncationonall!,
-    create_max_single_filter,
-    create_doublons_filters,
-    compute_max_single,
-    compute_doublons,
-    truncatemajoranaweight,
-    checktruncationonall!
+fock_mask,
+    FockState,
+    overlapwithfock
+
+include("propagationcache.jl")
+export
+    MajoranaPropagationCache,
+    nfermions
 
 include("gates.jl")
 export
     MajoranaRotation,
     FermionicGate,
-    applytoall!,
     getnewmajoranastring,
     MajoranaRotation,
     countparameters,
-    applymergetruncate!,
-    mergeandempty!,
-    empty!
+    propagate,
+    propagate!
 
+include("propagation.jl")
+export
+    propagate,
+    propagate!
+
+include("truncations.jl")
+export
+    create_unpaired_mask,
+    create_doublons_filters,
+    compute_unpaired,
+    compute_doublons,
+    truncatemajoranaweight
 
 include("circuits.jl")
 export
