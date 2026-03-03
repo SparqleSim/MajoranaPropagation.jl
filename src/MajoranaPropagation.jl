@@ -19,15 +19,18 @@ export
 
 include("MajoranaAlgebra.jl")
 export
-    fock_mask,
-    fockstate,
-    overlapwithfock,
     ms_mult,
     commutator,
     commutes,
     norm,
     omega_mult,
     omega_L_mult
+
+include("initial_states.jl")
+export
+fock_mask,
+    FockState,
+    overlapwithfock
 
 include("propagationcache.jl")
 export
@@ -72,5 +75,4 @@ export
     reset_tracker!
 
 include("Constructors.jl")
-include("intial_states.jl")
 end
