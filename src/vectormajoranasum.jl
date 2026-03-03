@@ -16,6 +16,10 @@ struct VectorMajoranaSum{TV,CV} <: AbstractMajoranaSum
     end
 end
 
+# empty initializer for spinless case
+VectorMajoranaSum(nsites::Int) = VectorMajoranaSum(Float64, nsites, false)
+
+# empty initializers for both spinless and spinful cases
 VectorMajoranaSum(nsites::Int, is_spinful::Bool) = VectorMajoranaSum(Float64, nsites, is_spinful)
 VectorMajoranaSum(::Type{CT}, nsites::Int, is_spinful::Bool) where {CT} = VectorMajoranaSum(nsites, is_spinful, getinttype(nsites)[], CT[])
 
