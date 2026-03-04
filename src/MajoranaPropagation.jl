@@ -24,7 +24,8 @@ export
     commutes,
     norm,
     omega_mult,
-    omega_L_mult
+    omega_L_mult,
+    scalarproduct
 
 include("initial_states.jl")
 export
@@ -46,6 +47,11 @@ export
     countparameters,
     propagate,
     propagate!
+
+include("imaginary_gates.jl")
+export
+    ImaginaryMajoranaRotation,
+    ImaginaryFermionicGate
 
 include("propagation.jl")
 export
