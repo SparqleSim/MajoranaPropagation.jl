@@ -1,7 +1,7 @@
 function order_sites(site_indices)
     sorted_indices = sort(site_indices)
     if sorted_indices != site_indices
-        println("Warning: indices were not passed in ascending order")
+        #println("Warning: indices were not passed in ascending order")
         return sorted_indices
     end
     return site_indices
@@ -85,7 +85,7 @@ function MajoranaSum(nfermions::Integer, ::Val{:nn}, sites)
     return obs
 end
 
-#pair operator 
+#pair operator
 function MajoranaSum(nfermions::Integer, ::Val{:pair}, sites)
     TT = getinttype(nfermions)
     is_spinful = false
@@ -95,6 +95,29 @@ function MajoranaSum(nfermions::Integer, ::Val{:pair}, sites)
     obs = MajoranaSum{TT,Float64}(nfermions, is_spinful, Dict(term1 => -0.5, term2 => -0.5))
     return obs
 end
+
+# annhililation operator
+function MajoranaSum(nfermions::Integer, ::Val{:f}, site)
+    TT = getinttype(nfermions)
+    is_spinful = false
+    site = _tonum(site)
+    term1 = _bitonesat(TT, (2 * site - 1))
+    term2 = _bitonesat(TT, (2 * site))
+    obs = MajoranaSum{TT,ComplexF64}(nfermions, is_spinful, Dict(term1 => 0.5 + 0.0im, term2 => 0.5im))
+    return obs
+end
+# creation operator
+function MajoranaSum(nfermions::Integer, ::Val{:fdag}, site)
+    TT = getinttype(nfermions)
+    is_spinful = false
+    site = _tonum(site)
+    term1 = _bitonesat(TT, (2 * site - 1))
+    term2 = _bitonesat(TT, (2 * site))
+    obs = MajoranaSum{TT,ComplexF64}(nfermions, is_spinful, Dict(term1 => 0.5 + 0.0im, term2 => -0.5im))
+    return obs
+end
+
+# ========== Spinful operators ==========
 
 # ========== Spinful operators ==========
 
@@ -138,6 +161,30 @@ function MajoranaSum(n_sites::Integer, ::Val{:hopdn}, sites)
     site1, site2 = order_sites(_tovec(sites))
     term1 = _bitonesat(TT, (4 * site1 - 1, 4 * site2))
     term2 = _bitonesat(TT, (4 * site1, 4 * site2 - 1))
+    obs = MajoranaSum{TT,Float64}(n_sites, is_spinful, Dict(term1 => 0.5, term2 => -0.5))
+    return obs
+end
+
+# onsite hopping operator
+function MajoranaSum(n_sites::Integer, ::Val{:hop_on_site}, site)
+    TT = getinttype(2 * n_sites)
+    is_spinful = true
+    site = _tonum(site)
+    term1 = _bitonesat(TT, (4 * site - 3, 4 * site))
+    term2 = _bitonesat(TT, (4 * site - 2, 4 * site - 1))
+    obs = MajoranaSum{TT,Float64}(n_sites, is_spinful, Dict(term1 => 0.5, term2 => -0.5))
+    return obs
+end
+
+# up-down hopping operator
+# up: site[1]
+# down: site[2]
+function MajoranaSum(n_sites::Integer, ::Val{:hopupdn}, sites)
+    TT = getinttype(2 * n_sites)
+    is_spinful = true
+    site1, site2 = _tovec(sites) # here it's important to not order the sites, since they refer to different spins
+    term1 = _bitonesat(TT, (4 * site1 - 3, 4 * site2))
+    term2 = _bitonesat(TT, (4 * site1 - 2, 4 * site2 - 1))
     obs = MajoranaSum{TT,Float64}(n_sites, is_spinful, Dict(term1 => 0.5, term2 => -0.5))
     return obs
 end
@@ -194,6 +241,47 @@ function MajoranaSum(n_sites::Integer, ::Val{:pairdn}, sites)
     return obs
 end
 
+# up annihilation operator
+function MajoranaSum(n_sites::Integer, ::Val{:fup}, site)
+    TT = getinttype(2 * n_sites)
+    is_spinful = true
+    site = _tonum(site)
+    term1 = _bitonesat(TT, (4 * site - 3))
+    term2 = _bitonesat(TT, (4 * site - 2))
+    obs = MajoranaSum{TT,ComplexF64}(n_sites, is_spinful, Dict(term1 => 0.5 + 0.0im, term2 => 0.5im))
+    return obs
+end
+# up creation operator
+function MajoranaSum(n_sites::Integer, ::Val{:fupdag}, site)
+    TT = getinttype(2 * n_sites)
+    is_spinful = true
+    site = _tonum(site)
+    term1 = _bitonesat(TT, (4 * site - 3))
+    term2 = _bitonesat(TT, (4 * site - 2))
+    obs = MajoranaSum{TT,ComplexF64}(n_sites, is_spinful, Dict(term1 => 0.5 + 0.0im, term2 => -0.5im))
+    return obs
+end
+# down annihilation operator
+function MajoranaSum(n_sites::Integer, ::Val{:fdn}, site)
+    TT = getinttype(2 * n_sites)
+    is_spinful = true
+    site = _tonum(site)
+    term1 = _bitonesat(TT, (4 * site - 1))
+    term2 = _bitonesat(TT, (4 * site))
+    obs = MajoranaSum{TT,ComplexF64}(n_sites, is_spinful, Dict(term1 => 0.5 + 0.0im, term2 => 0.5im))
+    return obs
+end
+# down creation operator
+function MajoranaSum(n_sites::Integer, ::Val{:fdndag}, site)
+    TT = getinttype(2 * n_sites)
+    is_spinful = true
+    site = _tonum(site)
+    term1 = _bitonesat(TT, (4 * site - 1))
+    term2 = _bitonesat(TT, (4 * site))
+    obs = MajoranaSum{TT,ComplexF64}(n_sites, is_spinful, Dict(term1 => 0.5 + 0.0im, term2 => -0.5im))
+    return obs
+end
+
 # undefined
 function MajoranaSum(nfermions::Integer, ::Val{symb}, sites) where {symb}
     error("Operator symbol :$symb not recognized.")
@@ -206,7 +294,7 @@ _tonum(x::Vector) = only(x)
 _tonum(x::Number) = x
 
 
-""" 
+"""
     flag_non_number_preserving(symb::Symbol)
 Given a fermionic gate symbol, returns true if the decomposition of the gate into
 Majorana rotations would lead to an unphysical non-number-preserving operation (e.g., hoppings), false otherwise.
@@ -220,7 +308,7 @@ end
 function flag_non_number_preserving(::Val{symb}) where {symb}
     return false
 end
-#flag hoppings 
+#flag hoppings
 function flag_non_number_preserving(::Val{:hop})
     return true
 end

@@ -19,15 +19,19 @@ export
 
 include("MajoranaAlgebra.jl")
 export
-    fock_mask,
-    fockstate,
-    overlapwithfock,
     ms_mult,
     commutator,
     commutes,
     norm,
     omega_mult,
-    omega_L_mult
+    omega_L_mult,
+    scalarproduct
+
+include("initial_states.jl")
+export
+fock_mask,
+    FockState,
+    overlapwithfock
 
 include("propagationcache.jl")
 export
@@ -44,10 +48,23 @@ export
     propagate,
     propagate!
 
+include("imaginary_gates.jl")
+export
+    ImaginaryMajoranaRotation,
+    ImaginaryFermionicGate
+
 include("propagation.jl")
 export
     propagate,
     propagate!
+
+include("truncations.jl")
+export
+    create_unpaired_mask,
+    create_doublons_filters,
+    compute_unpaired,
+    compute_doublons,
+    truncatemajoranaweight
 
 include("circuits.jl")
 export
@@ -64,7 +81,6 @@ export
     reset_tracker!
 
 include("Constructors.jl")
-include("intial_states.jl")
 
 include("multidict/MultiDict.jl")
 export
@@ -72,11 +88,6 @@ export
     show_stats,
     MajoranaMultiPropagationCache
 
-include("truncations.jl")
-export
-    create_unpaired_mask,
-    create_doublons_filters,
-    compute_unpaired,
-    compute_doublons,
-    truncatemajoranaweight
+include("QuantumChemistry/QuantumChemistry.jl")
+using .QuantumChemistry
 end

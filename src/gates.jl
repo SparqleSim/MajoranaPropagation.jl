@@ -29,6 +29,10 @@ function FermionicGate(symbol::Symbol, site::Integer)
     return FermionicGate(symbol, [site])
 end
 
+function FermionicGate(symbol::Symbol, sites::Tuple)
+    return FermionicGate(symbol, collect(sites))
+end
+
 
 """
     getmajoranarotations(gate::FermionicGate, n_sites::Integer)
@@ -49,8 +53,6 @@ function getmajoranarotations(gate::FermionicGate, n_sites::Integer)
         push!(rotations, MajoranaRotation(ms))
         push!(coefficients, coeff)
     end
-
-    # TODO: return flag on if truncate between rotations or not
 
     return rotations, coefficients, truncate_after_each_majrot
 end

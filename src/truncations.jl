@@ -84,7 +84,7 @@ function PropagationBase.truncate!(
 end
 
 function PropagationBase.truncate!(
-    prop_cache::MajoranaMultiPropagationCache;
+    msum::AbstractMajoranaSum;
     max_weight::Real=Inf, min_abs_coeff=1e-10, max_unpaired::Real=Inf,
     max_freq::Real=Inf, max_sins::Real=Inf,
     unpaired_mask=nothing,
@@ -92,9 +92,11 @@ function PropagationBase.truncate!(
     kwargs...
 )
     if isnothing(unpaired_mask)
-        unpaired_mask = create_unpaired_mask(nfermions(mainsum(prop_cache)))
+        unpaired_mask = create_unpaired_mask(nfermions(msum))
     end
     function truncfunc(mstr, coeff)
+        # slight customization of the truncation function 
+        # to truncate majorana weight and single
         is_truncated = false
         if PauliPropagation.truncatemincoeff(coeff, min_abs_coeff)
             is_truncated = true
@@ -112,21 +114,7 @@ function PropagationBase.truncate!(
 
         return is_truncated
     end
+    msum = truncate!(truncfunc, msum; kwargs...)
 
-    msum = mainsum(prop_cache)
-    for weight_key in collect(keys(msum.MultiMajoranas))
-        weight_dict = msum.MultiMajoranas[weight_key]
-        for ms_int in collect(keys(weight_dict))
-            if truncfunc(ms_int, weight_dict[ms_int])
-                delete!(weight_dict, ms_int)
-            end
-        end
-        if isempty(weight_dict)
-            delete!(msum.MultiMajoranas, weight_key)
-        end
-    end
-
-    setmainsum!(prop_cache, msum)
-
-    return
+    return msum
 end
