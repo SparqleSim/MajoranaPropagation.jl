@@ -79,7 +79,7 @@ let
     min_abs_coeff = 5.e-7
     max_singles = 8
 
-    n_reps = 10
+    n_reps = 6
 
     times_multi = zeros(n_reps)
     times_normal = zeros(n_reps)
