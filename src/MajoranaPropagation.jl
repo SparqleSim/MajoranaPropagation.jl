@@ -58,6 +58,18 @@ export
     propagate,
     propagate!
 
+include("Constructors.jl")
+
+include("multidict/MultiDict.jl")
+export
+    MajoranaSumMulti,
+    show_stats,
+    MajoranaMultiPropagationCache
+include("multivec/MultiVectorMajoranaSum.jl")
+export
+    MultiVectorMajoranaSum,
+    MultiVectorMajoranaPropagationCache
+
 include("truncations.jl")
 export
     create_unpaired_mask,
@@ -79,14 +91,6 @@ export
     MajoranaFrequencyTracker,
     wrapcoefficients,
     reset_tracker!
-
-include("Constructors.jl")
-
-include("multidict/MultiDict.jl")
-export
-    MajoranaSumMulti,
-    show_stats,
-    MajoranaMultiPropagationCache
 
 include("QuantumChemistry/QuantumChemistry.jl")
 using .QuantumChemistry
