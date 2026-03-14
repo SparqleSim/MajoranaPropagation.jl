@@ -74,7 +74,7 @@ let
     min_abs_coeff = 5e-7
     max_singles = 8
 
-    n_reps = 10
+    n_reps = 5
 
     times_multi = zeros(n_reps)
     times_vec = zeros(n_reps)

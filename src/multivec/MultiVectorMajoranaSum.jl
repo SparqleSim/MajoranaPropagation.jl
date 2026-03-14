@@ -184,6 +184,37 @@ end
     return start_idx, end_idx
 end
 
+mutable struct SectorThreadPool{TT<:Integer,CT}
+    ranges::Vector{UnitRange{Int}}
+    local_terms_m2::Vector{Vector{TT}}
+    local_coeffs_m2::Vector{Vector{CT}}
+    local_terms_w::Vector{Vector{TT}}
+    local_coeffs_w::Vector{Vector{CT}}
+    local_terms_p2::Vector{Vector{TT}}
+    local_coeffs_p2::Vector{Vector{CT}}
+end
+
+function _build_sector_thread_pool(::Type{TT}, ::Type{CT}, n::Int, n_chunks::Int) where {TT<:Integer,CT}
+    nch = min(max(n_chunks, 1), max(n, 1))
+    ranges = UnitRange{Int}[]
+    for chunk in 1:nch
+        s, e = _chunk_bounds(n, nch, chunk)
+        if s <= e
+            push!(ranges, s:e)
+        end
+    end
+    nworkers = length(ranges)
+    return SectorThreadPool{TT,CT}(
+        ranges,
+        [TT[] for _ in 1:nworkers],
+        [CT[] for _ in 1:nworkers],
+        [TT[] for _ in 1:nworkers],
+        [CT[] for _ in 1:nworkers],
+        [TT[] for _ in 1:nworkers],
+        [CT[] for _ in 1:nworkers],
+    )
+end
+
 function _allocate_chunks_by_size(
     sector_sizes::Vector{Int},
     max_chunks::Int;
@@ -266,43 +297,48 @@ function _applymajoranarotation!(
     n_fermions;
     merge_sector::Bool=false,
     weight_key::Int,
-    n_chunks::Int=1,
+    thread_pool::Union{Nothing,SectorThreadPool{TT,CT}}=nothing,
     kwargs...,
 ) where {TT<:Integer,CT}
     cos_val = cos(theta)
     sin_val = sin(theta)
 
     terms, coeffs = PropagationBase.storage(vms)
-    n = length(terms)
-    n_chunks = min(max(n_chunks, 1), max(n, 1))
 
-    if n_chunks == 1 || n < 2048
-        for i in eachindex(terms, coeffs)
-            ms_int = terms[i]
+    if isnothing(thread_pool)
+        @inbounds for i in eachindex(terms, coeffs)
+            term = terms[i]
             coeff = coeffs[i]
-
-            if commutes(gate_int, ms_int)
+            if commutes(gate_int, term)
                 continue
             end
-
-            coeff1 = _applycos(coeff, cos_val)
-            sign, new_ms = ms_mult(gate_int, ms_int, n_fermions)
-            coeff2 = _applysin(coeff, sin_val * real((-1im) * sign))
-
+            coeff1 = coeff * cos_val
+            sign, new_term = ms_mult(gate_int, term, n_fermions)
+            coeff2 = coeff * sin_val * real((-1im) * sign)
             coeffs[i] = coeff1
-            _push_new_term!(aux_msum, new_ms, coeff2)
+            _push_new_term!(aux_msum, new_term, coeff2)
         end
     else
-        local_terms_m2 = [TT[] for _ in 1:n_chunks]
-        local_coeffs_m2 = [CT[] for _ in 1:n_chunks]
-        local_terms_w = [TT[] for _ in 1:n_chunks]
-        local_coeffs_w = [CT[] for _ in 1:n_chunks]
-        local_terms_p2 = [TT[] for _ in 1:n_chunks]
-        local_coeffs_p2 = [CT[] for _ in 1:n_chunks]
+        ranges = thread_pool.ranges
+        local_terms_m2 = thread_pool.local_terms_m2
+        local_coeffs_m2 = thread_pool.local_coeffs_m2
+        local_terms_w = thread_pool.local_terms_w
+        local_coeffs_w = thread_pool.local_coeffs_w
+        local_terms_p2 = thread_pool.local_terms_p2
+        local_coeffs_p2 = thread_pool.local_coeffs_p2
 
-        @sync for chunk_id in 1:n_chunks
+        for chunk_id in eachindex(ranges)
+            empty!(local_terms_m2[chunk_id])
+            empty!(local_coeffs_m2[chunk_id])
+            empty!(local_terms_w[chunk_id])
+            empty!(local_coeffs_w[chunk_id])
+            empty!(local_terms_p2[chunk_id])
+            empty!(local_coeffs_p2[chunk_id])
+        end
+
+        @sync for chunk_id in eachindex(ranges)
             @spawn begin
-                start_idx, end_idx = _chunk_bounds(n, n_chunks, chunk_id)
+                range = ranges[chunk_id]
 
                 chunk_terms_m2 = local_terms_m2[chunk_id]
                 chunk_coeffs_m2 = local_coeffs_m2[chunk_id]
@@ -311,35 +347,32 @@ function _applymajoranarotation!(
                 chunk_terms_p2 = local_terms_p2[chunk_id]
                 chunk_coeffs_p2 = local_coeffs_p2[chunk_id]
 
-                for i in start_idx:end_idx
-                    ms_int = terms[i]
+                @inbounds for i in range
+                    term = terms[i]
                     coeff = coeffs[i]
-
-                    if commutes(gate_int, ms_int)
+                    if commutes(gate_int, term)
                         continue
                     end
-
-                    coeff1 = _applycos(coeff, cos_val)
-                    sign, new_ms = ms_mult(gate_int, ms_int, n_fermions)
-                    coeff2 = _applysin(coeff, sin_val * real((-1im) * sign))
-
+                    coeff1 = coeff * cos_val
+                    sign, new_term = ms_mult(gate_int, term, n_fermions)
+                    coeff2 = coeff * sin_val * real((-1im) * sign)
                     coeffs[i] = coeff1
-                    new_weight = get_weight(new_ms)
+                    new_weight = get_weight(new_term)
                     if new_weight == weight_key - 2
-                        push!(chunk_terms_m2, new_ms)
+                        push!(chunk_terms_m2, new_term)
                         push!(chunk_coeffs_m2, coeff2)
                     elseif new_weight == weight_key + 2
-                        push!(chunk_terms_p2, new_ms)
+                        push!(chunk_terms_p2, new_term)
                         push!(chunk_coeffs_p2, coeff2)
                     else
-                        push!(chunk_terms_w, new_ms)
+                        push!(chunk_terms_w, new_term)
                         push!(chunk_coeffs_w, coeff2)
                     end
                 end
             end
         end
 
-        for chunk_id in 1:n_chunks
+        for chunk_id in eachindex(ranges)
             _append_sector_terms!(aux_msum, weight_key - 2, local_terms_m2[chunk_id], local_coeffs_m2[chunk_id])
             _append_sector_terms!(aux_msum, weight_key, local_terms_w[chunk_id], local_coeffs_w[chunk_id])
             _append_sector_terms!(aux_msum, weight_key + 2, local_terms_p2[chunk_id], local_coeffs_p2[chunk_id])
@@ -359,7 +392,6 @@ function _applymajoranarotation!(
 
     return
 end
-
 
 # =========================
 # Merging logic
@@ -573,6 +605,16 @@ function PropagationBase.applytoall!(
         end
     end
 
+    sector_pools = Dict{Int,Any}()
+    for iw in large_sector_idxs
+        weight_key = msum_keys[iw]
+        vms = msum.MultiMajoranas[weight_key]
+        terms, coeffs = PropagationBase.storage(vms)
+        TT = eltype(terms)
+        CT = eltype(coeffs)
+        sector_pools[weight_key] = _build_sector_thread_pool(TT, CT, length(terms), n_chunks_per_sector[iw])
+    end
+
     @sync begin
         # One shared worker for all small sectors, processed sequentially.
         if !isempty(small_sector_idxs)
@@ -589,7 +631,7 @@ function PropagationBase.applytoall!(
                         nfermions(msum);
                         merge_sector=merge_sector,
                         weight_key=weight_key,
-                        n_chunks=1,
+                        thread_pool=nothing,
                         kwargs...,
                     )
                 end
@@ -610,7 +652,7 @@ function PropagationBase.applytoall!(
                     nfermions(msum);
                     merge_sector=merge_sector,
                     weight_key=weight_key,
-                    n_chunks=n_chunks_per_sector[iw],
+                    thread_pool=sector_pools[weight_key],
                     kwargs...,
                 )
             end
