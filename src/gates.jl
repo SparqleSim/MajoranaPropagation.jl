@@ -127,7 +127,7 @@ end
 
 # ========== vector specializations ========== #
 
-function PropagationBase.applytoall!(gate::MajoranaRotation, prop_cache::VectorMajoranaPropagationCache, theta; kwargs...)
+function PropagationBase.applytoall!(gate::MajoranaRotation, prop_cache::VectorMajoranaPropagationCache, theta; _apply_function! = _applymajoranarotation!,kwargs...)
 
     if prop_cache.active_size == 0
         return prop_cache
@@ -158,7 +158,7 @@ function PropagationBase.applytoall!(gate::MajoranaRotation, prop_cache::VectorM
     end
 
     # does the branching logic
-    _applymajoranarotation!(prop_cache, gate_ms, theta)
+    _apply_function!(prop_cache, gate_ms, theta; kwargs...)
 
     # we now have n_new possibly duplicate Majorana strings in the array
     setactivesize!(prop_cache, n_new)
@@ -166,7 +166,7 @@ function PropagationBase.applytoall!(gate::MajoranaRotation, prop_cache::VectorM
     return prop_cache
 end
 
-function _applymajoranarotation!(prop_cache::VectorMajoranaPropagationCache, gate_ms::TT, theta) where {TT}
+function _applymajoranarotation!(prop_cache::VectorMajoranaPropagationCache, gate_ms::TT, theta; kwargs...) where {TT}
 
     # pre-compute the sine and cosine values because they are used for every Majorana string that does not commute with the gate
     cos_val = cos(theta)

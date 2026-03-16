@@ -1,4 +1,5 @@
 using Base.Threads
+using ThreadPools
 
 """
     MultiVectorMajoranaSum
@@ -70,13 +71,16 @@ Create an empty `MultiVectorMajoranaSum` which has support only on the
 sectors with weights `W-2`, `W`, and `W+2`. This mirrors the behaviour
 of `similar(::MajoranaSumMulti, W)` and is used by the propagation cache.
 """
-function similar(msum::MultiVectorMajoranaSum{TT,CT}, W::Int) where {TT<:Integer,CT}
+#=function similar(msum::MultiVectorMajoranaSum{TT,CT}, W::Int) where {TT<:Integer,CT}
     multimajs = Dict{Int,VectorMajoranaSum{Vector{TT},Vector{CT}}}()
+    term_length = max(10, div(length(msum.MultiMajoranas[W]), 2)) # heuristic for preallocating vector sizes in the new sum
     for w in (W - 2, W, W + 2)
-        multimajs[w] = VectorMajoranaSum(msum.nsites, msum.is_spinful, TT[], CT[])
+        terms = Vector{TT}(undef, term_length)
+        coeffs = Vector{CT}(undef, term_length)
+        multimajs[w] = VectorMajoranaSum(msum.nsites, msum.is_spinful, terms, coeffs)
     end
     return MultiVectorMajoranaSum{TT,CT}(msum.nsites, msum.is_spinful, multimajs)
-end
+end=#
 
 """
     show_stats(msum::MultiVectorMajoranaSum)
@@ -102,27 +106,25 @@ end
 # Propagation cache
 # =========================
 
-mutable struct MultiVectorMajoranaPropagationCache{MVMS<:MultiVectorMajoranaSum} <: AbstractMajoranaPropagationCache
-    main_msum::MVMS
-    aux_msum::Dict{Integer,MVMS}
+mutable struct MultiVectorMajoranaPropagationCache{VMS<:VectorMajoranaSum,VB,VI} <: AbstractMajoranaPropagationCache
+    prop_caches::Dict{Int,VectorMajoranaPropagationCache{VMS,VB,VI}}
 end
 
-PropagationBase.mainsum(prop_cache::MultiVectorMajoranaPropagationCache) = prop_cache.main_msum
-PropagationBase.auxsum(prop_cache::MultiVectorMajoranaPropagationCache) = prop_cache.aux_msum
-nfermions(prop_cache::MultiVectorMajoranaPropagationCache) = nfermions(mainsum(prop_cache))
+prop_caches(prop_cache::MultiVectorMajoranaPropagationCache) = prop_cache.prop_caches
 
-function PropagationBase.setmainsum!(prop_cache::MultiVectorMajoranaPropagationCache, msum::MultiVectorMajoranaSum)
+#PropagationBase.mainsum(prop_cache::MultiVectorMajoranaPropagationCache) = prop_cache.main_msum_dict
+#PropagationBase.auxsum(prop_cache::MultiVectorMajoranaPropagationCache) = prop_cache.aux_msum_dict
+#nfermions(prop_cache::MultiVectorMajoranaPropagationCache) = nfermions(mainsum(prop_cache))
+
+#=function PropagationBase.setmainsum!(prop_cache::MultiVectorMajoranaPropagationCache, msum::MultiVectorMajoranaSum)
     prop_cache.main_msum = msum
     return prop_cache
 end
 
-function PropagationBase.setauxsum!(
-    prop_cache::MultiVectorMajoranaPropagationCache,
-    aux_msum::Dict{Integer,<:MultiVectorMajoranaSum},
-)
+function PropagationBase.setauxsum!(prop_cache::MultiVectorMajoranaPropagationCache, aux_msum::MultiVectorMajoranaSum)
     prop_cache.aux_msum = aux_msum
     return prop_cache
-end
+end=#
 
 """
     MultiVectorMajoranaPropagationCache(msum::MultiVectorMajoranaSum)
@@ -132,21 +134,271 @@ weight sector in the main sum we allocate an auxiliary multi-vector sum
 with support in the neighbouring weight sectors.
 """
 function MultiVectorMajoranaPropagationCache(multimsum::MultiVectorMajoranaSum{TT,CT}) where {TT<:Integer,CT}
-    all_aux_msums::Dict{Integer,MultiVectorMajoranaSum{TT,CT}} = Dict()
-    for weight_key in keys(multimsum)
-        all_aux_msums[weight_key] = similar(multimsum, weight_key)
+    prop_caches = Dict{Int,VectorMajoranaPropagationCache{VectorMajoranaSum{Vector{TT},Vector{CT}},Vector{Bool},Vector{Int}}}()
+
+    for (w, vms) in multimsum.MultiMajoranas
+        prop_caches[w] = VectorMajoranaPropagationCache(vms)
     end
-    return MultiVectorMajoranaPropagationCache(multimsum, all_aux_msums)
+    return MultiVectorMajoranaPropagationCache(prop_caches)
 end
 
 PropagationBase.PropagationCache(multimsum::MultiVectorMajoranaSum) = MultiVectorMajoranaPropagationCache(multimsum)
 
+function nsites(prop_cache::MultiVectorMajoranaPropagationCache)
+    #pd = mainsum(prop_cache)[first(keys(mainsum(prop_cache)))]
+    #@show typeof(pd)
+    #@show nsites(pd)
+    #@show is_spinful(pd)
+    #@show nfermions(pd)
+    return PropagationBase.nsites(prop_caches(prop_cache)[first(keys(prop_caches(prop_cache)))])
+end
+
 
 # =========================
-# Vector-style rotation per weight sector
+# Vector propagation
 # =========================
 
-"""
+function PropagationBase.applymergetruncate!(gate::FermionicGate, prop_cache::MultiVectorMajoranaPropagationCache, theta; truncate_each_mr=nothing, kwargs...)
+    # get the Majorana strings and coefficients corresponding to the fermionic gate
+    @show typeof(prop_cache)
+    ms_rotations, coeffs, truncate_after_each_majrot = getmajoranarotations(gate, nsites(prop_cache))
+    if !isnothing(truncate_each_mr)
+        truncate_after_each_majrot = truncate_each_mr
+    end
+
+    @show gate
+
+    # iterate over individual Majorana rotations and apply them to the Majorana sum
+    for (gate_ms, coeff) in zip(ms_rotations, coeffs)
+        # check if majorana rotation is Gaussian
+        # if yes, we can merge at the level of `applytoall!`
+        is_gaussian_rotation = _is_gaussian(gate_ms)
+
+        #@show typeof(gate_ms)
+        #@show typeof(prop_cache)
+
+        pools = assign_pools(prop_cache)
+
+        # multiply coefficient by 2 since `::MajoranaRotation` implements exp(-i * theta/2 * mstring)
+        applytoall!(gate_ms, prop_cache, theta * coeff * 2.0; is_gaussian=is_gaussian_rotation, pools, kwargs...)
+
+        # if gate is non-Gaussian, we need to merge 
+        if !is_gaussian_rotation
+            #println(fdgh)
+            merge!(prop_cache; kwargs...)
+        end
+
+        # truncate after each Majorana rotation 
+        if truncate_after_each_majrot
+            truncate!(prop_cache; kwargs...)
+        end
+    end
+    if !truncate_after_each_majrot
+        truncate!(prop_cache; kwargs...)
+    end
+
+    return prop_cache
+end
+
+
+function PropagationBase.applytoall!(gate::MajoranaRotation{TT}, prop_cache::MultiVectorMajoranaPropagationCache, theta; is_gaussian=false, pools, kwargs...) where {TT<:Integer,CT}
+    for (weight_sector, vpropcache) in prop_caches(prop_cache)
+        @show weight_sector, vpropcache.active_size
+    end
+    #=for (weight_sector, vpropcache) in prop_caches(prop_cache)
+        applytoall!(gate, vpropcache, theta; is_gaussian=is_gaussian, _apply_function! = _applymajoranarotation_vm!, pool=pools[weight_sector], kwargs...)
+        println("Applied MajoranaRotation to weight sector $weight_sector.")
+        @show vpropcache.active_size
+    end=#
+
+    @sync for (weight_sector, vpropcache) in prop_caches(prop_cache)
+        Threads.@spawn let
+            ws = weight_sector
+            cache = vpropcache
+            pool = pools[ws]
+
+            applytoall!(
+                gate,
+                cache,
+                theta;
+                is_gaussian=is_gaussian,
+                (_apply_function!)=_applymajoranarotation_vm!,
+                pool=pool,
+                kwargs...
+            )
+
+            println("Applied MajoranaRotation to weight sector $ws.")
+            @show cache.active_size
+        end
+    end
+    #println(fdgh)
+end
+
+function _applymajoranarotation_vm!(prop_cache::VectorMajoranaPropagationCache, gate_ms::TT, theta; is_gaussian=false, pool, kwargs...) where {TT}
+
+    # pre-compute the sine and cosine values because they are used for every Majorana string that does not commute with the gate
+    cos_val = cos(theta)
+    sin_val = sin(theta)
+    n_fermions = nfermions(prop_cache)
+
+    n = activesize(prop_cache)
+    n_max = n + lastactiveindex(prop_cache)
+
+    active_terms = activeterms(prop_cache)
+
+    # full-length terms so we can write new terms at the end
+    terms = majoranas(mainsum(prop_cache))
+    coeffs = coefficients(mainsum(prop_cache))
+    @assert length(terms) >= n_max "VectorMajoranaPropagationCache terms array is not large enough to hold new terms."
+    @assert length(coeffs) >= n_max "VectorMajoranaPropagationCache coeffs array is not large enough to hold new coeffs."
+
+    flags = activeflags(prop_cache)
+    indices = activeindices(prop_cache)
+
+    # branching pattern for Majorana rotations
+    tforeach(pool, eachindex(active_terms)) do ii
+        # here it anticommutes
+        if flags[ii]
+            term = terms[ii]
+            coeff = coeffs[ii]
+
+            coeff1 = coeff * cos_val
+            sign, new_term = ms_mult(gate_ms, term, n_fermions)
+            coeff2 = coeff * sin_val * real((-1im) * sign)
+
+            coeffs[ii] = coeff1
+
+            terms[n+indices[ii]] = new_term
+            coeffs[n+indices[ii]] = coeff2
+        end
+    end
+    @show is_gaussian
+
+    if is_gaussian
+        # if the gate is Gaussian, we can merge immediately after applying the gate to each sector since we know that no new weight sectors are generated
+        merge!(prop_cache; kwargs...)
+    end
+
+    return
+end
+
+
+function _is_gaussian(gate_ms::MajoranaRotation{TT}) where {TT<:Integer}
+    return get_weight(gate_ms.ms_int) == 2
+end
+
+function assign_pools(prop_cache::MultiVectorMajoranaPropagationCache)
+    max_threads = nthreads()
+    #@show max_threads
+    active_sizes = Int[]
+    weights = Int[]
+    for (weight_sector, vpropcache) in prop_caches(prop_cache)
+        push!(active_sizes, vpropcache.active_size)
+        push!(weights, weight_sector)
+    end
+    #@show active_sizes
+    #@show weights
+    sort_permutation = sortperm(active_sizes; rev=false)
+    relative_sizes = active_sizes ./ sum(active_sizes)
+    #@show relative_sizes
+
+    pools = Dict{Int,ThreadPools.StaticPool}()
+
+    first_free = 1
+
+    for i in sort_permutation
+        n_chunks = max(1, round(Int, relative_sizes[i] * 0.7 * max_threads))
+        pools[weights[i]] = ThreadPools.StaticPool(first_free:first_free+n_chunks-1)
+        first_free += n_chunks
+    end
+    return pools
+end
+
+
+function PropagationBase.truncate!(prop_cache::MultiVectorMajoranaPropagationCache; kwargs...)
+    for (weight_sector, vpropcache) in prop_caches(prop_cache)
+        truncate!(vpropcache; kwargs...)
+    end
+    return prop_cache
+end
+
+function PropagationBase.merge!(prop_cache::MultiVectorMajoranaPropagationCache; kwargs...)
+    # start from the +2 weight merges 
+    caches = prop_caches(prop_cache)
+    sorted_keys = sort(collect(keys(caches)))
+
+    for weight_key in sorted_keys
+        println("-------")
+        origin_cache = caches[weight_key]
+        if (weight_key+2) in sorted_keys 
+            destination_cache = caches[weight_key+2]
+        else
+            new_mainsum = Base.similar(mainsum(origin_cache))
+            caches[weight_key+2] = VectorMajoranaPropagationCache(new_mainsum)
+            setactivesize!(caches[weight_key+2], 0)
+            destination_cache = caches[weight_key+2]
+        end
+
+        destination_cache_size = activesize(destination_cache)
+
+        strings_to_be_moved(pstr) = (get_weight(pstr) == weight_key + 2)
+        flagterms!(strings_to_be_moved, origin_cache)
+        flagstoindices!(origin_cache)
+        n_to_be_moved = lastactiveindex(origin_cache)
+        #@show n_to_be_moved
+
+        n_new = destination_cache_size + n_to_be_moved
+        resize_factor = 2
+        if capacity(destination_cache) < n_new
+            println("Resizing destination cache for weight sector $(weight_key+2) from capacity $(capacity(destination_cache)) to $(n_new * resize_factor).")
+            resize!(destination_cache, n_new * resize_factor)
+        end
+
+        flags = activeflags(origin_cache)
+        indices = activeindices(origin_cache)
+
+        origin_active_terms = activeterms(origin_cache)
+        origin_terms = majoranas(mainsum(origin_cache))
+        origin_coeffs = coefficients(mainsum(origin_cache))
+
+        destination_terms = majoranas(mainsum(destination_cache))
+        destination_coeffs = coefficients(mainsum(destination_cache))
+
+        AK.foreachindex(origin_active_terms) do ii
+            if flags[ii]
+                term = origin_terms[ii]
+                coeff = origin_coeffs[ii]
+
+                destination_terms[destination_cache_size+indices[ii]] = term
+                destination_coeffs[destination_cache_size+indices[ii]] = coeff
+            end
+        end
+        destination_cache.active_size += n_to_be_moved
+
+        # merge destination cache to combine duplicates
+        @show destination_cache.active_size
+        merge!(destination_cache; kwargs...)
+        @show destination_cache.active_size
+
+        #cleaning origin_cache 
+        @show origin_cache.active_size, n_to_be_moved
+        origin_cache.flags .= .!(origin_cache.flags)
+        filterviaflags!(origin_cache)
+        @show origin_cache.active_size
+    end
+    println(gfhj)
+end
+
+
+
+
+
+
+
+
+
+
+#="""
     _push_new_term!(mvsum, ms_int, coeff)
 
 Helper to push a new Majorana string and coefficient into the
@@ -730,5 +982,5 @@ function PropagationBase.truncate!(
     setmainsum!(prop_cache, msum)
 
     return
-end
+end=#
 

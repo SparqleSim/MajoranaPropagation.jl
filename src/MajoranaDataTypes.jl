@@ -35,9 +35,9 @@ majoranas(msum::AbstractMajoranaSum) = terms(msum)
 """
 function nfermions(ms::AbstractMajoranaSum)
     if is_spinful(ms)
-        return 2 * nsites(ms)
+        return 2 * PropagationBase.nsites(ms)
     else
-        return nsites(ms)
+        return PropagationBase.nsites(ms)
     end
 end
 
