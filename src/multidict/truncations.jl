@@ -30,7 +30,7 @@ function PropagationBase.truncate!(
 
     msum = mainsum(prop_cache)
     weight_keys = collect(keys(msum.MultiMajoranas))
-    empty_weight_keys = [String[] for _ in 1:Threads.maxthreadid()]
+    empty_weight_keys = [Int64[] for _ in 1:Threads.maxthreadid()]
 
     Threads.@threads for i in eachindex(weight_keys)
         tid = Threads.threadid()

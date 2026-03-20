@@ -2,7 +2,7 @@
 
 mutable struct MajoranaMultiPropagationCache{MMS<:MajoranaSumMulti} <: AbstractMajoranaPropagationCache
     main_msum::MMS
-    aux_msum::Dict{String,MMS}
+    aux_msum::Dict{Int64,MMS}
 end
 
 # Overload for generality
@@ -11,10 +11,10 @@ function PropagationBase.PropagationCache(multimsum::MajoranaSumMulti)
 end
 
 function MajoranaMultiPropagationCache(multimsum::MajoranaSumMulti{TT,VC}, nlevels::Int) where {TT<:Integer,VC}
-    all_aux_msums::Dict{String,MajoranaSumMulti{TT,VC}} = Dict()
+    all_aux_msums::Dict{Int64,MajoranaSumMulti{TT,VC}} = Dict()
     #@show multimsum
     for k in keys(multimsum)
-        weight_key = _get_weight_from_key(k)
+        weight_key = _get_weight_from_key(k, nlevels)
         all_aux_msums[k] = similar(multimsum, weight_key, nlevels)
     end
     return MajoranaMultiPropagationCache(multimsum, all_aux_msums)
@@ -31,7 +31,7 @@ end
 
 function PropagationBase.setauxsum!(
     prop_cache::MajoranaMultiPropagationCache,
-    aux_msum::Dict{String,<:MajoranaSumMulti},
+    aux_msum::Dict{Int64,<:MajoranaSumMulti},
 )
     prop_cache.aux_msum = aux_msum
     return prop_cache

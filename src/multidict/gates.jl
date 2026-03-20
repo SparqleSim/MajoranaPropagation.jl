@@ -8,7 +8,7 @@ function PropagationBase.applytoall!(gate::MajoranaRotation, prop_cache::Majoran
     # Create any missing aux entries up-front to avoid concurrent writes to `aux_msum`.
     for weight_key in msum_keys
         if !haskey(aux_msum, weight_key)
-            weight_sector = _get_weight_from_key(weight_key)
+            weight_sector = _get_weight_from_key(weight_key, n_levels)
             aux_msum[weight_key] = similar(msum, weight_sector, n_levels)
         end
     end
@@ -22,6 +22,7 @@ function PropagationBase.applytoall!(gate::MajoranaRotation, prop_cache::Majoran
             gate_int,
             theta,
             nfermions(msum);
+            n_levels,
             weight_key,
             kwargs...,
         )
@@ -29,7 +30,7 @@ function PropagationBase.applytoall!(gate::MajoranaRotation, prop_cache::Majoran
     return prop_cache
 end
 
-function _applymajoranarotation!(msum_dict::Dict{TT,CT}, aux_msum::MajoranaSumMulti, gate_int, theta, n_fermions; level_mapper::Function,weight_key,unpaired_mask, kwargs...) where {TT<:Integer,CT}
+function _applymajoranarotation!(msum_dict::Dict{TT,CT}, aux_msum::MajoranaSumMulti, gate_int, theta, n_fermions; level_mapper::Function, n_levels::Int, weight_key, unpaired_mask, kwargs...) where {TT<:Integer,CT}
     cos_val = cos(theta)
     sin_val = sin(theta)
     
@@ -51,7 +52,7 @@ function _applymajoranarotation!(msum_dict::Dict{TT,CT}, aux_msum::MajoranaSumMu
         # set the coefficient of the new Pauli string in the corresponding aux_psum
         # we can set the coefficient because PauliRotations create non-overlapping new Pauli strings
         weight = get_weight(new_ms)
-        dict_key = "$weight-$(level_mapper(new_ms))"
+        dict_key = (weight - 1) * n_levels + level_mapper(new_ms)
         set!(aux_msum, dict_key, new_ms, coeff2)
     end
     return

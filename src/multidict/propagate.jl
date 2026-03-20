@@ -13,20 +13,20 @@ function _merge!(
 
     msum_weight_sectors = Set{Int}()
     for key in keys(msum.MultiMajoranas)
-        push!(msum_weight_sectors, _get_weight_from_key(key))
+        push!(msum_weight_sectors, _get_weight_from_key(key, n_levels))
     end
 
     change_weight_sector = [-2, 0, 2]
     for ΔW in change_weight_sector
         weight_sectors_vec = collect(msum_weight_sectors)
         # Thread-local storage for accumulated results
-        thread_results = [Dict{String,Dict{TT,CT}}() for _ in 1:Threads.maxthreadid()]
+        thread_results = [Dict{Int64,Dict{TT,CT}}() for _ in 1:Threads.maxthreadid()]
         
         Threads.@threads for level = 1:n_levels
             tid = Threads.threadid()
             for weight_sector in weight_sectors_vec
-                dict_key = "$weight_sector-$level"
-                ΔW_key = "$(weight_sector + ΔW)-$level"
+                dict_key = Int64((weight_sector - 1) * n_levels + level)
+                ΔW_key = Int64((weight_sector + ΔW - 1) * n_levels + level)
 
                 if !haskey(aux_msum, dict_key)
                     continue
@@ -53,13 +53,13 @@ function _merge!(
 
     for l1 = 1:n_levels
         weight_sectors_vec = collect(msum_weight_sectors)
-        thread_results = [Dict{String,Dict{TT,CT}}() for _ in 1:Threads.maxthreadid()]
+        thread_results = [Dict{Int64,Dict{TT,CT}}() for _ in 1:Threads.maxthreadid()]
         
         Threads.@threads for l2 = 1:n_levels
             tid = Threads.threadid()
             for weight_sector in weight_sectors_vec
-                dict_key = "$weight_sector-$l1"
-                Δl_key = "$weight_sector-$l2"
+                dict_key = Int64((weight_sector - 1) * n_levels + l1)
+                Δl_key = Int64((weight_sector - 1) * n_levels + l2)
 
                 if !haskey(aux_msum, dict_key)
                     continue
@@ -106,7 +106,7 @@ function _merge_single!(msum, aux_dict, dict_key)
     end
 end
 
-function _merge_single_to_dict!(target_dict::Dict{String,Dict{TT,CT}}, aux_dict::Dict{TT,CT}, dict_key::String) where {TT<:Integer,CT}
+function _merge_single_to_dict!(target_dict::Dict{Int64,Dict{TT,CT}}, aux_dict::Dict{TT,CT}, dict_key::Int64) where {TT<:Integer,CT}
     if haskey(target_dict, dict_key)
         mergewith!(+, target_dict[dict_key], aux_dict)
     else
@@ -120,8 +120,8 @@ function mergeandempty!(msums::MajoranaSumMulti{TT,CT}, aux_psum; merge_sector=t
     return mainsum(prop_cache), auxsum(prop_cache)
 end
 
-function key_new_weight_sector(key::String, delta_weight::Int)
-    weight_sector, level = _split_key(key)
+function key_new_weight_sector(key::Int64, delta_weight::Int, n_levels::Int)
+    weight_sector, level = _split_key(key, n_levels)
     new_weight_sector = weight_sector + delta_weight
-    return "$new_weight_sector-$level"
+    return ((new_weight_sector - 1) * n_levels + level)
 end

@@ -3,18 +3,18 @@ import Base: keys
 struct MajoranaSumMulti{TT<:Integer,CT} <: AbstractMajoranaSum
     nsites::Int
     is_spinful::Bool
-    MultiMajoranas::Dict{String,Dict{TT,CT}}
+    MultiMajoranas::Dict{Int64,Dict{TT,CT}}
 end
 
-function MajoranaSumMulti(msum::MajoranaSum{TT,CT}, level_mapper::Function) where {TT<:Integer,CT}
+function MajoranaSumMulti(msum::MajoranaSum{TT,CT}, level_mapper::Function, n_levels::Int) where {TT<:Integer,CT}
     nsites = msum.nsites
     is_spinful = msum.is_spinful
-    multimajs = Dict{String,Dict{TT,CT}}()
+    multimajs = Dict{Int64,Dict{TT,CT}}()
 
     for (ms_int, coeff) in msum.Majoranas
         ms_weight = get_weight(ms_int)
         ms_level = level_mapper(ms_int)
-        ms_key = "$ms_weight-$ms_level"
+        ms_key = (ms_weight - 1) * n_levels + ms_level
         if !haskey(multimajs, ms_key)
             multimajs[ms_key] = Dict{TT,CT}()
         end
@@ -33,10 +33,10 @@ function set!(msum::MajoranaSumMulti{TT,CT}, weight_key, ms_int::TT, coeff::CT) 
 end
 
 function similar(msum::MajoranaSumMulti{TT,CT}, W::Int, nlevels::Int) where {TT<:Integer,CT}
-    out_dict = Dict{String,Dict{TT,CT}}()
+    out_dict = Dict{Int64,Dict{TT,CT}}()
     for weight_key in (W - 2, W, W + 2)
         for j = 1:nlevels
-            out_dict["$weight_key-$j"] = Dict{TT,CT}()
+            out_dict[(weight_key - 1) * nlevels + j] = Dict{TT,CT}()
         end
     end
     return MajoranaSumMulti(msum.nsites, msum.is_spinful, out_dict)
@@ -111,19 +111,18 @@ function nfermions(msum::MajoranaSumMulti)
     end
 end
 
-function _split_key(key::String)
-    parts = split(key, "-")
-    weight = parse(Int, parts[1])
-    level = parts[2]
+function _split_key(key::Int64, n_levels::Int)
+    weight = div(key - 1, n_levels) + 1
+    level = mod(key - 1, n_levels) + 1
     return weight, level
 end
 
-function _get_weight_from_key(key::String)
-    return _split_key(key)[1]
+function _get_weight_from_key(key::Int64, n_levels::Int)
+    return _split_key(key, n_levels)[1]
 end
 
-function _get_level_from_key(key::String)
-    return _split_key(key)[2]
+function _get_level_from_key(key::Int64, n_levels::Int)
+    return _split_key(key, n_levels)[2]
 end
 
 

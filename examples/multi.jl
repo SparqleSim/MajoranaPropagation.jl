@@ -77,7 +77,7 @@ let
 
     msum = MajoranaSum(nspinful, :nupndn, 3) #* MajoranaSum(nspinful, :nupndn, 5)
     id_val = MajoranaPropagation.pop_id!(msum)
-    multi_msum = MajoranaSumMulti(msum, level_mapper)
+    multi_msum = MajoranaSumMulti(msum, level_mapper, n_levels)
     multi_sum_prop_cache = MajoranaMultiPropagationCache(multi_msum, n_levels)
     vec_msum = VectorMajoranaSum(msum)
 
@@ -92,21 +92,20 @@ let
     lengths_normal = zeros(n_reps)
     lengths_vec = zeros(n_reps)
 
-    to_multi = TimerOutput()
-    to_normal = TimerOutput()
-    to_vec = TimerOutput()
+    to = TimerOutput()
 
     for k = 1:n_reps
         println("---$(k)---")
         # multisum 
-        times_multi[k] = @elapsed propagate!(circ_single, multi_sum_prop_cache, thetas_single; min_abs_coeff, max_unpaired, unpaired_mask, level_mapper, n_levels, to=to_multi)
+        @timeit to "multi" times_multi[k] = @elapsed propagate!(circ_single, multi_sum_prop_cache, thetas_single; min_abs_coeff, max_unpaired, unpaired_mask, level_mapper, n_levels, to)
+        @show length(mainsum(multi_sum_prop_cache)), length(keys(mainsum(multi_sum_prop_cache)))
         println("time multi: $(print_time(times_multi[k]))")
         #println(gfhj)
         #normal mode 
-        times_normal[k] = @elapsed propagate!(circ_single, msum, thetas_single; min_abs_coeff, max_unpaired, unpaired_mask, to=to_normal)
+        @timeit to "normal"  times_normal[k] = @elapsed propagate!(circ_single, msum, thetas_single; min_abs_coeff, max_unpaired, unpaired_mask, to)
         println("time normal: $(print_time(times_normal[k]))")
 
-        times_vec[k] = @elapsed vec_msum = propagate!(circ_single, vec_msum, thetas_single; min_abs_coeff, max_unpaired, unpaired_mask, to=to_vec)
+        @timeit to "vec" times_vec[k] = @elapsed vec_msum = propagate!(circ_single, vec_msum, thetas_single; min_abs_coeff, max_unpaired, unpaired_mask, to)
         println("time vec: $(print_time(times_vec[k]))")
 
         #show_stats(multi_msum)
@@ -117,9 +116,7 @@ let
         lengths_normal[k] = length(msum)
     end
 
-    @show to_multi
-    @show to_normal
-    @show to_vec
+    @show to
     #profile 
     #@profview propagate!(circ_single, multi_msum, thetas_single; min_abs_coeff=min_abs_coeff, customtruncfunc=custom_trunc)
 
