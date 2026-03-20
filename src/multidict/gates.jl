@@ -1,32 +1,3 @@
-function PropagationBase.applymergetruncate!(gate::FermionicGate, prop_cache::MajoranaMultiPropagationCache, theta; truncate_each_mr=nothing, kwargs...)
-    # get the Majorana strings and coefficients corresponding to the fermionic gate
-    ms_rotations, coeffs, truncate_after_each_majrot = getmajoranarotations(gate, nsites(prop_cache))
-    if !isnothing(truncate_each_mr)
-        truncate_after_each_majrot = truncate_each_mr
-    end
-
-    # iterate over individual Majorana rotations and apply them to the Majorana sum
-    for (gate_ms, coeff) in zip(ms_rotations, coeffs)
-
-        # multiply coefficient by 2 since `::MajoranaRotation` implements exp(-i * theta/2 * mstring)
-        applytoall!(gate_ms, prop_cache, theta * coeff * 2.0; kwargs...)
-
-        # merge the auxiliary Majorana sum into the original one and empty the auxiliary one 
-        merge!(prop_cache; kwargs...)
-
-        # truncate after each Majorana rotation 
-        if truncate_after_each_majrot
-            truncate!(prop_cache; kwargs...)
-        end
-    end
-
-    if !truncate_after_each_majrot
-        truncate!(prop_cache; kwargs...)
-    end
-
-    return prop_cache
-end
-
 function PropagationBase.applytoall!(gate::MajoranaRotation, prop_cache::MajoranaMultiPropagationCache, theta; n_levels::Int, kwargs...)
     msum = mainsum(prop_cache)
     aux_msum = auxsum(prop_cache)
@@ -34,15 +5,17 @@ function PropagationBase.applytoall!(gate::MajoranaRotation, prop_cache::Majoran
     gate_int = gate.ms_int
 
     msum_keys = collect(keys(msum))
-    @threads for iw in eachindex(msum_keys)
-    #for iw in eachindex(msum_keys)
-        weight_key = msum_keys[iw]
-        aux_entry = get(aux_msum, weight_key, nothing)
-        if isnothing(aux_entry)
+    # Create any missing aux entries up-front to avoid concurrent writes to `aux_msum`.
+    for weight_key in msum_keys
+        if !haskey(aux_msum, weight_key)
             weight_sector = _get_weight_from_key(weight_key)
-            aux_entry = similar(msum, weight_sector, n_levels)
-            aux_msum[weight_key] = aux_entry
+            aux_msum[weight_key] = similar(msum, weight_sector, n_levels)
         end
+    end
+
+    @threads for iw in eachindex(msum_keys)
+        weight_key = msum_keys[iw]
+        aux_entry = aux_msum[weight_key]
         _applymajoranarotation!(
             msum.MultiMajoranas[weight_key],
             aux_entry,
@@ -79,19 +52,7 @@ function _applymajoranarotation!(msum_dict::Dict{TT,CT}, aux_msum::MajoranaSumMu
         # we can set the coefficient because PauliRotations create non-overlapping new Pauli strings
         weight = get_weight(new_ms)
         dict_key = "$weight-$(level_mapper(new_ms))"
-        try
-            set!(aux_msum, dict_key, new_ms, coeff2)
-        catch e
-            @show weight_key
-            @show dict_key
-            @show bitstring(ms_int)
-            @show bitstring(new_ms)
-            println("Error occurred while setting aux_msum entry for key $dict_key")
-            @show e 
-            @show collect(keys(aux_msum.MultiMajoranas))
-            @show compute_unpaired(new_ms, unpaired_mask)
-            println(hgjffghjk)
-        end
+        set!(aux_msum, dict_key, new_ms, coeff2)
     end
     return
 end

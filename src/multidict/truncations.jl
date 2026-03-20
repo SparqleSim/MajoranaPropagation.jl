@@ -29,15 +29,32 @@ function PropagationBase.truncate!(
     end
 
     msum = mainsum(prop_cache)
-    for weight_key in collect(keys(msum.MultiMajoranas))
+    weight_keys = collect(keys(msum.MultiMajoranas))
+    empty_weight_keys = [String[] for _ in 1:Threads.maxthreadid()]
+
+    Threads.@threads for i in eachindex(weight_keys)
+        tid = Threads.threadid()
+        weight_key = weight_keys[i]
         weight_dict = msum.MultiMajoranas[weight_key]
+
         for ms_int in collect(keys(weight_dict))
-            if truncfunc(ms_int, weight_dict[ms_int])
+            coeff = weight_dict[ms_int]
+            if truncfunc(ms_int, coeff)
                 delete!(weight_dict, ms_int)
             end
         end
+
         if isempty(weight_dict)
-            delete!(msum.MultiMajoranas, weight_key)
+            push!(empty_weight_keys[tid], weight_key)
+        end
+    end
+
+    # Remove empty sectors serially to avoid concurrent writes on the top-level Dict.
+    for keys_to_delete in empty_weight_keys
+        for weight_key in keys_to_delete
+            if haskey(msum.MultiMajoranas, weight_key) && isempty(msum.MultiMajoranas[weight_key])
+                delete!(msum.MultiMajoranas, weight_key)
+            end
         end
     end
 

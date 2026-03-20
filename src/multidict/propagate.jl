@@ -18,8 +18,13 @@ function _merge!(
 
     change_weight_sector = [-2, 0, 2]
     for ΔW in change_weight_sector
-        for level = 1:n_levels
-            for weight_sector in msum_weight_sectors
+        weight_sectors_vec = collect(msum_weight_sectors)
+        # Thread-local storage for accumulated results
+        thread_results = [Dict{String,Dict{TT,CT}}() for _ in 1:Threads.maxthreadid()]
+        
+        Threads.@threads for level = 1:n_levels
+            tid = Threads.threadid()
+            for weight_sector in weight_sectors_vec
                 dict_key = "$weight_sector-$level"
                 ΔW_key = "$(weight_sector + ΔW)-$level"
 
@@ -31,14 +36,28 @@ function _merge!(
                 if isempty(aux_dict)
                     continue
                 end
-                _merge_single!(msum, aux_dict, ΔW_key)
+                # Stage by reference; actual merge + clear happens serially below.
+                _merge_single_to_dict!(thread_results[tid], aux_dict, ΔW_key)
+            end
+        end
+        
+        # Merge thread results back into msum (single-threaded)
+        for tid in eachindex(thread_results)
+            for (key, val) in thread_results[tid]
+                dest = get!(msum.MultiMajoranas, key, Dict{TT,CT}())
+                mergewith!(+, dest, val)
+                empty!(val)
             end
         end
     end
 
     for l1 = 1:n_levels
-        for l2 = 1:n_levels
-            for weight_sector in msum_weight_sectors
+        weight_sectors_vec = collect(msum_weight_sectors)
+        thread_results = [Dict{String,Dict{TT,CT}}() for _ in 1:Threads.maxthreadid()]
+        
+        Threads.@threads for l2 = 1:n_levels
+            tid = Threads.threadid()
+            for weight_sector in weight_sectors_vec
                 dict_key = "$weight_sector-$l1"
                 Δl_key = "$weight_sector-$l2"
 
@@ -51,7 +70,15 @@ function _merge!(
                     continue
                 end
 
-                _merge_single!(msum, aux_dict, Δl_key)
+                _merge_single_to_dict!(thread_results[tid], aux_dict, Δl_key)
+            end
+        end
+        
+        for tid in eachindex(thread_results)
+            for (key, val) in thread_results[tid]
+                dest = get!(msum.MultiMajoranas, key, Dict{TT,CT}())
+                mergewith!(+, dest, val)
+                empty!(val)
             end
         end
     end
@@ -76,6 +103,14 @@ function _merge_single!(msum, aux_dict, dict_key)
     else
         msum.MultiMajoranas[dict_key] = copy(aux_dict)
         empty!(aux_dict)
+    end
+end
+
+function _merge_single_to_dict!(target_dict::Dict{String,Dict{TT,CT}}, aux_dict::Dict{TT,CT}, dict_key::String) where {TT<:Integer,CT}
+    if haskey(target_dict, dict_key)
+        mergewith!(+, target_dict[dict_key], aux_dict)
+    else
+        target_dict[dict_key] = aux_dict
     end
 end
 
