@@ -1,60 +1,65 @@
-function Base.merge!(prop_cache::MajoranaMultiPropagationCache; merge_sector=true, kwargs...)
-    prop_cache = _merge!(prop_cache; merge_sector, kwargs...)
+function Base.merge!(prop_cache::MajoranaMultiPropagationCache; kwargs...)
+    prop_cache = _merge!(prop_cache; kwargs...)
     return prop_cache
 end
 
 function _merge!(
     prop_cache::MajoranaMultiPropagationCache{MMS};
-    merge_sector=true,
+    n_levels,
     kwargs...,
 ) where {TT<:Integer,CT,MMS<:MajoranaSumMulti{TT,CT}}
     msum = mainsum(prop_cache)
     aux_msum = auxsum(prop_cache)
 
-    sorted_keys = sort(collect(keys(msum)))
+    msum_weight_sectors = Set{Int}()
+    for key in keys(msum.MultiMajoranas)
+        push!(msum_weight_sectors, _get_weight_from_key(key))
+    end
 
-    # do the Delta W = 0 merges first
-    if merge_sector
-        @threads for weight_key in sorted_keys
-            if haskey(aux_msum, weight_key)
-                mergewith!(+, msum.MultiMajoranas[weight_key], aux_msum[weight_key].MultiMajoranas[weight_key])
-                empty!(aux_msum[weight_key].MultiMajoranas[weight_key])
+    change_weight_sector = [-2, 0, 2]
+    for ΔW in change_weight_sector
+        for level = 1:n_levels
+            for weight_sector in msum_weight_sectors
+                dict_key = "$weight_sector-$level"
+                ΔW_key = "$(weight_sector + ΔW)-$level"
+
+                if !haskey(aux_msum, dict_key)
+                    continue
+                end
+
+                aux_dict = aux_msum[dict_key].MultiMajoranas[ΔW_key]
+                if isempty(aux_dict)
+                    continue
+                end
+                _merge_single!(msum, aux_dict, ΔW_key)
             end
         end
     end
 
-    # do the Delta W = +2 merges
-    @threads for weight_key in sorted_keys
-        if haskey(aux_msum, weight_key)
-            aux_dict = aux_msum[weight_key].MultiMajoranas
-            if !isempty(aux_dict[weight_key + 2])
-                if !haskey(msum.MultiMajoranas, weight_key + 2)
-                    msum.MultiMajoranas[weight_key + 2] = Dict{TT,CT}()
-                end
-                mergewith!(+, msum.MultiMajoranas[weight_key + 2], aux_dict[weight_key + 2])
-                empty!(aux_dict[weight_key + 2])
-            end
-        end
-    end
+    for l1 = 1:n_levels
+        for l2 = 1:n_levels
+            for weight_sector in msum_weight_sectors
+                dict_key = "$weight_sector-$l1"
+                Δl_key = "$weight_sector-$l2"
 
-    # do the Delta W = -2 merges
-    @threads for weight_key in sorted_keys
-        if haskey(aux_msum, weight_key)
-            aux_dict = aux_msum[weight_key].MultiMajoranas
-            if !isempty(aux_dict[weight_key - 2])
-                if !haskey(msum.MultiMajoranas, weight_key - 2)
-                    msum.MultiMajoranas[weight_key - 2] = Dict{TT,CT}()
+                if !haskey(aux_msum, dict_key)
+                    continue
                 end
-                mergewith!(+, msum.MultiMajoranas[weight_key - 2], aux_dict[weight_key - 2])
-                empty!(aux_dict[weight_key - 2])
+
+                aux_dict = aux_msum[dict_key].MultiMajoranas[Δl_key]
+                if isempty(aux_dict)
+                    continue
+                end
+
+                _merge_single!(msum, aux_dict, Δl_key)
             end
         end
     end
 
     # remove empty dicts
-    for weight_key in sort(collect(keys(msum.MultiMajoranas)))
-        if isempty(msum.MultiMajoranas[weight_key])
-            delete!(msum.MultiMajoranas, weight_key)
+    for dict_key in collect(keys(msum.MultiMajoranas))
+        if isempty(msum.MultiMajoranas[dict_key])
+            delete!(msum.MultiMajoranas, dict_key)
         end
     end
 
@@ -64,8 +69,24 @@ function _merge!(
     return prop_cache
 end
 
+function _merge_single!(msum, aux_dict, dict_key)
+    if haskey(msum.MultiMajoranas, dict_key)
+        mergewith!(+, msum.MultiMajoranas[dict_key], aux_dict)
+        empty!(aux_dict)
+    else
+        msum.MultiMajoranas[dict_key] = copy(aux_dict)
+        empty!(aux_dict)
+    end
+end
+
 function mergeandempty!(msums::MajoranaSumMulti{TT,CT}, aux_psum; merge_sector=true) where {TT<:Integer,CT}
     prop_cache = MajoranaMultiPropagationCache(msums, aux_psum)
     merge!(prop_cache; merge_sector)
     return mainsum(prop_cache), auxsum(prop_cache)
+end
+
+function key_new_weight_sector(key::String, delta_weight::Int)
+    weight_sector, level = _split_key(key)
+    new_weight_sector = weight_sector + delta_weight
+    return "$new_weight_sector-$level"
 end

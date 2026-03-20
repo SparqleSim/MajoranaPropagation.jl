@@ -58,6 +58,12 @@ export
     propagate,
     propagate!
 
+include("multidict/MultiDict.jl")
+export
+    MajoranaSumMulti,
+    show_stats,
+    MajoranaMultiPropagationCache
+
 include("truncations.jl")
 export
     create_unpaired_mask,
@@ -81,12 +87,6 @@ export
     reset_tracker!
 
 include("Constructors.jl")
-
-include("multidict/MultiDict.jl")
-export
-    MajoranaSumMulti,
-    show_stats,
-    MajoranaMultiPropagationCache
 
 include("QuantumChemistry/QuantumChemistry.jl")
 using .QuantumChemistry

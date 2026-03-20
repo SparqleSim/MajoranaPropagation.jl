@@ -1,65 +1,33 @@
-#=function applymergetruncate!(gate::FermionicGate, msum::MajoranaSumMulti{TT, CT}, dd, thetas, param_idx; max_weight=Inf, min_abs_coeff=1e-10, max_freq=Inf, max_sins=Inf, customtruncfunc=nothing, kwargs...) where {TT<:Integer,CT}
-    # Pick out the next theta if gate is a ParametrizedGate.
-    # Else set the paramter to nothing for clarity that theta is not used.
-    if gate isa ParametrizedGate
-        theta = thetas[param_idx]
-        # If the gate is parametrized, decrement theta index by one.
-        param_idx -= 1
-    else
-        theta = nothing
+function PropagationBase.applymergetruncate!(gate::FermionicGate, prop_cache::MajoranaMultiPropagationCache, theta; truncate_each_mr=nothing, kwargs...)
+    # get the Majorana strings and coefficients corresponding to the fermionic gate
+    ms_rotations, coeffs, truncate_after_each_majrot = getmajoranarotations(gate, nsites(prop_cache))
+    if !isnothing(truncate_each_mr)
+        truncate_after_each_majrot = truncate_each_mr
     end
 
-    ms_rotations, coeffs = getmajoranarotations(gate, msum.nsites)
-
-    # Apply the gate to all Pauli strings in psum, potentially writing into auxillary aux_psum in the process.
-    # The pauli sums will be changed in-place
-
-    #=dicts_lengths = [length(msum.MultiMajoranas[k]) for k in msum_keys]
-    sorting_indices = sortperm(dicts_lengths; rev=true)
-
-    to_submit = []
-    merge_in_apply=true
-    for idx in sorting_indices
-        push!(to_submit, [gate, theta, msum.MultiMajoranas[msum_keys[idx]], all_aux_msums[msum_keys[idx]], merge_in_apply, msum_keys[idx]])
-    end
-
-    function submit(iter_all)
-        applytoall!(iter_all[1:end-2]...; merge_sector=iter_all[end-1], weight_key=iter_all[end], kwargs...)
-    end
-
-    #ThreadPools.qbforeach(iter -> submit(iter), to_submit)
-    ThreadPools.qforeach(iter -> submit(iter), to_submit)=#
-
-    merge_in_apply=true
+    # iterate over individual Majorana rotations and apply them to the Majorana sum
     for (gate_ms, coeff) in zip(ms_rotations, coeffs)
-        all_aux_msums = Dict()
-        for weight_key in keys(msum.MultiMajoranas)
-            all_aux_msums[weight_key] = similar(msum, weight_key)
-        end
-        msum_keys = collect(keys(msum.MultiMajoranas))
 
-        @threads for iw=1:length(msum_keys)
-            weight_key = msum_keys[iw]
-            aux_psum = all_aux_msums[weight_key]
-            # multiply coefficient by 2 since exponential implements exp(-i * theta/2 * mstring)
-            #@show typeof(gate_ms), typeof(msum.MultiMajoranas[weight_key]), typeof(aux_psum)
-            applytoall!(gate_ms, theta * coeff * 2., msum.MultiMajoranas[weight_key], aux_psum; merge_sector=merge_in_apply, weight_key=weight_key, kwargs...)
-            #println("----")
-            #println(gyfhj)
-            #@show weight_key
-            #@show msum_weight
-            #@show aux_psum
-        end
-        
-        msum, all_aux_msums = mergeandempty!(msum, all_aux_msums; merge_sector=!merge_in_apply)
-        for weight_key in keys(msum.MultiMajoranas)
-            checktruncationonall!(MajoranaSum(msum.nsites, msum.is_spinful, msum.MultiMajoranas[weight_key]); max_weight, min_abs_coeff, max_freq, max_sins, customtruncfunc)
+        # multiply coefficient by 2 since `::MajoranaRotation` implements exp(-i * theta/2 * mstring)
+        applytoall!(gate_ms, prop_cache, theta * coeff * 2.0; kwargs...)
+
+        # merge the auxiliary Majorana sum into the original one and empty the auxiliary one 
+        merge!(prop_cache; kwargs...)
+
+        # truncate after each Majorana rotation 
+        if truncate_after_each_majrot
+            truncate!(prop_cache; kwargs...)
         end
     end
-    return msum, dd, param_idx
-end=#
 
-function PropagationBase.applytoall!(gate::MajoranaRotation, prop_cache::MajoranaMultiPropagationCache, theta; merge_sector=false, kwargs...)
+    if !truncate_after_each_majrot
+        truncate!(prop_cache; kwargs...)
+    end
+
+    return prop_cache
+end
+
+function PropagationBase.applytoall!(gate::MajoranaRotation, prop_cache::MajoranaMultiPropagationCache, theta; n_levels::Int, kwargs...)
     msum = mainsum(prop_cache)
     aux_msum = auxsum(prop_cache)
 
@@ -71,7 +39,8 @@ function PropagationBase.applytoall!(gate::MajoranaRotation, prop_cache::Majoran
         weight_key = msum_keys[iw]
         aux_entry = get(aux_msum, weight_key, nothing)
         if isnothing(aux_entry)
-            aux_entry = similar(msum, weight_key)
+            weight_sector = _get_weight_from_key(weight_key)
+            aux_entry = similar(msum, weight_sector, n_levels)
             aux_msum[weight_key] = aux_entry
         end
         _applymajoranarotation!(
@@ -80,14 +49,14 @@ function PropagationBase.applytoall!(gate::MajoranaRotation, prop_cache::Majoran
             gate_int,
             theta,
             nfermions(msum);
-            merge_sector=merge_sector,
+            weight_key,
             kwargs...,
         )
     end
     return prop_cache
 end
 
-function _applymajoranarotation!(msum_dict::Dict{TT,CT}, aux_msum::MajoranaSumMulti, gate_int, theta, n_fermions; merge_sector=false, kwargs...) where {TT<:Integer,CT}
+function _applymajoranarotation!(msum_dict::Dict{TT,CT}, aux_msum::MajoranaSumMulti, gate_int, theta, n_fermions; level_mapper::Function,weight_key,unpaired_mask, kwargs...) where {TT<:Integer,CT}
     cos_val = cos(theta)
     sin_val = sin(theta)
     
@@ -109,15 +78,24 @@ function _applymajoranarotation!(msum_dict::Dict{TT,CT}, aux_msum::MajoranaSumMu
         # set the coefficient of the new Pauli string in the corresponding aux_psum
         # we can set the coefficient because PauliRotations create non-overlapping new Pauli strings
         weight = get_weight(new_ms)
-        set!(aux_msum, weight, new_ms, coeff2)
+        dict_key = "$weight-$(level_mapper(new_ms))"
+        try
+            set!(aux_msum, dict_key, new_ms, coeff2)
+        catch e
+            @show weight_key
+            @show dict_key
+            @show bitstring(ms_int)
+            @show bitstring(new_ms)
+            println("Error occurred while setting aux_msum entry for key $dict_key")
+            @show e 
+            @show collect(keys(aux_msum.MultiMajoranas))
+            @show compute_unpaired(new_ms, unpaired_mask)
+            println(hgjffghjk)
+        end
     end
-
-    if merge_sector
-        # merge aux_msum back into msum
-        mergewith!(+, msum, aux_msum.MultiMajoranas[kwargs[:weight_key]])
-        # empty aux_msum
-        empty!(aux_msum.MultiMajoranas[kwargs[:weight_key]])
-    end
-
     return
+end
+
+function _is_gaussian(gate_ms::MajoranaRotation{TT}) where {TT<:Integer}
+    return get_weight(gate_ms.ms_int) == 2
 end
