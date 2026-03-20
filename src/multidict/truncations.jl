@@ -1,45 +1,41 @@
 function PropagationBase.truncate!(
-    prop_cache::MajoranaMultiPropagationCache;
+    prop_cache::MajoranaMultiPropagationCache{MMS};
     max_weight::Real=Inf, min_abs_coeff=1e-10, max_unpaired::Real=Inf,
     max_freq::Real=Inf, max_sins::Real=Inf,
     unpaired_mask=nothing,
     customtruncfunc=nothing,
     kwargs...
-)
+) where {TT<:Integer,CT,MMS<:MajoranaSumMulti{TT,CT}}
     if isnothing(unpaired_mask)
         unpaired_mask = create_unpaired_mask(nfermions(mainsum(prop_cache)))
-    end
-    function truncfunc(mstr, coeff)
-        is_truncated = false
-        if PauliPropagation.truncatemincoeff(coeff, min_abs_coeff)
-            is_truncated = true
-        elseif truncateunpaired(mstr, max_unpaired, unpaired_mask)
-            is_truncated = true
-        elseif truncatemajoranaweight(mstr, max_weight)
-            is_truncated = true
-        elseif PauliPropagation.truncatefrequency(coeff, max_freq)
-            is_truncated = true
-        elseif PauliPropagation.truncatesins(coeff, max_sins)
-            is_truncated = true
-        elseif !isnothing(customtruncfunc) && customtruncfunc(mstr, coeff)
-            is_truncated = true
-        end
-
-        return is_truncated
     end
 
     msum = mainsum(prop_cache)
     weight_keys = collect(keys(msum.MultiMajoranas))
     empty_weight_keys = [Int64[] for _ in 1:Threads.maxthreadid()]
+    # Reused thread-local buffers of terms to delete, one per thread.
+    to_delete = [TT[] for _ in 1:Threads.maxthreadid()]
 
     Threads.@threads for i in eachindex(weight_keys)
         tid = Threads.threadid()
         weight_key = weight_keys[i]
         weight_dict = msum.MultiMajoranas[weight_key]
+        delete_buf = to_delete[tid]
+        empty!(delete_buf)
 
-        for ms_int in collect(keys(weight_dict))
-            coeff = weight_dict[ms_int]
-            if truncfunc(ms_int, coeff)
+        for (ms_int, coeff) in weight_dict
+            if PauliPropagation.truncatemincoeff(coeff, min_abs_coeff) ||
+               truncateunpaired(ms_int, max_unpaired, unpaired_mask) ||
+               truncatemajoranaweight(ms_int, max_weight) ||
+               PauliPropagation.truncatefrequency(coeff, max_freq) ||
+               PauliPropagation.truncatesins(coeff, max_sins) ||
+               (!isnothing(customtruncfunc) && customtruncfunc(ms_int, coeff))
+                push!(delete_buf, ms_int)
+            end
+        end
+
+        for ms_int in delete_buf
+            if haskey(weight_dict, ms_int)
                 delete!(weight_dict, ms_int)
             end
         end

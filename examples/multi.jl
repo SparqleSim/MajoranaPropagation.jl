@@ -9,6 +9,7 @@ using TimerOutputs
 using Base.Threads
 
 @show nthreads()
+@show Threads.maxthreadid()
 
 function print_time(seconds)
     hours = div(seconds, 3600)
@@ -83,7 +84,7 @@ let
 
     @show multi_msum.MultiMajoranas
 
-    n_reps = 6
+    n_reps = 40
 
     times_multi = zeros(n_reps)
     times_normal = zeros(n_reps)
@@ -102,8 +103,9 @@ let
         println("time multi: $(print_time(times_multi[k]))")
         #println(gfhj)
         #normal mode 
-        @timeit to "normal"  times_normal[k] = @elapsed propagate!(circ_single, msum, thetas_single; min_abs_coeff, max_unpaired, unpaired_mask, to)
-        println("time normal: $(print_time(times_normal[k]))")
+        
+        #@timeit to "normal"  times_normal[k] = @elapsed propagate!(circ_single, msum, thetas_single; min_abs_coeff, max_unpaired, unpaired_mask, to)
+        #println("time normal: $(print_time(times_normal[k]))")
 
         @timeit to "vec" times_vec[k] = @elapsed vec_msum = propagate!(circ_single, vec_msum, thetas_single; min_abs_coeff, max_unpaired, unpaired_mask, to)
         println("time vec: $(print_time(times_vec[k]))")
@@ -114,9 +116,9 @@ let
         #@show length(vec_msum)
         lengths_multi[k] = length(multi_msum)
         lengths_normal[k] = length(msum)
+        show_stats(mainsum(multi_sum_prop_cache), n_levels)
+        @show to
     end
-
-    @show to
     #profile 
     #@profview propagate!(circ_single, multi_msum, thetas_single; min_abs_coeff=min_abs_coeff, customtruncfunc=custom_trunc)
 

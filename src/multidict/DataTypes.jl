@@ -85,7 +85,7 @@ function Base.show(io::IO, msum::MajoranaSumMulti)
     end=#
 end
 
-function show_stats(msum::MajoranaSumMulti{TT,CT}) where {TT<:Integer,CT}
+function show_stats(msum::MajoranaSumMulti{TT,CT}, n_levels::Int) where {TT<:Integer,CT}
     total_strings = 0
     for (weight_key, dict) in msum.MultiMajoranas
         nstrings = length(dict)
@@ -93,8 +93,9 @@ function show_stats(msum::MajoranaSumMulti{TT,CT}) where {TT<:Integer,CT}
     end
     sorted_keys = sort(collect(keys(msum.MultiMajoranas)))
     for weight_key in sorted_keys
+        weight_sector, level = _split_key(weight_key, n_levels)
         nstrings = length(msum.MultiMajoranas[weight_key])
-        println("Weight $weight_key: $nstrings strings ($(round(100. * nstrings / total_strings))%)")
+        println("Level $weight_sector - $level: $nstrings strings ($(round(100. * nstrings / total_strings))%)")
     end
     println("Total strings: $total_strings")
 end

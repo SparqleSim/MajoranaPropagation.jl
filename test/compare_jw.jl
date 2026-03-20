@@ -1,10 +1,12 @@
 using Yao
+using TimerOutputs
 
 include("yao_helpers/fermionicgates_to_yao.jl")
-@testset "Majorana algebra" begin
+@testset "JW comparison" begin
     # spinless tests 
     @testset "spinless" begin
         @testset "free fermions" begin
+            to = TimerOutput()
             n_fermions = 12
             h = 0.2
             topo = bricklayertopology(n_fermions)
@@ -33,7 +35,7 @@ include("yao_helpers/fermionicgates_to_yao.jl")
 
             n_iters = 200
             for _ in 1:n_iters
-                propagate!(circ, msum, thetas; min_abs_coeff=-1.)
+                propagate!(circ, msum, thetas; min_abs_coeff=-1., to)
                 Yao.apply!(yao_psi, yao_circ)
 
                 mp_res = overlapwithfock(msum, fock_state)
@@ -44,6 +46,7 @@ include("yao_helpers/fermionicgates_to_yao.jl")
         end
 
         @testset "interacting fermions" begin
+            to = TimerOutput()
             n_fermions = 10
             U = 0.5
             h = 0.2
@@ -81,7 +84,7 @@ include("yao_helpers/fermionicgates_to_yao.jl")
 
             n_iters = 5
             for _ in 1:n_iters
-                propagate!(circ, msum, thetas; min_abs_coeff=1.e-14)
+                propagate!(circ, msum, thetas; min_abs_coeff=1.e-14, to)
                 Yao.apply!(yao_psi, yao_circ)
 
                 mp_res = overlapwithfock(msum, fock_state)
