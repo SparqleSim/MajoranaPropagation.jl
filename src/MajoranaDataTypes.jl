@@ -164,7 +164,7 @@ function coefftype(::MajoranaSum{TT,CT}) where {TT,CT}
 end
 
 function similar(msum::MajoranaSum)
-    new_msum = MajoranaSum(coefftype(msum), nsites(msum), is_spinful(msum))
+    new_msum = MajoranaSum(coefftype(msum), PropagationBase.nsites(msum), is_spinful(msum))
     sizehint!(new_msum.Majoranas, length(msum.Majoranas))
     return new_msum
 end

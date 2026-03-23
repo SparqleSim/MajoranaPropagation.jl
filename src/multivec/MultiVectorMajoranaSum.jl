@@ -112,7 +112,14 @@ end
 
 prop_caches(prop_cache::MultiVectorMajoranaPropagationCache) = prop_cache.prop_caches
 
-#PropagationBase.mainsum(prop_cache::MultiVectorMajoranaPropagationCache) = prop_cache.main_msum_dict
+function PropagationBase.mainsum(prop_cache::MultiVectorMajoranaPropagationCache{VectorMajoranaSum{Vector{TT},Vector{CT}},VB,VI}) where {VB,VI, TT<:Integer,CT}
+    mouts = Dict{Int,VectorMajoranaSum{Vector{TT},Vector{CT}}}()
+    for (weight_sector, vpropcache) in prop_caches(prop_cache)
+        mouts[weight_sector] = mainsum(vpropcache)
+    end
+    sample_sum = first(values(mouts))
+    return MultiVectorMajoranaSum(PropagationBase.nsites(sample_sum), is_spinful(sample_sum), mouts)
+end
 #PropagationBase.auxsum(prop_cache::MultiVectorMajoranaPropagationCache) = prop_cache.aux_msum_dict
 #nfermions(prop_cache::MultiVectorMajoranaPropagationCache) = nfermions(mainsum(prop_cache))
 
@@ -160,13 +167,13 @@ end
 
 function PropagationBase.applymergetruncate!(gate::FermionicGate, prop_cache::MultiVectorMajoranaPropagationCache, theta; truncate_each_mr=nothing, kwargs...)
     # get the Majorana strings and coefficients corresponding to the fermionic gate
-    @show typeof(prop_cache)
+    #@show typeof(prop_cache)
     ms_rotations, coeffs, truncate_after_each_majrot = getmajoranarotations(gate, nsites(prop_cache))
     if !isnothing(truncate_each_mr)
         truncate_after_each_majrot = truncate_each_mr
     end
 
-    @show gate
+    #@show gate
 
     # iterate over individual Majorana rotations and apply them to the Majorana sum
     for (gate_ms, coeff) in zip(ms_rotations, coeffs)
@@ -202,9 +209,9 @@ end
 
 
 function PropagationBase.applytoall!(gate::MajoranaRotation{TT}, prop_cache::MultiVectorMajoranaPropagationCache, theta; is_gaussian=false, pools, kwargs...) where {TT<:Integer,CT}
-    for (weight_sector, vpropcache) in prop_caches(prop_cache)
+    #=for (weight_sector, vpropcache) in prop_caches(prop_cache)
         @show weight_sector, vpropcache.active_size
-    end
+    end=#
     #=for (weight_sector, vpropcache) in prop_caches(prop_cache)
         applytoall!(gate, vpropcache, theta; is_gaussian=is_gaussian, _apply_function! = _applymajoranarotation_vm!, pool=pools[weight_sector], kwargs...)
         println("Applied MajoranaRotation to weight sector $weight_sector.")
@@ -227,8 +234,8 @@ function PropagationBase.applytoall!(gate::MajoranaRotation{TT}, prop_cache::Mul
                 kwargs...
             )
 
-            println("Applied MajoranaRotation to weight sector $ws.")
-            @show cache.active_size
+            #println("Applied MajoranaRotation to weight sector $ws.")
+            #@show cache.active_size
         end
     end
     #println(fdgh)
@@ -272,7 +279,7 @@ function _applymajoranarotation_vm!(prop_cache::VectorMajoranaPropagationCache, 
             coeffs[n+indices[ii]] = coeff2
         end
     end
-    @show is_gaussian
+    #@show is_gaussian
 
     if is_gaussian
         # if the gate is Gaussian, we can merge immediately after applying the gate to each sector since we know that no new weight sectors are generated
@@ -323,70 +330,71 @@ function PropagationBase.truncate!(prop_cache::MultiVectorMajoranaPropagationCac
 end
 
 function PropagationBase.merge!(prop_cache::MultiVectorMajoranaPropagationCache; kwargs...)
-    # start from the +2 weight merges 
+    # merge contributions across ΔW = +2, -2 and 0 sectors
     caches = prop_caches(prop_cache)
     sorted_keys = sort(collect(keys(caches)))
 
     for weight_key in sorted_keys
-        println("-------")
         origin_cache = caches[weight_key]
-        if (weight_key+2) in sorted_keys 
-            destination_cache = caches[weight_key+2]
-        else
-            new_mainsum = Base.similar(mainsum(origin_cache))
-            caches[weight_key+2] = VectorMajoranaPropagationCache(new_mainsum)
-            setactivesize!(caches[weight_key+2], 0)
-            destination_cache = caches[weight_key+2]
-        end
 
-        destination_cache_size = activesize(destination_cache)
-
-        strings_to_be_moved(pstr) = (get_weight(pstr) == weight_key + 2)
-        flagterms!(strings_to_be_moved, origin_cache)
-        flagstoindices!(origin_cache)
-        n_to_be_moved = lastactiveindex(origin_cache)
-        #@show n_to_be_moved
-
-        n_new = destination_cache_size + n_to_be_moved
-        resize_factor = 2
-        if capacity(destination_cache) < n_new
-            println("Resizing destination cache for weight sector $(weight_key+2) from capacity $(capacity(destination_cache)) to $(n_new * resize_factor).")
-            resize!(destination_cache, n_new * resize_factor)
-        end
-
-        flags = activeflags(origin_cache)
-        indices = activeindices(origin_cache)
-
-        origin_active_terms = activeterms(origin_cache)
-        origin_terms = majoranas(mainsum(origin_cache))
-        origin_coeffs = coefficients(mainsum(origin_cache))
-
-        destination_terms = majoranas(mainsum(destination_cache))
-        destination_coeffs = coefficients(mainsum(destination_cache))
-
-        AK.foreachindex(origin_active_terms) do ii
-            if flags[ii]
-                term = origin_terms[ii]
-                coeff = origin_coeffs[ii]
-
-                destination_terms[destination_cache_size+indices[ii]] = term
-                destination_coeffs[destination_cache_size+indices[ii]] = coeff
+        for destination_weight in (weight_key + 2, weight_key - 2)
+            strings_to_be_moved(pstr) = (get_weight(pstr) == destination_weight)
+            flagterms!(strings_to_be_moved, origin_cache)
+            flags = activeflags(origin_cache)
+            if !any(flags)
+                continue
             end
+
+            destination_cache = get!(caches, destination_weight) do
+                new_mainsum = Base.similar(mainsum(origin_cache))
+                new_cache = VectorMajoranaPropagationCache(new_mainsum)
+                setactivesize!(new_cache, 0)
+                return new_cache
+            end
+
+            destination_cache_size = activesize(destination_cache)
+
+            flagstoindices!(origin_cache)
+            n_to_be_moved = lastactiveindex(origin_cache)
+
+            n_new = destination_cache_size + n_to_be_moved
+            resize_factor = 2
+            if capacity(destination_cache) < n_new
+                println("Resizing destination cache for weight sector $destination_weight from capacity $(capacity(destination_cache)) to $(n_new * resize_factor).")
+                resize!(destination_cache, n_new * resize_factor)
+            end
+
+            indices = activeindices(origin_cache)
+
+            origin_active_terms = activeterms(origin_cache)
+            origin_terms = majoranas(mainsum(origin_cache))
+            origin_coeffs = coefficients(mainsum(origin_cache))
+
+            destination_terms = majoranas(mainsum(destination_cache))
+            destination_coeffs = coefficients(mainsum(destination_cache))
+
+            AK.foreachindex(origin_active_terms) do ii
+                if flags[ii]
+                    term = origin_terms[ii]
+                    coeff = origin_coeffs[ii]
+
+                    destination_terms[destination_cache_size + indices[ii]] = term
+                    destination_coeffs[destination_cache_size + indices[ii]] = coeff
+                end
+            end
+            destination_cache.active_size += n_to_be_moved
+
+            # merge destination cache to combine duplicates
+            merge!(destination_cache; kwargs...)
+
+            # cleaning origin_cache: keep terms that were not moved
+            origin_cache.flags .= .!(origin_cache.flags)
+            filterviaflags!(origin_cache)
         end
-        destination_cache.active_size += n_to_be_moved
 
-        # merge destination cache to combine duplicates
-        @show destination_cache.active_size
-        merge!(destination_cache; kwargs...)
-        @show destination_cache.active_size
-
-        #cleaning origin_cache 
-        @show origin_cache.active_size, n_to_be_moved
-        origin_cache.flags .= .!(origin_cache.flags)
-        filterviaflags!(origin_cache)
-        @show origin_cache.active_size
+        # Merge remaining in-sector (ΔW = 0) terms from this cache without cross-sector moves.
+        merge!(origin_cache; kwargs...)
     end
-    println(gfhj)
 end
 
 

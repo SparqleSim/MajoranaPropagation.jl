@@ -99,7 +99,7 @@ end
 
 function PropagationBase.applymergetruncate!(gate::FermionicGate, prop_cache::AbstractMajoranaPropagationCache, theta; truncate_each_mr=nothing, kwargs...)
     # get the Majorana strings and coefficients corresponding to the fermionic gate
-    ms_rotations, coeffs, truncate_after_each_majrot = getmajoranarotations(gate, nsites(prop_cache))
+    ms_rotations, coeffs, truncate_after_each_majrot = getmajoranarotations(gate, PropagationBase.nsites(prop_cache))
     if !isnothing(truncate_each_mr)
         truncate_after_each_majrot = truncate_each_mr
     end
