@@ -66,7 +66,8 @@ for (i, j) in reverse(topo)
 end
 
 # initial observable
-msum = MajoranaSum(nspinful, :nupndn, 3) #* MajoranaSum(nspinful, :nupndn, 4) #* MajoranaSum(nspinful, :nupndn, 1) * MajoranaSum(nspinful, :hopup, [5, 6])
+msum = MajoranaSum(nspinful, :nupndn, 3) * MajoranaSum(nspinful, :nupndn, 4) #* MajoranaSum(nspinful, :nupndn, 1) * MajoranaSum(nspinful, :hopup, [5, 6])
+#msum = MajoranaSum(nspinful, :nup, 3)
 id_val = MajoranaPropagation.pop_id!(msum)
 
 multi_msum = MajoranaSumMulti(msum)
@@ -74,17 +75,16 @@ vec_msum = VectorMajoranaSum(msum)
 multivec_msum = MultiVectorMajoranaSum(msum)
 multivec_msum = MultiVectorMajoranaPropagationCache(multivec_msum)
 
-circ_single = [FermionicGate(:hopup, [1, 3])]
-thetas_single = [-t * dt / 2.0]
+#circ_single = [FermionicGate(:hopup, [1, 3])]
+#thetas_single = [0.3]
+#push!(circ_single, FermionicGate(:hopup, [3, 5]))
+#push!(thetas_single, -t * dt / 2.0)
 
-push!(circ_single, FermionicGate(:hopup, [3, 5]))
-push!(thetas_single, -t * dt / 2.0)
 
-
-min_abs_coeff = 5.e-3
+min_abs_coeff = 1.e-6
 max_singles = 8
 
-n_reps = 5
+n_reps = 6
 
 times_multi = zeros(n_reps)
 times_vec = zeros(n_reps)
@@ -102,16 +102,20 @@ for k = 1:n_reps
 
     # vector
     times_vec[k] = @elapsed propagate!(circ_single, vec_msum, thetas_single; min_abs_coeff=min_abs_coeff, max_unpaired=max_singles)
-    println("time vec: $(print_time(times_vec[k]))")
+    #println("time vec: $(print_time(times_vec[k]))")
 
     # multi-vector
     times_multivec[k] = @elapsed propagate!(circ_single, multivec_msum, thetas_single; min_abs_coeff=min_abs_coeff, max_unpaired=max_singles)
-    println("time multivec: $(print_time(times_multivec[k]))")
+    #println("time multivec: $(print_time(times_multivec[k]))")
 
     #println("stats multi:")
     #show_stats(multi_msum)
     #println("stats multivec:")
-    #show_stats(multivec_msum)
+    println("-----")
+    show_stats(MajoranaSumMulti(msum))
+    println("-----")
+    show_stats(multivec_msum)
+
 
     @show length(msum)
     @show length(multivec_msum)

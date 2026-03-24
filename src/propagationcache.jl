@@ -56,6 +56,10 @@ function VectorMajoranaPropagationCache(msum::MajoranaSum)
     return VectorMajoranaPropagationCache(VectorMajoranaSum(msum))
 end
 
+function Base.length(prop_cache::VectorMajoranaPropagationCache)
+    return activesize(prop_cache)
+end
+
 # Convert back to vector and dense sums
 function VectorMajoranaSum(prop_cache::VectorMajoranaPropagationCache)
     vecmsum = deepcopy(mainsum(prop_cache))
