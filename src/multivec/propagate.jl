@@ -10,28 +10,29 @@ end
 
 function _gaussian_merge!(prop_cache::MultiVectorMajoranaPropagationCache; pools, kwargs...)
     caches = prop_caches(prop_cache)
-    sorted_keys = sort(collect(keys(caches)))
 
     # Merge sectors concurrently, each using its assigned custom thread pool.
-    @sync for weight_key in sorted_keys
+    @sync for weight_key in keys(caches)
+        wk = weight_key
         Threads.@spawn begin
-            pool = pools[weight_key]
-            _merge_vector_cache_noak!(caches[weight_key]; pool)
+            pool = pools[wk]
+            _merge_vector_cache_noak!(caches[wk]; pool)
         end
     end
 end
 
 function _non_gaussian_merge!(prop_cache::MultiVectorMajoranaPropagationCache; pools, kwargs...)
     caches = prop_caches(prop_cache)
-    sorted_keys = sort(collect(keys(caches)))
+    # Snapshot keys since we may mutate `caches` via `get!` inside the wave.
+    weight_keys = collect(keys(caches))
 
     # Direction +2: wave 1 (mod4 in 0,1), wave 2 (mod4 in 2,3)
-    _merge_weight_direction_wave!(caches, sorted_keys, pools, 2, (0, 1); kwargs...)
-    _merge_weight_direction_wave!(caches, sorted_keys, pools, 2, (2, 3); kwargs...)
+    _merge_weight_direction_wave!(caches, weight_keys, pools, 2, (0, 1); kwargs...)
+    _merge_weight_direction_wave!(caches, weight_keys, pools, 2, (2, 3); kwargs...)
 
     # Direction -2: wave 1 (mod4 in 2,3), wave 2 (mod4 in 0,1)
-    _merge_weight_direction_wave!(caches, sorted_keys, pools, -2, (2, 3); kwargs...)
-    _merge_weight_direction_wave!(caches, sorted_keys, pools, -2, (0, 1); kwargs...)
+    _merge_weight_direction_wave!(caches, weight_keys, pools, -2, (2, 3); kwargs...)
+    _merge_weight_direction_wave!(caches, weight_keys, pools, -2, (0, 1); kwargs...)
 end
 
 function _merge_weight_direction_wave!(

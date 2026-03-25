@@ -10,12 +10,12 @@ function PropagationBase.applymergetruncate!(gate::FermionicGate, prop_cache::Mu
         truncate_after_each_majrot = truncate_each_mr
     end
 
+    pools = assign_pools(prop_cache)
+
     # iterate over individual Majorana rotations and apply them to the Majorana sum
     for (gate_ms, coeff) in zip(ms_rotations, coeffs)
         # check if gate is gaussian 
         is_gate_gaussian = _is_gaussian(gate_ms)
-
-        pools = assign_pools(prop_cache)
 
         # multiply coefficient by 2 since `::MajoranaRotation` implements exp(-i * theta/2 * mstring)
         @timeit to "applytoall!" applytoall!(gate_ms, prop_cache, theta * coeff * 2.0; pools, kwargs...)

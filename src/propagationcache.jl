@@ -34,6 +34,9 @@ mutable struct VectorMajoranaPropagationCache{VMS<:VectorMajoranaSum,VB,VI} <: A
     aux_msum::VMS
     flags::VB
     indices::VI
+    group_starts::VI
+    block_sums::Vector{Int}
+    block_offsets::Vector{Int}
     active_size::Int
 end
 
@@ -46,7 +49,15 @@ function VectorMajoranaPropagationCache(vecmsum::VectorMajoranaSum{VT,VC}) where
     aux_vecmsum = Base.similar(vecmsum)
     flags = Base.similar(majoranas(vecmsum), Bool)
     indices = Base.similar(majoranas(vecmsum), Int)
-    return VectorMajoranaPropagationCache(vecmsum, aux_vecmsum, flags, indices, length(vecmsum))
+    group_starts = Base.similar(majoranas(vecmsum), Int)
+
+    # Reusable scratch buffers used during dedup/group-merge.
+    # We only ever need up to `8 * nthreads()` blocks in the implementation in `src/multivec/merge.jl`.
+    nblocks_max = 8 * Base.Threads.nthreads()
+    block_sums = zeros(Int, nblocks_max)
+    block_offsets = zeros(Int, nblocks_max)
+
+    return VectorMajoranaPropagationCache(vecmsum, aux_vecmsum, flags, indices, group_starts, block_sums, block_offsets, length(vecmsum))
 end
 
 PropagationBase.mainsum(vprop_cache::VectorMajoranaPropagationCache) = vprop_cache.main_msum
@@ -87,5 +98,6 @@ function Base.resize!(prop_cache::VectorMajoranaPropagationCache, n_new::Int)
     resize!(prop_cache.aux_msum, n_new)
     resize!(prop_cache.flags, n_new)
     resize!(prop_cache.indices, n_new)
+    resize!(prop_cache.group_starts, n_new)
     return prop_cache
 end

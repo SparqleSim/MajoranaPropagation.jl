@@ -47,8 +47,8 @@ end
 
 function _deduplicate_pool!(prop_cache::VectorMajoranaPropagationCache; pool)
     _flaggroupbegin_pool!(prop_cache; pool)
-    _flagstoindices_pool!(activeindices(prop_cache), activeflags(prop_cache); pool)
-    _mergegroups_pool!(prop_cache; pool)
+    group_count = _flagstoindices_pool!(prop_cache; pool)
+    _mergegroups_pool!(prop_cache; pool, group_count)
     return prop_cache
 end
 
@@ -67,16 +67,19 @@ function _flaggroupbegin_pool!(prop_cache::VectorMajoranaPropagationCache; pool)
     return prop_cache
 end
 
-function _flagstoindices_pool!(dst_indices, flags; pool)
+function _flagstoindices_pool!(prop_cache::VectorMajoranaPropagationCache; pool)
+    dst_indices = activeindices(prop_cache)
+    flags = activeflags(prop_cache)
+    group_starts = prop_cache.group_starts
+
     n = length(flags)
-    if n == 0
-        return dst_indices
-    end
+    n == 0 && return 0
 
     nblocks = min(n, 8 * Threads.nthreads())
     block_size = cld(n, nblocks)
-    block_sums = zeros(Int, nblocks)
-    block_offsets = zeros(Int, nblocks)
+
+    block_sums = prop_cache.block_sums
+    block_offsets = prop_cache.block_offsets
 
     # Pass 1: per-block counts in parallel.
     tforeach(pool, 1:nblocks) do b
@@ -97,38 +100,38 @@ function _flagstoindices_pool!(dst_indices, flags; pool)
     end
 
     # Pass 3: per-block local scans in parallel.
+    # Also fill `group_starts[group_id] = start_index`.
     tforeach(pool, 1:nblocks) do b
         lo = (b - 1) * block_size + 1
         hi = min(b * block_size, n)
         local_count = block_offsets[b]
         for ii in lo:hi
-            local_count += flags[ii] ? 1 : 0
-            dst_indices[ii] = local_count
+            if flags[ii]
+                local_count += 1
+                dst_indices[ii] = local_count
+                group_starts[local_count] = ii
+            else
+                dst_indices[ii] = local_count
+            end
         end
     end
 
-    return dst_indices
+    return running
 end
 
-function _mergegroups_pool!(prop_cache::VectorMajoranaPropagationCache; pool)
+function _mergegroups_pool!(prop_cache::VectorMajoranaPropagationCache; pool, group_count::Int)
     term_view = activeterms(prop_cache)
     coeffs = activecoeffs(prop_cache)
     aux_terms = activeauxterms(prop_cache)
     aux_coeffs = activeauxcoeffs(prop_cache)
-    flags = activeflags(prop_cache)
-    indices = activeindices(prop_cache)
     active_size = activesize(prop_cache)
+    group_starts = prop_cache.group_starts
 
-    group_starts = Int[]
-    for ii in eachindex(flags)
-        if flags[ii]
-            push!(group_starts, ii)
-        end
-    end
+    group_count <= 0 && return prop_cache
 
-    tforeach(pool, eachindex(group_starts)) do kk
+    tforeach(pool, 1:group_count) do kk
         ii = group_starts[kk]
-        end_idx = kk < length(group_starts) ? group_starts[kk + 1] - 1 : active_size
+        end_idx = kk < group_count ? group_starts[kk + 1] - 1 : active_size
 
         CT = typeof(coeffs[ii])
         merged_coeff = zero(CT)
@@ -136,8 +139,9 @@ function _mergegroups_pool!(prop_cache::VectorMajoranaPropagationCache; pool)
             merged_coeff = mergefunc(merged_coeff, coeffs[jj])
         end
 
-        aux_terms[indices[ii]] = term_view[ii]
-        aux_coeffs[indices[ii]] = merged_coeff
+        # Group id `kk` corresponds to the position in `aux_*` after dedup.
+        aux_terms[kk] = term_view[ii]
+        aux_coeffs[kk] = merged_coeff
     end
 
     swapsums!(prop_cache)
