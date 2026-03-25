@@ -17,18 +17,6 @@ function PropagationBase.mainsum(prop_cache::MultiVectorMajoranaPropagationCache
     sample_sum = first(values(mouts))
     return MultiVectorMajoranaSum(PropagationBase.nsites(sample_sum), is_spinful(sample_sum), mouts)
 end
-#PropagationBase.auxsum(prop_cache::MultiVectorMajoranaPropagationCache) = prop_cache.aux_msum_dict
-#nfermions(prop_cache::MultiVectorMajoranaPropagationCache) = nfermions(mainsum(prop_cache))
-
-#=function PropagationBase.setmainsum!(prop_cache::MultiVectorMajoranaPropagationCache, msum::MultiVectorMajoranaSum)
-    prop_cache.main_msum = msum
-    return prop_cache
-end
-
-function PropagationBase.setauxsum!(prop_cache::MultiVectorMajoranaPropagationCache, aux_msum::MultiVectorMajoranaSum)
-    prop_cache.aux_msum = aux_msum
-    return prop_cache
-end=#
 
 """
     MultiVectorMajoranaPropagationCache(msum::MultiVectorMajoranaSum)
@@ -49,11 +37,6 @@ end
 PropagationBase.PropagationCache(multimsum::MultiVectorMajoranaSum) = MultiVectorMajoranaPropagationCache(multimsum)
 
 function nsites(prop_cache::MultiVectorMajoranaPropagationCache)
-    #pd = mainsum(prop_cache)[first(keys(mainsum(prop_cache)))]
-    #@show typeof(pd)
-    #@show nsites(pd)
-    #@show is_spinful(pd)
-    #@show nfermions(pd)
     return PropagationBase.nsites(prop_caches(prop_cache)[first(keys(prop_caches(prop_cache)))])
 end
 
@@ -69,10 +52,16 @@ function show_stats(prop_cache::MultiVectorMajoranaPropagationCache)
     sorted_keys = sort(collect(keys(prop_caches(prop_cache))))
     println("MultiVectorMajoranaPropagationCache stats:")
     tot_strings = 0 
+    lengths = []
     for weight_sector in sorted_keys
         vpropcache = prop_caches(prop_cache)[weight_sector]
-        println("  Weight sector $weight_sector: $(activesize(vpropcache)) strings")
         tot_strings += activesize(vpropcache)
+        push!(lengths, (weight_sector, activesize(vpropcache)))
     end
+
+    for (weight_sector, length) in lengths
+        println("  Weight sector $weight_sector: $length strings ($(round(length / tot_strings * 100, digits=2))%)")
+    end
+
     println("Total strings: $tot_strings")
 end
