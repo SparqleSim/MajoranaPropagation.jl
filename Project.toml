@@ -11,6 +11,7 @@ LinearAlgebra = "37e2e46d-f89d-539d-b4ee-838fcccc9c8e"
 PauliPropagation = "293282d5-3c99-4fb6-92d0-fd3280a19750"
 ProfileCanvas = "efd6af41-a80b-495e-886c-e51b0c7d77a3"
 ThreadPools = "b189fb0b-2eb5-4ed4-bc0c-d34c51242431"
+TimerOutputs = "a759f4b9-e2f1-59dc-863e-4aeb61b1ea8f"
 
 [compat]
 AcceleratedKernels = "0.4.3"
@@ -20,6 +21,7 @@ LinearAlgebra = "1.11.0"
 PauliPropagation = "0.7.2"
 ProfileCanvas = "0.1.7"
 ThreadPools = "2.1.1"
+TimerOutputs = "0.5.29"
 
 [extras]
 Random = "9a3f8284-a2c9-5f02-9a11-845980a1fd5c"

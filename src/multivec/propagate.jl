@@ -1,40 +1,43 @@
 using Base.Threads
 
-function PropagationBase.merge!(prop_cache::MultiVectorMajoranaPropagationCache; is_gaussian, kwargs...)
+function PropagationBase.merge!(prop_cache::MultiVectorMajoranaPropagationCache; is_gaussian, to, pools, kwargs...)
     if is_gaussian
-        _gaussian_merge!(prop_cache; kwargs...)
+        @timeit to "gaussian merge" _gaussian_merge!(prop_cache; pools, kwargs...)
     else
-        _non_gaussian_merge!(prop_cache; kwargs...)
+        @timeit to "non-gaussian merge" _non_gaussian_merge!(prop_cache; pools, kwargs...)
     end
 end
 
-function _gaussian_merge!(prop_cache::MultiVectorMajoranaPropagationCache; kwargs...)
+function _gaussian_merge!(prop_cache::MultiVectorMajoranaPropagationCache; pools, kwargs...)
     caches = prop_caches(prop_cache)
     sorted_keys = sort(collect(keys(caches)))
 
-    # Each weight sector has an independent cache and is always merged in parallel.
-    @threads for ii in eachindex(sorted_keys)
-        weight_key = sorted_keys[ii]
-        merge!(caches[weight_key]; kwargs...)
+    # Merge sectors concurrently, each using its assigned custom thread pool.
+    @sync for weight_key in sorted_keys
+        Threads.@spawn begin
+            pool = pools[weight_key]
+            _merge_vector_cache_noak!(caches[weight_key]; pool)
+        end
     end
 end
 
-function _non_gaussian_merge!(prop_cache::MultiVectorMajoranaPropagationCache; kwargs...)
+function _non_gaussian_merge!(prop_cache::MultiVectorMajoranaPropagationCache; pools, kwargs...)
     caches = prop_caches(prop_cache)
     sorted_keys = sort(collect(keys(caches)))
 
     # Direction +2: wave 1 (mod4 in 0,1), wave 2 (mod4 in 2,3)
-    _merge_weight_direction_wave!(caches, sorted_keys, 2, (0, 1); kwargs...)
-    _merge_weight_direction_wave!(caches, sorted_keys, 2, (2, 3); kwargs...)
+    _merge_weight_direction_wave!(caches, sorted_keys, pools, 2, (0, 1); kwargs...)
+    _merge_weight_direction_wave!(caches, sorted_keys, pools, 2, (2, 3); kwargs...)
 
     # Direction -2: wave 1 (mod4 in 2,3), wave 2 (mod4 in 0,1)
-    _merge_weight_direction_wave!(caches, sorted_keys, -2, (2, 3); kwargs...)
-    _merge_weight_direction_wave!(caches, sorted_keys, -2, (0, 1); kwargs...)
+    _merge_weight_direction_wave!(caches, sorted_keys, pools, -2, (2, 3); kwargs...)
+    _merge_weight_direction_wave!(caches, sorted_keys, pools, -2, (0, 1); kwargs...)
 end
 
 function _merge_weight_direction_wave!(
     caches::Dict,
     sorted_keys::Vector{Int},
+    pools::Dict{Int,ThreadPools.StaticPool},
     shift::Int,
     wave_residues::Tuple{Int,Int};
     kwargs...
@@ -58,6 +61,7 @@ function _merge_weight_direction_wave!(
             new_mainsum = Base.similar(mainsum(origin_cache))
             new_cache = VectorMajoranaPropagationCache(new_mainsum)
             setactivesize!(new_cache, 0)
+            pools[destination_weight] = pools[weight_key]
             return new_cache
         end
         push!(wave_origin_keys, weight_key)
@@ -72,7 +76,8 @@ function _merge_weight_direction_wave!(
         destination_weight = weight_key + shift
         origin_cache = caches[weight_key]
         destination_cache = caches[destination_weight]
-        _move_weight_sector!(origin_cache, destination_cache, destination_weight; kwargs...)
+        destination_pool = pools[destination_weight]
+        _move_weight_sector!(origin_cache, destination_cache, destination_weight; pool=destination_pool, kwargs...)
     end
 end
 
@@ -89,6 +94,7 @@ function _move_weight_sector!(
     origin_cache::VectorMajoranaPropagationCache,
     destination_cache::VectorMajoranaPropagationCache,
     destination_weight::Int;
+    pool,
     kwargs...
 )
     strings_to_be_moved(pstr) = (get_weight(pstr) == destination_weight)
@@ -130,7 +136,7 @@ function _move_weight_sector!(
     destination_cache.active_size += n_to_be_moved
 
     # Merge destination cache to combine duplicates before the next wave.
-    merge!(destination_cache; kwargs...)
+    _merge_vector_cache_noak!(destination_cache; pool)
 
     # Keep terms that were not moved.
     origin_cache.flags .= .!(origin_cache.flags)

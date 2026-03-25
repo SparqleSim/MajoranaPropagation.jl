@@ -1,9 +1,9 @@
-
+using TimerOutputs
 # =========================
 # Vector propagation
 # =========================
 
-function PropagationBase.applymergetruncate!(gate::FermionicGate, prop_cache::MultiVectorMajoranaPropagationCache, theta; truncate_each_mr=nothing, kwargs...)
+function PropagationBase.applymergetruncate!(gate::FermionicGate, prop_cache::MultiVectorMajoranaPropagationCache, theta; truncate_each_mr=nothing, to::TimerOutput, kwargs...)
     # get the Majorana strings and coefficients corresponding to the fermionic gate
     ms_rotations, coeffs, truncate_after_each_majrot = getmajoranarotations(gate, nsites(prop_cache))
     if !isnothing(truncate_each_mr)
@@ -18,18 +18,18 @@ function PropagationBase.applymergetruncate!(gate::FermionicGate, prop_cache::Mu
         pools = assign_pools(prop_cache)
 
         # multiply coefficient by 2 since `::MajoranaRotation` implements exp(-i * theta/2 * mstring)
-        applytoall!(gate_ms, prop_cache, theta * coeff * 2.0; pools, kwargs...)
+        @timeit to "applytoall!" applytoall!(gate_ms, prop_cache, theta * coeff * 2.0; pools, kwargs...)
 
         # we need to merge 
-        merge!(prop_cache; is_gaussian=is_gate_gaussian, kwargs...)
+        @timeit to "merge!" merge!(prop_cache; is_gaussian=is_gate_gaussian, to, pools, kwargs...)
 
         # truncate after each Majorana rotation 
         if truncate_after_each_majrot
-            truncate!(prop_cache; kwargs...)
+            @timeit to "truncate!" truncate!(prop_cache; kwargs...)
         end
     end
     if !truncate_after_each_majrot
-        truncate!(prop_cache; kwargs...)
+        @timeit to "truncate!" truncate!(prop_cache; kwargs...)
     end
 
     return prop_cache
@@ -101,7 +101,9 @@ function assign_pools(prop_cache::MultiVectorMajoranaPropagationCache; max_threa
     weights = Int[w for (w, _) in sectors]
 
     if max_threads == 1
-        pools[weights[1]] = ThreadPools.StaticPool(1:1)
+        for w in weights
+            pools[w] = ThreadPools.StaticPool(1:1)
+        end
         return pools
     end
 
