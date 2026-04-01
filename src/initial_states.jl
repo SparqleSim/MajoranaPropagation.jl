@@ -199,9 +199,7 @@ Compute the overlap <superposition|msum|superposition> where
 - superposition is given as a vector of Fock basis states `sites_with_particle_superposition`
 - superposition_coefficients are the coefficients of the superposition (assumed normalized)
 """
-# TODO: fix, now broken 
-function overlapwithfock(msum::MajoranaSum, sites_with_particle_superposition::Vector{FockState}, superposition_coefficients::Vector{<:Union{Real,Complex}})
-    @error "Currently non supported"
+function overlapwithfock(msum::AbstractMajoranaSum, sites_with_particle_superposition::Vector{<:FockState}, superposition_coefficients::Vector{<:Union{Real,Complex}})
     # check normalization
     @assert sum(abs2, superposition_coefficients) ≈ 1. "Superposition coefficients must be normalized."
     res = 0.

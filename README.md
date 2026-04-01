@@ -65,7 +65,7 @@ end
 
 # Set initial Fock state
 # specify the sites where fermions are created
-fock_state = fockstate(1:2:L_sites)
+fock_state = FockState(L_sites, 1:2:L_sites)
 
 # Set observable 
 obs = MajoranaSum(L_sites, :n, 1) * MajoranaSum(L_sites, :n, 5)
@@ -81,8 +81,10 @@ It's also posssible to consider superpositions of Fock states as initial states
 ```julia
 # Consider a second Fock state that only differs by the position of one fermion
 fock_state = fockstate(1:2:L_sites)
-fock_state_2 = deepcopy(fock_state)
-fock_state_2.occupied_sites[1] = 2
+
+sites2 = collect(1:2:L_sites)
+sites2[1] = 2
+fock_state_2 = FockState(L_sites, sites2)
 
 # Set observable 
 obs = MajoranaSum(L_sites, :n, 1) * MajoranaSum(L_sites, :n, 5)
