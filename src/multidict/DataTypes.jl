@@ -30,11 +30,7 @@ end
 
 function add!(msum::MajoranaSumMulti{TT,CT}, level_key, ms_int::TT, coeff::CT) where {TT<:Integer,CT}
     dict = msum.MultiMajoranas[level_key]
-    if haskey(dict, ms_int)
-        dict[ms_int] += coeff
-    else
-        dict[ms_int] = coeff
-    end
+    dict[ms_int] = get(dict, ms_int, zero(CT)) + coeff
     return msum
 end
 

@@ -2,7 +2,7 @@
 
 mutable struct MajoranaMultiPropagationCache{MMS<:MajoranaSumMulti} <: AbstractMajoranaPropagationCache
     main_msum::MMS
-    aux_msum::MMS
+    aux_msum::Vector{MMS}
 end
 
 # Overload for generality
@@ -11,7 +11,7 @@ function PropagationBase.PropagationCache(multimsum::MajoranaSumMulti)
 end
 
 function MajoranaMultiPropagationCache(multimsum::MajoranaSumMulti{TT,VC}) where {TT<:Integer,VC}
-    aux_msum = similar(multimsum)
+    aux_msum = [similar(multimsum) for _ in 1:length(multimsum.MultiMajoranas)]
     return MajoranaMultiPropagationCache(multimsum, aux_msum)
 end
 
@@ -25,9 +25,9 @@ function PropagationBase.setmainsum!(prop_cache::MajoranaMultiPropagationCache, 
 end
 
 function PropagationBase.setauxsum!(
-    prop_cache::MajoranaMultiPropagationCache,
-    aux_msum::MajoranaSumMulti,
-)
+    prop_cache::MajoranaMultiPropagationCache{MMS},
+    aux_msum::Vector{MMS},
+) where {MMS<:MajoranaSumMulti}
     prop_cache.aux_msum = aux_msum
     return prop_cache
 end

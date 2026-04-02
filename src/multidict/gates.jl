@@ -36,38 +36,40 @@ function PropagationBase.applytoall!(gate::MajoranaRotation, prop_cache::Majoran
     gate_int = gate.ms_int
 
     @threads for iw in eachindex(msum)
+        @inbounds begin
         _applymajoranarotation!(
             msum.MultiMajoranas[iw],
-            aux_msum.MultiMajoranas[iw],
+            aux_msum[iw],
             gate_int,
             theta,
             nfermions(msum);
             kwargs...,
         )
+        end
     end
     return prop_cache
 end
 
-function _applymajoranarotation!(msum_dict::Dict{TT,CT}, aux_dict::Dict{TT,CT}, gate_int, theta, n_fermions; kwargs...) where {TT<:Integer,CT}
+function _applymajoranarotation!(msum_dict::Dict{TT,CT}, aux_dict::MajoranaSumMulti{TT,CT}, gate_int, theta, n_fermions; level_mapper::F, kwargs...) where {TT<:Integer,CT,F}
     cos_val = cos(theta)
     sin_val = sin(theta)
     
-    # loop over all Pauli strings and their coefficients in the Pauli sum
+    # loop over all Majorana strings and their coefficients in the Majorana sum
     for (ms_int, coeff) in msum_dict
         if commutes(gate_int, ms_int)
-            # if the gate commutes with the pauli string, do nothing
+            # if the gate commutes with the Majorana string, do nothing
             continue
         end
 
-        # else we know the gate will split th Pauli string into two
+        # else we know the gate will split th Majorana string into two
         coeff1 = _applycos(coeff, cos_val)
         sign, new_ms = ms_mult(gate_int, ms_int, n_fermions)
         coeff2 = _applysin(coeff, sin_val * real((-1im) * sign))
 
-        # set the coefficient of the original Pauli string
+        # set the coefficient of the original Majorana string
         msum_dict[ms_int] = coeff1
-        # add the new Pauli string with its coefficient
-        aux_dict[new_ms] = coeff2
+        # add the new Majorana string with its coefficient
+        set!(aux_dict, level_mapper(new_ms), new_ms, coeff2)
     end
     return
 end

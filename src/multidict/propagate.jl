@@ -1,26 +1,34 @@
-function Base.merge!(prop_cache::MajoranaMultiPropagationCache; to, kwargs...)
+function Base.merge!(prop_cache::MajoranaMultiPropagationCache; to=TimerOutput(), kwargs...)
     prop_cache = _merge_and_empty!(prop_cache; to, kwargs...)
     return prop_cache
 end
 
 function _merge_and_empty!(
     prop_cache::MajoranaMultiPropagationCache{MMS};
-    level_mapper::Function,
-    to,
+    level_mapper=nothing,
     kwargs...,
 ) where {TT<:Integer,CT,MMS<:MajoranaSumMulti{TT,CT}}
     msum = mainsum(prop_cache)
-    aux_msum = auxsum(prop_cache)
+    aux_msum = auxsum(prop_cache)  # Vector{MMS}
+    main_levels = msum.MultiMajoranas
+    zero_coeff = zero(CT)
+    n_levels = length(main_levels)
+    _ = level_mapper
 
-    @timeit to "loop" for iw in eachindex(msum.MultiMajoranas)
-        for (ms_int, coeff) in aux_msum.MultiMajoranas[iw]
-            add!(msum, level_mapper(ms_int), ms_int, coeff)
+    @threads for level in 1:n_levels
+        dest_dict = main_levels[level]
+        for iw in eachindex(aux_msum)
+            src_dict = aux_msum[iw].MultiMajoranas[level]
+            isempty(src_dict) && continue
+
+            for (ms_int, coeff) in src_dict
+                dest_dict[ms_int] = get(dest_dict, ms_int, zero_coeff) + coeff
+            end
+            empty!(src_dict)
         end
-        empty!(aux_msum.MultiMajoranas[iw])
     end
 
-    @timeit to "set" setmainsum!(prop_cache, msum)
-    @timeit to "set" setauxsum!(prop_cache, aux_msum)
-
+    setmainsum!(prop_cache, msum)
+    setauxsum!(prop_cache, aux_msum)
     return prop_cache
 end
