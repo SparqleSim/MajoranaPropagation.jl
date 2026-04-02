@@ -6,5 +6,6 @@ using Random
 @testset "MajoranaPropagation.jl" begin
     include("test_commutation_relations.jl")
     include("test_algebra.jl")
+    include("test_multidict.jl")
     include("compare_jw.jl")
 end

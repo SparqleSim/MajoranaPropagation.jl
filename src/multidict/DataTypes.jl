@@ -1,24 +1,20 @@
 import Base: keys
+import PauliPropagation.PropagationBase: add!
 
 struct MajoranaSumMulti{TT<:Integer,CT} <: AbstractMajoranaSum
     nsites::Int
     is_spinful::Bool
-    MultiMajoranas::Dict{String,Dict{TT,CT}}
+    MultiMajoranas::Vector{Dict{TT,CT}}
 end
 
-function MajoranaSumMulti(msum::MajoranaSum{TT,CT}, level_mapper::Function) where {TT<:Integer,CT}
+function MajoranaSumMulti(msum::MajoranaSum{TT,CT}, level_mapper::Function,n_levels::Int) where {TT<:Integer,CT}
     nsites = msum.nsites
     is_spinful = msum.is_spinful
-    multimajs = Dict{String,Dict{TT,CT}}()
+    multimajs = [Dict{TT,CT}() for _ in 1:n_levels]
 
     for (ms_int, coeff) in msum.Majoranas
-        ms_weight = get_weight(ms_int)
         ms_level = level_mapper(ms_int)
-        ms_key = "$ms_weight-$ms_level"
-        if !haskey(multimajs, ms_key)
-            multimajs[ms_key] = Dict{TT,CT}()
-        end
-        multimajs[ms_key][ms_int] = coeff
+        multimajs[ms_level][ms_int] = coeff
     end
     return MajoranaSumMulti{TT,CT}(nsites, is_spinful, multimajs)
 end
@@ -28,18 +24,23 @@ function Base.keys(msum::MajoranaSumMulti)
 end
 
 # set ms of certain weight assuming dict weight is already present in msum
-function set!(msum::MajoranaSumMulti{TT,CT}, weight_key, ms_int::TT, coeff::CT) where {TT<:Integer,CT}
-    msum.MultiMajoranas[weight_key][ms_int] = coeff
+function set!(msum::MajoranaSumMulti{TT,CT}, level_key, ms_int::TT, coeff::CT) where {TT<:Integer,CT}
+    msum.MultiMajoranas[level_key][ms_int] = coeff
 end
 
-function similar(msum::MajoranaSumMulti{TT,CT}, W::Int, nlevels::Int) where {TT<:Integer,CT}
-    out_dict = Dict{String,Dict{TT,CT}}()
-    for weight_key in (W - 2, W, W + 2)
-        for j = 1:nlevels
-            out_dict["$weight_key-$j"] = Dict{TT,CT}()
-        end
+function add!(msum::MajoranaSumMulti{TT,CT}, level_key, ms_int::TT, coeff::CT) where {TT<:Integer,CT}
+    dict = msum.MultiMajoranas[level_key]
+    if haskey(dict, ms_int)
+        dict[ms_int] += coeff
+    else
+        dict[ms_int] = coeff
     end
-    return MajoranaSumMulti(msum.nsites, msum.is_spinful, out_dict)
+    return msum
+end
+
+function similar(msum::MajoranaSumMulti{TT,CT}) where {TT<:Integer,CT}
+    out_vec = [Dict{TT,CT}() for _ in 1:length(msum.MultiMajoranas)]
+    return MajoranaSumMulti(msum.nsites, msum.is_spinful, out_vec)
 end
 
 function coefftype(msum::MajoranaSumMulti{TT,CT}) where {TT,CT}
@@ -48,8 +49,8 @@ end
 
 function Base.length(msum::MajoranaSumMulti{TT,CT}) where {TT<:Integer,CT}
     total_strings = 0
-    for (weight_key, dict) in msum.MultiMajoranas
-        nstrings = length(dict)
+    for wi in eachindex(msum.MultiMajoranas)
+        nstrings = length(msum.MultiMajoranas[wi])
         total_strings += nstrings
     end
     return total_strings
@@ -63,7 +64,8 @@ function norm(msum::MajoranaSumMulti{TT,CT}, L=2) where {TT<:Integer,CT}
     end
     all_coeffs = zeros(CT, length(msum))
     idx = 1
-    for (weight_key, dict) in msum.MultiMajoranas
+    for wi in eachindex(msum.MultiMajoranas)
+        dict = msum.MultiMajoranas[wi]
         length_of_sector = length(dict)
         all_coeffs[idx:idx+length_of_sector-1] .= collect(values(dict))
         idx += length_of_sector
@@ -87,14 +89,15 @@ end
 
 function show_stats(msum::MajoranaSumMulti{TT,CT}) where {TT<:Integer,CT}
     total_strings = 0
-    for (weight_key, dict) in msum.MultiMajoranas
+    for wi in eachindex(msum.MultiMajoranas)
+        dict = msum.MultiMajoranas[wi]
         nstrings = length(dict)
         total_strings += nstrings
     end
-    sorted_keys = sort(collect(keys(msum.MultiMajoranas)))
-    for weight_key in sorted_keys
-        nstrings = length(msum.MultiMajoranas[weight_key])
-        println("Weight $weight_key: $nstrings strings ($(round(100. * nstrings / total_strings))%)")
+    for wi in eachindex(msum.MultiMajoranas)
+        dict = msum.MultiMajoranas[wi]
+        nstrings = length(dict)
+        println("Level $wi: $nstrings strings ($(round(100. * nstrings / total_strings; digits=2))%)")
     end
     println("Total strings: $total_strings")
 end
@@ -110,20 +113,3 @@ function nfermions(msum::MajoranaSumMulti)
         return msum.nsites
     end
 end
-
-function _split_key(key::String)
-    parts = split(key, "-")
-    weight = parse(Int, parts[1])
-    level = parts[2]
-    return weight, level
-end
-
-function _get_weight_from_key(key::String)
-    return _split_key(key)[1]
-end
-
-function _get_level_from_key(key::String)
-    return _split_key(key)[2]
-end
-
-

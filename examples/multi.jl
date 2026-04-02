@@ -7,6 +7,7 @@ using PauliPropagation
 #using ProgressMeter
 #using TimerOutputs
 using Base.Threads
+using TimerOutputs
 
 @show nthreads()
 
@@ -71,10 +72,15 @@ let
 
     msum = MajoranaSum(nspinful, :nupndn, 3) #* MajoranaSum(nspinful, :nupndn, 5)
     id_val = MajoranaPropagation.pop_id!(msum)
-    multi_msum = MajoranaSumMulti(msum)
+    
+    n_levels = nthreads()
+    level_mapper = ms -> mod(mod(ms * 11, n_levels) + countweight(ms), n_levels) + 1
+
+    multi_msum = MajoranaSumMulti(msum, level_mapper, n_levels)
     vec_msum = VectorMajoranaSum(msum)
 
     @show multi_msum.MultiMajoranas
+    multi_msum = MajoranaMultiPropagationCache(multi_msum)
 
     min_abs_coeff = 5.e-7
     max_singles = 8
@@ -88,25 +94,30 @@ let
     lengths_normal = zeros(n_reps)
     lengths_vec = zeros(n_reps)
 
+    to = TimerOutput()
+
     for k = 1:n_reps
         println("---$(k)---")
         # multisum 
-        times_multi[k] = @elapsed propagate!(circ_single, multi_msum, thetas_single; min_abs_coeff=min_abs_coeff, max_unpaired=max_singles)
+        @timeit to "multi" times_multi[k] = @elapsed propagate!(circ_single, multi_msum, thetas_single; level_mapper, min_abs_coeff=min_abs_coeff, max_unpaired=max_singles, to)
         println("time multi: $(print_time(times_multi[k]))")
         #println(gfhj)
         #normal mode 
-        times_normal[k] = @elapsed propagate!(circ_single, msum, thetas_single; min_abs_coeff=min_abs_coeff, max_unpaired=max_singles)
+        @timeit to "normal" times_normal[k] = @elapsed propagate!(circ_single, msum, thetas_single; min_abs_coeff=min_abs_coeff, max_unpaired=max_singles, to)
         println("time normal: $(print_time(times_normal[k]))")
 
-        times_vec[k] = @elapsed vec_msum = propagate!(circ_single, vec_msum, thetas_single; min_abs_coeff=min_abs_coeff, max_unpaired=max_singles)
+        @timeit to "vec" times_vec[k] = @elapsed vec_msum = propagate!(circ_single, vec_msum, thetas_single; min_abs_coeff=min_abs_coeff, max_unpaired=max_singles, to)
         println("time vec: $(print_time(times_vec[k]))")
 
         show_stats(multi_msum)
         #@show length(multi_msum)
         @show length(msum)
         @show length(vec_msum)
+        @show length(multi_msum)
         lengths_multi[k] = length(multi_msum)
         lengths_normal[k] = length(msum)
+        @assert length(multi_msum) == length(msum)
+        @show to 
     end
 
     #profile 

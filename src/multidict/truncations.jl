@@ -29,19 +29,24 @@ function PropagationBase.truncate!(
     end
 
     msum = mainsum(prop_cache)
-    for weight_key in collect(keys(msum.MultiMajoranas))
-        weight_dict = msum.MultiMajoranas[weight_key]
-        for ms_int in collect(keys(weight_dict))
-            if truncfunc(ms_int, weight_dict[ms_int])
-                delete!(weight_dict, ms_int)
-            end
-        end
-        if isempty(weight_dict)
-            delete!(msum.MultiMajoranas, weight_key)
-        end
+    @threads for iw in eachindex(msum)
+        _truncate_dict!(msum.MultiMajoranas[iw], truncfunc)
     end
 
     setmainsum!(prop_cache, msum)
 
+    return
+end
+
+function _truncate_dict!(dict::Dict{TT,CT}, truncfunc::Function) where {TT<:Integer,CT}
+    keys_to_delete = TT[]
+    for (ms_int, coeff) in dict
+        if truncfunc(ms_int, coeff)
+            push!(keys_to_delete, ms_int)
+        end
+    end
+    for ms_int in keys_to_delete
+        delete!(dict, ms_int)
+    end
     return
 end
