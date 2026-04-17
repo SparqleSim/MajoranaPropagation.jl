@@ -72,6 +72,12 @@ function FockState(n_sites::Integer, ::Val{:checkerboard}, is_spinful::Bool; hol
     @error "Invalid symbol for FockState constructor."
 end
 
+function _fock_has_fermion(fock_state::TT, fermion::Int) where {TT<:Integer}
+    # -2 because we start counting bits from 0
+    bit_position = 2 * fermion - 2
+    return (fock_state >> bit_position) & 1 == 1
+end
+
 # printing for fock states
 function Base.show(io::IO, fock_state::FockState)
     is_spinful = fock_state.is_spinful
@@ -175,18 +181,18 @@ function overlapwithfock(ms::TT, fock_state_1::FockState, fock_state_2::FockStat
         gamma = ((ms >> (2 * i - 2)) & TT(1))
         gamma_prime = ((ms >> (2 * i - 1)) & TT(1))
         if gamma == gamma_prime
-            if (i in fock_state_2.occupied_sites) != (i in fock_state_1.occupied_sites)
+            if _fock_has_fermion(fock_state_1.occupied_sites, i) != _fock_has_fermion(fock_state_2.occupied_sites, i)
                 res *= 0.
                 break
             else
-                res *= (1im * (-1)^(i in fock_state_2.occupied_sites))^gamma
+                res *= (1im * (-1)^(_fock_has_fermion(fock_state_2.occupied_sites, i)))^gamma
             end
         else
-            if (i in fock_state_2.occupied_sites) == (i in fock_state_1.occupied_sites)
+            if _fock_has_fermion(fock_state_2.occupied_sites, i) == _fock_has_fermion(fock_state_1.occupied_sites, i)
                 res *= 0.
                 break
             else
-                res *= (1im * (-1)^(i in fock_state_2.occupied_sites))^gamma_prime * (-1)^(sum((j in fock_state_1.occupied_sites) for j = min(i + 1, n_fermions):n_fermions))
+                res *= (1im * (-1)^(_fock_has_fermion(fock_state_2.occupied_sites, i)))^gamma_prime * (-1)^(sum((_fock_has_fermion(fock_state_1.occupied_sites, j)) for j = min(i + 1, n_fermions):n_fermions))
             end
         end
     end
