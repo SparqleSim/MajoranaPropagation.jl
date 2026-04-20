@@ -192,7 +192,9 @@ function overlapwithfock(ms::TT, fock_state_1::FockState, fock_state_2::FockStat
                 res *= 0.
                 break
             else
-                res *= (1im * (-1)^(_fock_has_fermion(fock_state_2.occupied_sites, i)))^gamma_prime * (-1)^(sum((_fock_has_fermion(fock_state_1.occupied_sites, j)) for j = min(i + 1, n_fermions):n_fermions))
+                pref1 = (1im * (-1)^(_fock_has_fermion(fock_state_2.occupied_sites, i)))^gamma_prime
+                pref2 = i < n_fermions ? (-1)^(sum((_fock_has_fermion(fock_state_1.occupied_sites, j)) for j = (i + 1):n_fermions)) : 1
+                res *=  pref1 * pref2 
             end
         end
     end

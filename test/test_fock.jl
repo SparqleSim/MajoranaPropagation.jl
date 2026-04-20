@@ -451,5 +451,5 @@ end
 #simple_spinless()
 #simple_spinful()
 
-#spinless()
+spinless()
 spinful()
