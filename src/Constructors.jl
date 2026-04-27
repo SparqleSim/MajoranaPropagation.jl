@@ -282,6 +282,13 @@ function MajoranaSum(n_sites::Integer, ::Val{:fdndag}, site)
     return obs
 end
 
+#Sz operator 
+function MajoranaSum(n_sites::Integer, ::Val{:Sz}, site)
+    msum = 0.5 * MajoranaSum(n_sites, :nup, site) - 0.5 * MajoranaSum(n_sites, :ndn, site)
+    delete!(msum, 0)
+    return msum
+end
+
 # undefined
 function MajoranaSum(nfermions::Integer, ::Val{symb}, sites) where {symb}
     error("Operator symbol :$symb not recognized.")
