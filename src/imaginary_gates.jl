@@ -57,8 +57,10 @@ function getmajoranarotations(gate::ImaginaryFermionicGate, n_sites::Integer)
     return rotations, coefficients, truncate_after_each_majrot
 end
 
-
-function PropagationBase.applymergetruncate!(gate::ImaginaryFermionicGate, prop_cache::AbstractMajoranaPropagationCache, theta; truncate_each_mr=nothing, normalize_coeffs=true, kwargs...)
+"""
+Implement exp(- beta fermionic_gate / 2) msum exp(- beta fermionic_gate / 2) for imaginary time evolution
+"""
+function PropagationBase.applymergetruncate!(gate::ImaginaryFermionicGate, prop_cache::AbstractMajoranaPropagationCache, beta; truncate_each_mr=nothing, normalize_coeffs=true, kwargs...)
     # get the Majorana strings and coefficients corresponding to the fermionic gate
     ms_rotations, coeffs, truncate_after_each_majrot = getmajoranarotations(gate, nsites(prop_cache))
     if !isnothing(truncate_each_mr)
@@ -67,8 +69,7 @@ function PropagationBase.applymergetruncate!(gate::ImaginaryFermionicGate, prop_
 
     # iterate over individual Majorana rotations and apply them to the Majorana sum
     for (gate_ms, coeff) in zip(ms_rotations, coeffs)
-        # multiply coefficient by 2 since `::MajoranaRotation` implements exp(-i * theta/2 * mstring)
-        applytoall!(gate_ms, prop_cache, theta * coeff * 2.0; kwargs...)
+        applytoall!(gate_ms, prop_cache, beta * coeff; kwargs...)
 
         # merge the auxiliary Majorana sum into the original one and empty the auxiliary one
         merge!(prop_cache; kwargs...)
@@ -90,12 +91,15 @@ function PropagationBase.applymergetruncate!(gate::ImaginaryFermionicGate, prop_
     return prop_cache
 end
 
-function PropagationBase.applytoall!(gate::ImaginaryMajoranaRotation, prop_cache::MajoranaPropagationCache, theta; kwargs...)
+"""
+Implement exp(- beta majorana_rotation / 2) msum exp(- beta majorana_rotation / 2) for imaginary time evolution
+"""
+function PropagationBase.applytoall!(gate::ImaginaryMajoranaRotation, prop_cache::MajoranaPropagationCache, beta; kwargs...)
     msum = mainsum(prop_cache)
     aux_msum = auxsum(prop_cache)
 
-    cosh_val = cosh(theta)
-    sinh_val = sinh(theta)
+    cosh_val = cosh(beta)
+    sinh_val = -sinh(beta)
 
     gate_int = gate.ms_int
 
@@ -106,7 +110,7 @@ function PropagationBase.applytoall!(gate::ImaginaryMajoranaRotation, prop_cache
             # the imaginary gate will split the Majorana string into two
             coeff1 = coeff * cosh_val
             sign, new_ms = ms_mult(gate_int, ms_int, nfermions(msum))
-            coeff2 = coeff * sinh_val * real(sign) # TODO: there might be a -1 missing
+            coeff2 = coeff * sinh_val * real(sign)
 
             # set the coefficient of the original Majorana string
             set!(msum, ms_int, coeff1)
@@ -123,8 +127,10 @@ function PropagationBase.applytoall!(gate::ImaginaryMajoranaRotation, prop_cache
 end
 
 # ========== vector specializations ========== #
-
-function PropagationBase.applytoall!(gate::ImaginaryMajoranaRotation, prop_cache::VectorMajoranaPropagationCache, theta; kwargs...)
+"""
+Implement exp(- beta majorana_rotation / 2) msum exp(- beta majorana_rotation / 2) for imaginary time evolution
+"""
+function PropagationBase.applytoall!(gate::ImaginaryMajoranaRotation, prop_cache::VectorMajoranaPropagationCache, beta; kwargs...)
 
     if prop_cache.active_size == 0
         return prop_cache
@@ -155,7 +161,7 @@ function PropagationBase.applytoall!(gate::ImaginaryMajoranaRotation, prop_cache
     end
 
     # does the branching logic
-    _applyimaginarymajoranarotation!(prop_cache, gate_ms, theta)
+    _applyimaginarymajoranarotation!(prop_cache, gate_ms, beta)
 
     # we now have n_new possibly duplicate Majorana strings in the array
     PropagationBase.setactivesize!(prop_cache, n_new)
@@ -163,11 +169,11 @@ function PropagationBase.applytoall!(gate::ImaginaryMajoranaRotation, prop_cache
     return prop_cache
 end
 
-function _applyimaginarymajoranarotation!(prop_cache::VectorMajoranaPropagationCache, gate_ms::TT, theta) where {TT}
+function _applyimaginarymajoranarotation!(prop_cache::VectorMajoranaPropagationCache, gate_ms::TT, beta) where {TT}
 
     # pre-compute the sine and cosine values because they are used for every Majorana string that does not commute with the gate
-    cosh_val = cosh(theta)
-    sinh_val = sinh(theta)
+    cosh_val = cosh(beta)
+    sinh_val = -sinh(beta)
 
     n = PropagationBase.activesize(prop_cache)
     n_max = n + PropagationBase.lastactiveindex(prop_cache)
@@ -192,7 +198,7 @@ function _applyimaginarymajoranarotation!(prop_cache::VectorMajoranaPropagationC
 
             coeff1 = coeff * cosh_val
             sign, new_term = ms_mult(gate_ms, term, nfermions(prop_cache))
-            coeff2 = coeff * sinh_val * real(sign) # TODO: there might be a -1 missing
+            coeff2 = coeff * sinh_val * real(sign)
 
             coeffs[ii] = coeff1
 
