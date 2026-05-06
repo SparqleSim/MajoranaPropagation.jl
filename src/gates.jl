@@ -84,7 +84,7 @@ function PropagationBase.applytoall!(gate::MajoranaRotation, prop_cache::Majoran
         # else we know the gate will split the Majorana string into two
         coeff1 = _applycos(coeff, cos_val)
         sign, new_ms = ms_mult(gate_int, ms_int, nfermions(msum))
-        coeff2 = _applysin(coeff, sin_val * real((-1im) * sign))
+        coeff2 = _applysin(coeff, sin_val * -imag(sign))
 
         # set the coefficient of the original Majorana string
         set!(msum, ms_int, coeff1)
@@ -196,7 +196,7 @@ function _applymajoranarotation!(prop_cache::VectorMajoranaPropagationCache, gat
 
             coeff1 = coeff * cos_val
             sign, new_term = ms_mult(gate_ms, term, n_fermions)
-            coeff2 = coeff * sin_val * real((-1im) * sign)
+            coeff2 = coeff * sin_val * -imag(sign)
 
             coeffs[ii] = coeff1
 
