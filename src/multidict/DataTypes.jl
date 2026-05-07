@@ -39,6 +39,32 @@ function similar(msum::MajoranaSumMulti{TT,CT}) where {TT<:Integer,CT}
     return MajoranaSumMulti(msum.nsites, msum.is_spinful, out_vec)
 end
 
+function PropagationBase.terms(msum::MajoranaSumMulti{TT,CT}) where {TT<:Integer,CT}
+    all_ms = Vector{TT}(undef, length(msum))
+    idx = 1
+    for wi in eachindex(msum.MultiMajoranas)
+        dict = msum.MultiMajoranas[wi]
+        for ms_int in keys(dict)
+            all_ms[idx] = ms_int
+            idx += 1
+        end
+    end
+    return all_ms
+end
+
+function PropagationBase.coefficients(msum::MajoranaSumMulti{TT,CT}) where {TT<:Integer,CT}
+    all_coeffs = Vector{CT}(undef, length(msum))
+    idx = 1
+    for wi in eachindex(msum.MultiMajoranas)
+        dict = msum.MultiMajoranas[wi]
+        for coeff in values(dict)
+            all_coeffs[idx] = coeff
+            idx += 1
+        end
+    end
+    return all_coeffs
+end
+
 function coefftype(msum::MajoranaSumMulti{TT,CT}) where {TT,CT}
     return CT
 end
@@ -108,4 +134,8 @@ function nfermions(msum::MajoranaSumMulti)
     else
         return msum.nsites
     end
+end
+
+function is_spinful(msum::MajoranaSumMulti)
+    return msum.is_spinful
 end

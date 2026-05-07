@@ -85,7 +85,7 @@ let
     min_abs_coeff = 5.e-7
     max_singles = 8
 
-    n_reps = 10
+    n_reps = 3
 
     times_multi = zeros(n_reps)
     times_normal = zeros(n_reps)
@@ -93,6 +93,9 @@ let
     lengths_multi = zeros(n_reps)
     lengths_normal = zeros(n_reps)
     lengths_vec = zeros(n_reps)
+
+    fock_state = FockState(nspinful, 2:2:nspinful, 1:2:nspinful)
+    @show fock_state
 
     to = TimerOutput()
 
@@ -103,11 +106,15 @@ let
         println("time multi: $(print_time(times_multi[k]))")
         #println(gfhj)
         #normal mode 
-        #@timeit to "normal" times_normal[k] = @elapsed propagate!(circ_single, msum, thetas_single; min_abs_coeff=min_abs_coeff, max_unpaired=max_singles, to)
+        @timeit to "normal" times_normal[k] = @elapsed propagate!(circ_single, msum, thetas_single; min_abs_coeff=min_abs_coeff, max_unpaired=max_singles, to)
         #println("time normal: $(print_time(times_normal[k]))")
 
         @timeit to "vec" times_vec[k] = @elapsed vec_msum = propagate!(circ_single, vec_msum, thetas_single; min_abs_coeff=min_abs_coeff, max_unpaired=max_singles, to)
         println("time vec: $(print_time(times_vec[k]))")
+
+        @show overlapwithfock(msum, fock_state)
+        @show overlapwithfock(mainsum(multi_msum), fock_state)
+        @assert abs(overlapwithfock(msum, fock_state) - overlapwithfock(mainsum(multi_msum), fock_state)) < 1.e-12
 
         show_stats(multi_msum)
         #@show length(multi_msum)
