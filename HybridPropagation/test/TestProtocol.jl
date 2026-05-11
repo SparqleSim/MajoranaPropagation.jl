@@ -42,7 +42,7 @@ eps = 1.e-12    #Defines comparison threshold
 
         f_filter, q_filter = create_filters(hybrid_obs)
         @showprogress for t in 1:nTSteps
-            propagate!(hybrid_circ, hybrid_obs, thetas, f_filter, q_filter, min_abs_coeff=-1.)
+            propagate!(hybrid_circ, hybrid_obs, thetas; fermions_filter=f_filter, qubits_filter = q_filter, min_abs_coeff=-1.)
             hybrid_expval = overlapwithstate(hybrid_obs, hybrid_state)
 
             Yao.apply!(yao_state, yao_circ)
@@ -83,7 +83,7 @@ eps = 1.e-12    #Defines comparison threshold
 
         f_filter, q_filter = create_filters(hybrid_obs)
         @showprogress for t in 1:nTSteps
-            propagate!(hybrid_circ, hybrid_obs, thetas, f_filter, q_filter, min_abs_coeff=-1.)
+            propagate!(hybrid_circ, hybrid_obs, thetas; fermions_filter=f_filter, qubits_filter = q_filter, min_abs_coeff=-1.)
             hybrid_expval = overlapwithstate(hybrid_obs, hybrid_state)
 
             Yao.apply!(yao_state, yao_circ)

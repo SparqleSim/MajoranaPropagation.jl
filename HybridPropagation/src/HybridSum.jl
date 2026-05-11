@@ -2,28 +2,27 @@
 abstract type AbstractHybridSum <: PauliPropagation.AbstractTermSum end
 
 struct HybridSum{TT<:Integer,CT} <: AbstractHybridSum
-    nfermionicsites::Int
+    nfermionic_sites::Int
     nqubits::Int
     is_spinful::Bool
     terms::Dict{TT,CT}
 end
 
 #--- Standard Constructors-------------------------------------
-#Default initialisation for empty HybridSumm :
-function HybridSum(nfermionicsites::Int, nqubits::Int, is_spinful::Bool)
-    TT = getinttype(nqubits + nfermionicsites)
-    return HybridSum(nfermionicsites, nqubits, is_spinful, Dict{TT,Float64}())
-end
-
 #Initialisation with defined coefficient type
-function HybridSum(nfermionicsites::Int, nqubits::Int, is_spinful::Bool, ::Type{CT}) where {CT}
-    if is_spinful 
-        nfermions = 2 * nfermionicsites
-    else 
-        nfermions = nfermionicsites
+function HybridSum(nfermionic_sites::Int, nqubits::Int, is_spinful::Bool, ::Type{CT}) where {CT}
+    if is_spinful
+        nfermions = 2 * nfermionic_sites
+    else
+        nfermions = nfermionic_sites
     end
     TT = getinttype(nqubits + nfermions)
-    return HybridSum(nfermionicsites, nqubits, is_spinful, Dict{TT,CT}())
+    return HybridSum(nfermionic_sites, nqubits, is_spinful, Dict{TT,CT}())
+end
+
+#Default initialisation for empty HybridSumm :
+function HybridSum(nfermionic_sites::Int, nqubits::Int, is_spinful::Bool)
+    return HybridSum(nfermionic_sites, nqubits, is_spinful, Float64)
 end
 
 function HybridSum(msum::MajoranaPropagation.AbstractMajoranaSum, pstr::PauliString)
@@ -34,28 +33,28 @@ function HybridSum(msum::MajoranaPropagation.AbstractMajoranaSum, pstr::PauliStr
 
     if length(msum.Majoranas) > 0
         for (mstr, coeff) in msum.Majoranas
-            hybrid_terms[(TT(mstr) | hybrid_pstr)] = coeff
+            hybrid_terms[(TT(mstr)|hybrid_pstr)] = coeff
         end
-    else 
+    else
         hybrid_terms[hybrid_pstr] = 1.0
     end
 
     return HybridSum(msum.nsites, pstr.nqubits, msum.is_spinful, hybrid_terms)
-end 
+end
 
 function HybridSum(msum::MajoranaPropagation.AbstractMajoranaSum, psum::PauliPropagation.AbstractPauliSum)
-    nf = MajoranaPropagation.nfermions(msum)
-    TT = PauliPropagation.getinttype(nf + psum.nqubits)
+    nfermions = MajoranaPropagation.nfermions(msum)
+    TT = PauliPropagation.getinttype(nfermions + psum.nqubits)
     hybrid_terms = Dict{TT,MajoranaPropagation.coefftype(msum)}()
 
     for (pstr, pcoeff) in psum.terms
-        hybrid_pstr = TT(pstr) << (2 * nf)
+        hybrid_pstr = TT(pstr) << (2 * nfermions)
         for (mstr, mcoeff) in msum.Majoranas
-            hybrid_terms[(TT(mstr) | hybrid_pstr)] = pcoeff * mcoeff
-        end 
+            hybrid_terms[(TT(mstr)|hybrid_pstr)] = pcoeff * mcoeff
+        end
     end
     return HybridSum(msum.nsites, psum.nqubits, msum.is_spinful, hybrid_terms)
-end 
+end
 
 function HybridSum(msum::MajoranaPropagation.AbstractMajoranaSum, nqubits::Int, pstr_term::TT) where {TT<:Integer}
     nf = MajoranaPropagation.nfermions(msum)
@@ -65,33 +64,33 @@ function HybridSum(msum::MajoranaPropagation.AbstractMajoranaSum, nqubits::Int, 
 
     if length(msum.Majoranas) > 0
         for (mstr, coeff) in msum.Majoranas
-            hybrid_terms[(dtype(mstr) | hybrid_pstr)] = coeff
+            hybrid_terms[(dtype(mstr)|hybrid_pstr)] = coeff
         end
-    else 
+    else
         hybrid_terms[hybrid_pstr] = 1.0
-    end 
+    end
     return HybridSum(msum.nsites, nqubits, msum.is_spinful, hybrid_terms)
-end 
+end
 
 function HybridSum(msum::MajoranaPropagation.AbstractMajoranaSum)
     return HybridSum(msum.nsites, 0, msum.is_spinful, deepcopy(msum.Majoranas))
-end 
+end
 
 function HybridSum(psum::PauliPropagation.AbstractPauliSum)
     return HybridSum(0, psum.nqubits, false, deepcopy(psum.terms))
-end 
+end
 
 function HybridSum(pstr::PauliString)
-    hybrid_terms = Dict{typeof(pstr.term), typeof(pstr.coeff)}()
+    hybrid_terms = Dict{typeof(pstr.term),typeof(pstr.coeff)}()
     hybrid_terms[pstr.term] = 1.0
     return HybridSum(0, pstr.nqubits, false, hybrid_terms)
-end 
+end
 
 
 #--- Constructors for Majorana rotations----------------------------
-function HybridSum(n_fermions::Integer, f_symb::Symbol, f_sites::Vector{Int}, 
-                    n_qubits::Integer, q_symbols::Vector{Symbol}, q_indices::Vector{Int}; 
-                    del_m_id::Bool=false)
+function HybridSum(n_fermions::Integer, f_symb::Symbol, f_sites::Vector{Int},
+    n_qubits::Integer, q_symbols::Vector{Symbol}, q_indices::Vector{Int};
+    del_m_id::Bool=false)
     """
     Constructor to be used to identify Majorana rotations per fermionic gate
     """
@@ -102,22 +101,22 @@ function HybridSum(n_fermions::Integer, f_symb::Symbol, f_sites::Vector{Int},
 
     if isempty(f_sites)
         return HybridSum(n_fermions, n_qubits, false, Dict(pstr => 1.0))
-    else 
+    else
         #Convert the Fermionic gate into MajoranaRotation components
         fermionic_part = MajoranaSum(n_fermions, Val(f_symb), f_sites)
-        
+
         if del_m_id #remove coefficient associated to identity
             MajoranaPropagation.pop_id!(fermionic_part)
         end
 
         #Combination of fermionic and qubit parts
-        hsum_dict = Dict{TT, MajoranaPropagation.coefftype(fermionic_part)}()
-        for (ms, coeff) in fermionic_part 
+        hsum_dict = Dict{TT,MajoranaPropagation.coefftype(fermionic_part)}()
+        for (ms, coeff) in fermionic_part
             hs = pstr | convert(TT, ms)
             hsum_dict[hs] = coeff
         end
         return HybridSum(n_fermions, n_qubits, fermionic_part.is_spinful, hsum_dict)
-    end 
+    end
 end
 
 #--- Base Overloads ------------------------------------
@@ -132,11 +131,11 @@ function Base.show(io::IO, hsum::HybridSum)
     print(io, "HybridSum with $(length(hsum)) term$(length(hsum) == 1 ? "" : "s"):(")
     for (i, (term, coeff)) in enumerate(hsum.terms)
         if i <= max_display
-            majorana_string = reverse(string(term; base=2, pad=(2 * hsum.nfermionicsites)))[1:(2*hsum.nfermionicsites)]
+            majorana_string = reverse(string(term; base=2, pad=(2 * hsum.nfermionic_sites)))[1:(2*hsum.nfermionic_sites)]
             pauli_string = ""
             if hsum.nqubits > 0
-                pauli_string = inttostring((term >> (2 * hsum.nfermionicsites)), hsum.nqubits)
-            end 
+                pauli_string = inttostring((term >> (2 * hsum.nfermionic_sites)), hsum.nqubits)
+            end
             print(io, "\n")
             print(io, "    $(coeff) * $(majorana_string) x $(pauli_string)")
         else
@@ -148,33 +147,33 @@ function Base.show(io::IO, hsum::HybridSum)
 end
 
 function Base.:(==)(hs1::HybridSum, hs2::HybridSum)
-    if hs1.nqubits != hs2.nqubits || hs1.nfermionicsites != hs2.nfermionicsites || hs1.is_spinful != hs2.is_spinful
+    if hs1.nqubits != hs2.nqubits || hs1.nfermionic_sites != hs2.nfermionic_sites || hs1.is_spinful != hs2.is_spinful
         return false
     end
     return hs1.terms == hs2.terms
 end
 
-function Base.mergewith!(hsum1::HybridSum{TT, CT}, hsum2::HybridSum{TT, CT}) where {TT<:Integer, CT}
+function Base.mergewith!(hsum1::HybridSum{TT,CT}, hsum2::HybridSum{TT,CT}) where {TT<:Integer,CT}
     mergewith!(hsum1.terms, hsum2.terms)
     return hsum1
 end
 
-function Base.empty!(hsum::HybridSum{TT, CT}) where {TT<:Integer, CT}
+function Base.empty!(hsum::HybridSum{TT,CT}) where {TT<:Integer,CT}
     empty!(hsum.terms)
     return hsum
 end
 
-function Base.delete!(hsum::HybridSum{TT, CT}, hs::HybridString{TT}) where {TT<:Integer, CT}
+function Base.delete!(hsum::HybridSum{TT,CT}, hs::HybridString{TT}) where {TT<:Integer,CT}
     println("Potentially deprecated method called: delete!(hsum::HybridSum, hs::HybridString)")
     delete!(hsum.terms, hs.term)
 end
-function Base.delete!(hsum::HybridSum{TT, CT}, hs::TT) where {TT<:Integer, CT}
+function Base.delete!(hsum::HybridSum{TT,CT}, hs::TT) where {TT<:Integer,CT}
     delete!(hsum.terms, hs)
 end
 
 #--- PropagationBase Overloads -----------------------------------------------
 PauliPropagation.PropagationBase.storage(hsum::HybridSum) = hsum.terms
-PauliPropagation.PropagationBase.nsites(hsum::HybridSum) = hsum.nfermionicsites 
+PauliPropagation.PropagationBase.nsites(hsum::HybridSum) = hsum.nfermionic_sites
 
 #--- Other Functions ------------------------------------------------------
 is_spinful(hsum::HybridSum) = hsum.is_spinful
@@ -182,13 +181,13 @@ nqubits(hsum::HybridSum) = hsum.nqubits
 
 function nfermions(hsum::HybridSum)
     if hsum.is_spinful
-        return 2 * hsum.nfermionicsites
+        return 2 * hsum.nfermionic_sites
     else
-        return hsum.nfermionicsites
-    end 
+        return hsum.nfermionic_sites
+    end
 end
 
-function pop_id!(hsum::HybridSum{TT, CT}) where {TT<:Integer, CT}
+function pop_id!(hsum::HybridSum{TT,CT}) where {TT<:Integer,CT}
     if haskey(hsum.terms, 0)
         delete!(hsum.terms, 0)
     end
@@ -200,36 +199,36 @@ function coefftype(hsum::HybridSum)
 end
 
 function similar(hsum::HybridSum)
-    return HybridSum(hsum.nfermionicsites, hsum.nqubits, hsum.is_spinful, coefftype(hsum))
+    return HybridSum(hsum.nfermionic_sites, hsum.nqubits, hsum.is_spinful, coefftype(hsum))
 end
 
-function set!(hsum::HybridSum{TT, CT}, hs::HybridString{TT}, value::CT) where {TT<:Integer, CT}
+function set!(hsum::HybridSum{TT,CT}, hs::HybridString{TT}, value::CT) where {TT<:Integer,CT}
     println("Potentially deprecated method called: set!(hsum::HybridSum{TT, CT}, hs::HybridString{TT}, value::CT)")
     set!(hsum, hs.term, value)
     return
 end
 
-function set!(hsum::HybridSum{TT, CT}, hs::TT, value::CT) where {TT<:Integer, CT}
+function set!(hsum::HybridSum{TT,CT}, hs::TT, value::CT) where {TT<:Integer,CT}
     hsum.terms[hs] = value
     return
 end
 
-function add!(hsum::HybridSum{TT, CT}, hstr::HybridString{TT}, value::CT) where {TT<:Integer, CT}
+function add!(hsum::HybridSum{TT,CT}, hstr::HybridString{TT}, value::CT) where {TT<:Integer,CT}
     if haskey(hsum.terms, hstr.term)
         hsum.terms[hstr.term] += value
     else
         hsum.terms[hstr.term] = value
     end
     return hsum
-end 
+end
 
-function add!(hsum::HybridSum{TT, CT}, hs::TT, value::CT) where {TT<:Integer, CT}
+function add!(hsum::HybridSum{TT,CT}, hs::TT, value::CT) where {TT<:Integer,CT}
     if haskey(hsum.terms, hs)
-        hsum.terms[hs] += value 
-    else 
-        hsum.terms[hs] = value 
+        hsum.terms[hs] += value
+    else
+        hsum.terms[hs] = value
     end
-    return hsum 
+    return hsum
 end
 
 function mergeandempty!(hsum1::HS, hsum2::HS) where {HS<:AbstractHybridSum}
@@ -239,10 +238,10 @@ function mergeandempty!(hsum1::HS, hsum2::HS) where {HS<:AbstractHybridSum}
 end
 
 #--- Other Stuff -------------------------------------
-function create_filters(nfermionicsites::Int, nqubits::Int, is_spinful::Bool)
-    nfermions = is_spinful ? (2 * nfermionicsites) : nfermionicsites
+function create_filters(nfermionic_sites::Int, nqubits::Int, is_spinful::Bool)
+    nfermions = is_spinful ? (2 * nfermionic_sites) : nfermionic_sites
     TT = getinttype(nqubits + nfermions)
-    
+
     #Filter mask for Fermions: 00...0011...11
     fermions_filter = TT(2)^(2 * nfermions) - TT(1)
 
@@ -254,17 +253,17 @@ function create_filters(nfermionicsites::Int, nqubits::Int, is_spinful::Bool)
         qubits_filter = (TT(2)^(2 * nqubits - 1) - TT(1)) << 1
         qubits_filter |= TT(1)
         fermions_filter = TT(0)
-    end 
+    end
     if nqubits == 0
         fermions_filter = (TT(2)^(2 * nfermions - 1) - TT(1)) << 1
         fermions_filter |= TT(1)
         qubits_filter = TT(0)
-    end 
+    end
 
     return fermions_filter, qubits_filter
 end
 
 
 function create_filters(hsum::AbstractHybridSum)
-    return create_filters(hsum.nfermionicsites, hsum.nqubits, hsum.is_spinful)
-end 
+    return create_filters(hsum.nfermionic_sites, hsum.nqubits, hsum.is_spinful)
+end

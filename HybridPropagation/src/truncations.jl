@@ -12,26 +12,23 @@ function PauliPropagation.PropagationBase.truncate!(
     max_freq::Real=Inf, max_sins::Real=Inf,
     unpaired_mask=nothing,
     customtruncfunc=nothing,
-    fermion_filter=nothing, qubit_filter=nothing, 
+    fermions_filter, qubits_filter, 
     kwargs...
 
 )
     if isnothing(unpaired_mask)
         unpaired_mask = create_unpaired_mask(nfermions(mainsum(prop_cache)))
     end
-    if isnothing(fermion_filter) || isnothing(qubit_filter)
-        fermion_filter, qubit_filter = create_filters(mainsum(prop_cache))
-    end 
 
     function truncfunc(hstr, coeff)
         is_truncated = false
         if PauliPropagation.truncatemincoeff(coeff, min_abs_coeff)
             is_truncated = true
-        elseif MajoranaPropagation.truncateunpaired(typeof(unpaired_mask)(hstr&fermion_filter), max_unpaired, unpaired_mask)
+        elseif MajoranaPropagation.truncateunpaired(typeof(unpaired_mask)(hstr&fermions_filter), max_unpaired, unpaired_mask)
             is_truncated = true
-        elseif MajoranaPropagation.truncatemajoranaweight((hstr&fermion_filter), max_majorana_weight)
+        elseif MajoranaPropagation.truncatemajoranaweight((hstr&fermions_filter), max_majorana_weight)
             is_truncated = true
-        elseif PauliPropagation.truncateweight((hstr&qubit_filter), max_pauli_weight)
+        elseif PauliPropagation.truncateweight((hstr&qubits_filter), max_pauli_weight)
             is_truncated = true
         elseif !isnothing(customtruncfunc) && customtruncfunc(hstr, coeff)
             is_truncated = true
