@@ -73,14 +73,17 @@ let
     msum = MajoranaSum(nspinful, :nupndn, 3) #* MajoranaSum(nspinful, :nupndn, 5)
     id_val = MajoranaPropagation.pop_id!(msum)
     
-    n_levels = nthreads()
-    level_mapper = ms -> mod(mod(ms * 11, n_levels) + countweight(ms), n_levels) + 1
+    #n_levels = nthreads()
+    #level_mapper = ms -> mod(mod(ms * 11, n_levels) + countweight(ms), n_levels) + 1
 
-    multi_msum = MajoranaSumMulti(msum, level_mapper, n_levels)
+    multi_msum = MajoranaSumMulti(msum)#, level_mapper, n_levels)
     vec_msum = VectorMajoranaSum(msum)
 
-    @show multi_msum.MultiMajoranas
-    multi_msum = MajoranaMultiPropagationCache(multi_msum)
+    @show multi_msum == vec_msum
+    @show msum == multi_msum
+
+    #@show multi_msum.MultiMajoranas
+    #multi_msum = MajoranaMultiPropagationCache(multi_msum)
 
     min_abs_coeff = 5.e-7
     max_singles = 8
@@ -102,25 +105,26 @@ let
     for k = 1:n_reps
         println("---$(k)---")
         # multisum 
-        @timeit to "multi" times_multi[k] = @elapsed propagate!(circ_single, multi_msum, thetas_single; level_mapper, min_abs_coeff=min_abs_coeff, max_unpaired=max_singles, to)
+        @timeit to "multi" times_multi[k] = @elapsed propagate!(circ_single, multi_msum, thetas_single; min_abs_coeff=min_abs_coeff, max_unpaired=max_singles)
         println("time multi: $(print_time(times_multi[k]))")
         #println(gfhj)
         #normal mode 
-        @timeit to "normal" times_normal[k] = @elapsed propagate!(circ_single, msum, thetas_single; min_abs_coeff=min_abs_coeff, max_unpaired=max_singles, to)
+        @timeit to "normal" times_normal[k] = @elapsed propagate!(circ_single, msum, thetas_single; min_abs_coeff=min_abs_coeff, max_unpaired=max_singles)
         #println("time normal: $(print_time(times_normal[k]))")
 
-        @timeit to "vec" times_vec[k] = @elapsed vec_msum = propagate!(circ_single, vec_msum, thetas_single; min_abs_coeff=min_abs_coeff, max_unpaired=max_singles, to)
+        @timeit to "vec" times_vec[k] = @elapsed vec_msum = propagate!(circ_single, vec_msum, thetas_single; min_abs_coeff=min_abs_coeff, max_unpaired=max_singles)
         println("time vec: $(print_time(times_vec[k]))")
 
         @show overlapwithfock(msum, fock_state)
-        @show overlapwithfock(mainsum(multi_msum), fock_state)
-        @assert abs(overlapwithfock(msum, fock_state) - overlapwithfock(mainsum(multi_msum), fock_state)) < 1.e-12
+        @show overlapwithfock(multi_msum, fock_state)
+        @assert abs(overlapwithfock(msum, fock_state) - overlapwithfock(multi_msum, fock_state)) < 1.e-12
 
         show_stats(multi_msum)
         #@show length(multi_msum)
         @show length(msum)
         @show length(vec_msum)
         @show length(multi_msum)
+        @show multi_msum == vec_msum
         lengths_multi[k] = length(multi_msum)
         lengths_normal[k] = length(msum)
         #@assert length(multi_msum) == length(msum)

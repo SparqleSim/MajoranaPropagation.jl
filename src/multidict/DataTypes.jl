@@ -5,9 +5,11 @@ struct MajoranaSumMulti{TT<:Integer,CT} <: AbstractMajoranaSum
     nsites::Int
     is_spinful::Bool
     MultiMajoranas::Vector{Dict{TT,CT}}
+    level_mapper::Function
+    n_levels::Int
 end
 
-function MajoranaSumMulti(msum::MajoranaSum{TT,CT}, level_mapper::Function,n_levels::Int) where {TT<:Integer,CT}
+function MajoranaSumMulti(msum::MajoranaSum{TT,CT}, level_mapper::Function, n_levels::Int) where {TT<:Integer,CT}
     nsites = msum.nsites
     is_spinful = msum.is_spinful
     multimajs = [Dict{TT,CT}() for _ in 1:n_levels]
@@ -16,7 +18,14 @@ function MajoranaSumMulti(msum::MajoranaSum{TT,CT}, level_mapper::Function,n_lev
         ms_level = level_mapper(ms_int)
         multimajs[ms_level][ms_int] = coeff
     end
-    return MajoranaSumMulti{TT,CT}(nsites, is_spinful, multimajs)
+    return MajoranaSumMulti{TT,CT}(nsites, is_spinful, multimajs, level_mapper, n_levels)
+end
+
+# default level mapper
+function MajoranaSumMulti(msum::MajoranaSum{TT,CT}) where {TT<:Integer,CT}
+    n_levels = nthreads()
+    level_mapper = ms -> rem(rem(ms * 11, n_levels) + countweight(ms), n_levels) + 1
+    return MajoranaSumMulti(msum, level_mapper, n_levels)
 end
 
 function Base.keys(msum::MajoranaSumMulti)
@@ -36,7 +45,7 @@ end
 
 function similar(msum::MajoranaSumMulti{TT,CT}) where {TT<:Integer,CT}
     out_vec = [Dict{TT,CT}() for _ in 1:length(msum.MultiMajoranas)]
-    return MajoranaSumMulti(msum.nsites, msum.is_spinful, out_vec)
+    return MajoranaSumMulti(msum.nsites, msum.is_spinful, out_vec, msum.level_mapper, msum.n_levels)
 end
 
 function PropagationBase.terms(msum::MajoranaSumMulti{TT,CT}) where {TT<:Integer,CT}

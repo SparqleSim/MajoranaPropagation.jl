@@ -32,6 +32,10 @@ function PropagationBase.setauxsum!(
     return prop_cache
 end
 
+function PropagationBase.extractsum!(prop_cache::MajoranaMultiPropagationCache)
+    return mainsum(prop_cache)
+end
+
 function MajoranaMultiPropagationCache(msum::MajoranaSum)
     return MajoranaMultiPropagationCache(MajoranaSumMulti(msum))
 end

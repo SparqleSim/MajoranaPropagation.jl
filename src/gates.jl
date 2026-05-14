@@ -1,5 +1,3 @@
-using TimerOutputs
-
 """
     MajoranaRotation(ms::{TT}) where {TT<:Integer}
 Basic structure to represent a Majorana rotation gate exp(-i * theta/2 * ms).
@@ -98,7 +96,7 @@ function PropagationBase.applytoall!(gate::MajoranaRotation, prop_cache::Majoran
     return
 end
 
-function PropagationBase.applymergetruncate!(gate::FermionicGate, prop_cache::AbstractMajoranaPropagationCache, theta; to, truncate_each_mr=nothing, kwargs...)
+function PropagationBase.applymergetruncate!(gate::FermionicGate, prop_cache::AbstractMajoranaPropagationCache, theta; truncate_each_mr=nothing, kwargs...)
     # get the Majorana strings and coefficients corresponding to the fermionic gate
     ms_rotations, coeffs, truncate_after_each_majrot = getmajoranarotations(gate, nsites(prop_cache))
     if !isnothing(truncate_each_mr)
@@ -108,18 +106,18 @@ function PropagationBase.applymergetruncate!(gate::FermionicGate, prop_cache::Ab
     # iterate over individual Majorana rotations and apply them to the Majorana sum
     for (gate_ms, coeff) in zip(ms_rotations, coeffs)
         # multiply coefficient by 2 since `::MajoranaRotation` implements exp(-i * theta/2 * mstring)
-        @timeit to "applytoall" applytoall!(gate_ms, prop_cache, theta * coeff * 2.0; kwargs...)
+        applytoall!(gate_ms, prop_cache, theta * coeff * 2.0; kwargs...)
 
         # merge the auxiliary Majorana sum into the original one and empty the auxiliary one
-        @timeit to "merge" merge!(prop_cache; kwargs...)
+        merge!(prop_cache; kwargs...)
 
         # truncate after each Majorana rotation 
         if truncate_after_each_majrot
-            @timeit to "truncate" truncate!(prop_cache; kwargs...)
+            truncate!(prop_cache; kwargs...)
         end
     end
     if !truncate_after_each_majrot
-        @timeit to "truncate" truncate!(prop_cache; kwargs...)
+        truncate!(prop_cache; kwargs...)
     end
 
     return prop_cache

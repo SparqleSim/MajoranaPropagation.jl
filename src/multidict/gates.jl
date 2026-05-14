@@ -1,6 +1,4 @@
-using TimerOutputs
-
-function PropagationBase.applymergetruncate!(gate::FermionicGate, prop_cache::MajoranaMultiPropagationCache, theta; to, truncate_each_mr=nothing, kwargs...)
+function PropagationBase.applymergetruncate!(gate::FermionicGate, prop_cache::MajoranaMultiPropagationCache, theta; truncate_each_mr=nothing, kwargs...)
     # get the Majorana strings and coefficients corresponding to the fermionic gate
     ms_rotations, coeffs, truncate_after_each_majrot = getmajoranarotations(gate, nsites(prop_cache))
     if !isnothing(truncate_each_mr)
@@ -11,19 +9,19 @@ function PropagationBase.applymergetruncate!(gate::FermionicGate, prop_cache::Ma
     for (gate_ms, coeff) in zip(ms_rotations, coeffs)
 
         # multiply coefficient by 2 since `::MajoranaRotation` implements exp(-i * theta/2 * mstring)
-        @timeit to "applytoall" applytoall!(gate_ms, prop_cache, theta * coeff * 2.0; kwargs...)
+        applytoall!(gate_ms, prop_cache, theta * coeff * 2.0; kwargs...)
 
         # merge the auxiliary Majorana sum into the original one and empty the auxiliary one 
-        @timeit to "merge" merge!(prop_cache; to, kwargs...)
+        merge!(prop_cache; kwargs...)
 
         # truncate after each Majorana rotation 
         if truncate_after_each_majrot
-            @timeit to "truncate" truncate!(prop_cache; kwargs...)
+            truncate!(prop_cache; kwargs...)
         end
     end
 
     if !truncate_after_each_majrot
-        @timeit to "truncate" truncate!(prop_cache; kwargs...)
+        truncate!(prop_cache; kwargs...)
     end
 
     return prop_cache
@@ -37,14 +35,15 @@ function PropagationBase.applytoall!(gate::MajoranaRotation, prop_cache::Majoran
 
     @threads for iw in eachindex(msum)
         @inbounds begin
-        _applymajoranarotation!(
-            msum.MultiMajoranas[iw],
-            aux_msum[iw],
-            gate_int,
-            theta,
-            nfermions(msum);
-            kwargs...,
-        )
+            _applymajoranarotation!(
+                msum.MultiMajoranas[iw],
+                aux_msum[iw],
+                gate_int,
+                theta,
+                nfermions(msum);
+                level_mapper=msum.level_mapper,
+                kwargs...,
+            )
         end
     end
     return prop_cache
@@ -53,7 +52,7 @@ end
 function _applymajoranarotation!(msum_dict::Dict{TT,CT}, aux_dict::MajoranaSumMulti{TT,CT}, gate_int, theta, n_fermions; level_mapper::F, kwargs...) where {TT<:Integer,CT,F}
     cos_val = cos(theta)
     sin_val = sin(theta)
-    
+
     # loop over all Majorana strings and their coefficients in the Majorana sum
     for (ms_int, coeff) in msum_dict
         if commutes(gate_int, ms_int)
@@ -64,7 +63,7 @@ function _applymajoranarotation!(msum_dict::Dict{TT,CT}, aux_dict::MajoranaSumMu
         # else we know the gate will split th Majorana string into two
         coeff1 = _applycos(coeff, cos_val)
         sign, new_ms = ms_mult(gate_int, ms_int, n_fermions)
-        coeff2 = _applysin(coeff, sin_val * real((-1im) * sign))
+        coeff2 = _applysin(coeff, sin_val * real((-1im) * sign)) #TODO: fix sign bug
 
         # set the coefficient of the original Majorana string
         msum_dict[ms_int] = coeff1

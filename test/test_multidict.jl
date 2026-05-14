@@ -1,7 +1,6 @@
 using MajoranaPropagation
 using PauliPropagation
 using Base.Threads
-using TimerOutputs
 
 using Test
 using Random
@@ -10,7 +9,6 @@ Random.seed!(42)
 @testset "MultiDict propagation - Hubbard" begin
     N_sites = 31
     topo = bricklayertopology(N_sites)
-    to = TimerOutput()
 
     U = 2.
     t = 1.
@@ -44,13 +42,13 @@ Random.seed!(42)
     for min_abs_coeff in min_abs_coeffs
         obs = MajoranaSum(N_sites, :ndn, 21)
         MajoranaPropagation.pop_id!(obs)
-        obs_multidict = MajoranaMultiPropagationCache(MajoranaSumMulti(deepcopy(obs), level_mapper, n_levels))
+        obs_multidict = MajoranaSumMulti(deepcopy(obs))
         for _ = 1:n_steps
-            propagate!(circ, obs, thetas; min_abs_coeff, to)
-            propagate!(circ, obs_multidict, thetas; min_abs_coeff, to, level_mapper)
+            propagate!(circ, obs, thetas; min_abs_coeff)
+            propagate!(circ, obs_multidict, thetas; min_abs_coeff)
             @test length(obs) == length(obs_multidict)
-            #@test obs == obs_multidict #TODO: fix equality testing for MajoranaSumMulti
-            @test abs(overlapwithfock(obs, fock_state) - overlapwithfock(mainsum(obs_multidict), fock_state)) < 1.e-14
+            @test obs == obs_multidict
+            @test abs(overlapwithfock(obs, fock_state) - overlapwithfock(obs_multidict, fock_state)) < 1.e-14
         end
     end
 end

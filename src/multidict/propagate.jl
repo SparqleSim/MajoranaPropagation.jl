@@ -1,5 +1,5 @@
-function Base.merge!(prop_cache::MajoranaMultiPropagationCache; to=TimerOutput(), kwargs...)
-    prop_cache = _merge_and_empty!(prop_cache; to, kwargs...)
+function Base.merge!(prop_cache::MajoranaMultiPropagationCache; kwargs...)
+    prop_cache = _merge_and_empty!(prop_cache; kwargs...)
     return prop_cache
 end
 
