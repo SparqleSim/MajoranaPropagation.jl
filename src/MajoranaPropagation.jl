@@ -58,6 +58,12 @@ export
     propagate,
     propagate!
 
+include("multidict/MultiDict.jl")
+export
+    MajoranaSumMulti,
+    show_stats,
+    MajoranaMultiPropagationCache
+
 include("truncations.jl")
 export
     create_unpaired_mask,

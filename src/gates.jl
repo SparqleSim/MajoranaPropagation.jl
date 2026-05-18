@@ -1,4 +1,3 @@
-
 """
     MajoranaRotation(ms::{TT}) where {TT<:Integer}
 Basic structure to represent a Majorana rotation gate exp(-i * theta/2 * ms).

@@ -186,6 +186,36 @@ function Base.:(==)(ms1::MajoranaSum, ms2::MajoranaSum)
     return ms1.Majoranas == ms2.Majoranas
 end
 
+function Base.:(==)(ms1::AbstractMajoranaSum, ms2::AbstractMajoranaSum)
+    if nsites(ms1) != nsites(ms2)
+        return false
+    end
+    if is_spinful(ms1) != is_spinful(ms2)
+        return false
+    end
+    terms1 = terms(ms1)
+    coeffs1 = coefficients(ms1)
+    terms2 = terms(ms2)
+    coeffs2 = coefficients(ms2)
+
+    if isa(terms1, Base.KeySet)
+        terms1 = collect(terms1)
+        coeffs1 = collect(coeffs1)
+    end
+    if isa(terms2, Base.KeySet)
+        terms2 = collect(terms2)
+        coeffs2 = collect(coeffs2)
+    end
+
+    sortperm1 = sortperm(terms1)
+    sortperm2 = sortperm(terms2)
+
+    terms_identical = terms1[sortperm1] == terms2[sortperm2]
+    coeffs_identical = coeffs1[sortperm1] == coeffs2[sortperm2]
+
+    return terms_identical && coeffs_identical
+end
+
 function pop_id!(msum::MajoranaSum)
     if haskey(msum.Majoranas, 0)
         delete!(msum.Majoranas, 0)
