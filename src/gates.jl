@@ -64,7 +64,11 @@ function _applysin(coeff, sin_theta)
     return coeff * sin_theta
 end
 
-
+"""
+The splitting rule for exp(i theta gate_string / 2) ms exp(-i theta gate_string / 2) is
+-) ms, if [gate_string, ms] = 0
+-) cos(theta) ms + i sin(theta) gate_string * ms, if {gate_string, ms} = 0
+"""
 function PropagationBase.applytoall!(gate::MajoranaRotation, prop_cache::MajoranaPropagationCache, theta; kwargs...)
     msum = mainsum(prop_cache)
     aux_msum = auxsum(prop_cache)
@@ -166,6 +170,11 @@ function PropagationBase.applytoall!(gate::MajoranaRotation, prop_cache::VectorM
     return prop_cache
 end
 
+"""
+The splitting rule for exp(i theta gate_string / 2) ms exp(-i theta gate_string / 2) is
+-) ms, if [gate_string, ms] = 0
+-) cos(theta) ms + i sin(theta) gate_string * ms, if {gate_string, ms} = 0
+"""
 function _applymajoranarotation!(prop_cache::VectorMajoranaPropagationCache, gate_ms::TT, theta) where {TT}
 
     # pre-compute the sine and cosine values because they are used for every Majorana string that does not commute with the gate
