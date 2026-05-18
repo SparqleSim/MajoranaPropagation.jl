@@ -93,6 +93,9 @@ end
 
 """
 Implement exp(- beta majorana_rotation / 2) msum exp(- beta majorana_rotation / 2) for imaginary time evolution
+For a Majorana string ms, the splitting rule for exp(- beta majorana_rotation / 2) ms exp(- beta majorana_rotation / 2) is
+-) ms, if {majorana_rotation, ms} = 0
+-) cosh(beta) ms - sinh(beta)  majorana_rotation * ms, if [majorana_rotation, ms] = 0
 """
 function PropagationBase.applytoall!(gate::ImaginaryMajoranaRotation, prop_cache::MajoranaPropagationCache, beta; kwargs...)
     msum = mainsum(prop_cache)
@@ -169,6 +172,11 @@ function PropagationBase.applytoall!(gate::ImaginaryMajoranaRotation, prop_cache
     return prop_cache
 end
 
+"""
+For a Majorana string ms, the splitting rule for exp(- beta majorana_rotation / 2) ms exp(- beta majorana_rotation / 2) is
+-) ms, if {majorana_rotation, ms} = 0
+-) cosh(beta) ms - sinh(beta)  majorana_rotation * ms, if [majorana_rotation, ms] = 0
+"""
 function _applyimaginarymajoranarotation!(prop_cache::VectorMajoranaPropagationCache, gate_ms::TT, beta) where {TT}
 
     # pre-compute the sine and cosine values because they are used for every Majorana string that does not commute with the gate
