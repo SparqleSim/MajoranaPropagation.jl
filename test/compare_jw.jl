@@ -1,7 +1,7 @@
 using Yao
 
 include("yao_helpers/fermionicgates_to_yao.jl")
-@testset "Majorana algebra" begin
+@testset "Check against statevector" begin
     # spinless tests 
     @testset "spinless" begin
         @testset "free fermions" begin
