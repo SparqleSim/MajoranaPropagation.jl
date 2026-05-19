@@ -1,3 +1,8 @@
+"""
+File containing the state structs and the corresponing overlap Functions
+- EigenState (for qubits) --> overlapwitheigenstate(paulisum, eigenstate)
+- HybridEigenState (for hybrids) --> overlapwithstate(hybridsum, hybrideigenstate)
+"""
 #=
 Basis for the qubit-only EigenState:
 - x-basis:  Z term (11) is placed at the -1 eigenstate sites
@@ -15,6 +20,11 @@ Terminology:    - sorter: Function that is responsible to "sort out" (return 0 f
                 - identifier: Function that is responsible to identify the number in the overlapps in -1 Eigenstate sites 
                     and Eigenvalue operations
 =#
+struct EigenState{TT<:Integer}
+    n_qubits::Int
+    basis::Symbol
+    occupied_sites::TT
+end
 
 const basis_symbols = (:x, :y, :z)
 
@@ -24,13 +34,7 @@ end
 
 function assign_transform_pauli(basis::Symbol)
     return  1 + mod((evaluate_basis(basis) - 2), 3)
-end 
-
-struct EigenState{TT<:Integer}
-    n_qubits::Int
-    basis::Symbol
-    occupied_sites::TT
-end 
+end  
 
 function EigenState(nqubits::Int, site_list, basis::Symbol; inverted_list::Bool=false)
     (site_list isa Array) || (site_list isa Tuple) ? nothing : throw(AssertionError("Site list needs to be tuple or array"))
@@ -92,6 +96,12 @@ function overlapwitheigenstate(pstr::TT, state::EigenState, sorter::Function, id
     end 
 end 
 
+function overlapwitheigenstate(pstr::TT, state::EigenState) where {TT<:Integer} 
+    sorter = (pstr) -> assign_sortout_func(state.basis)(pstr)
+    identifier = (pstr) -> assign_identifier_func(state.basis)(pstr)
+    return overlapwitheigenstate(pstr, state, sorter, identifier) 
+end
+
 function Base.show(io::IO, state::EigenState)
     qubit_part = inttostring((state.occupied_sites), state.n_qubits)
     basis = "x"
@@ -107,6 +117,11 @@ end
 
 
 #--- Hybrid EigenState-------------------------------------------------------------
+#=
+HybridEigenState consists of 
+    - f_part: Fock (number) state for the designating the state of the fermions
+    - q_part: Qubit state in the chosen basis
+=#
 struct HybridEigenState
     f_part::FockState
     q_part::EigenState

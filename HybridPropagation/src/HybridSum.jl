@@ -64,7 +64,7 @@ function HybridSum(msum::MajoranaPropagation.AbstractMajoranaSum, nqubits::Int, 
 
     if length(msum.Majoranas) > 0
         for (mstr, coeff) in msum.Majoranas
-            hybrid_terms[(dtype(mstr)|hybrid_pstr)] = coeff
+            hybrid_terms[(hybrid_pstr | convert(dtype, mstr))] = coeff
         end
     else
         hybrid_terms[hybrid_pstr] = 1.0
@@ -88,36 +88,33 @@ end
 
 
 #--- Constructors for Majorana rotations----------------------------
+"""
+Constructor to be used to identify Majorana rotations per fermionic gate
+and then set terms together
+ """
 function HybridSum(n_fermions::Integer, f_symb::Symbol, f_sites::Vector{Int},
     n_qubits::Integer, q_symbols::Vector{Symbol}, q_indices::Vector{Int};
     del_m_id::Bool=false)
-    """
-    Constructor to be used to identify Majorana rotations per fermionic gate
-    """
+    
     TT = getinttype(n_qubits + n_fermions)
 
     #Single PauliString denoting the Qubit part
-    pstr = PauliString(n_qubits + n_fermions, q_symbols, q_indices .+ n_fermions).term
+    pstr = symboltoint(TT, q_symbols, q_indices)
 
-    if isempty(f_sites)
-        return HybridSum(n_fermions, n_qubits, false, Dict(pstr => 1.0))
-    else
-        #Convert the Fermionic gate into MajoranaRotation components
+    #Convert the Fermionic gate into MajoranaRotation components
+
+    fermionic_part = MajoranaSum(n_fermions)
+    if !(isempty(f_sites))
         fermionic_part = MajoranaSum(n_fermions, Val(f_symb), f_sites)
-
-        if del_m_id #remove coefficient associated to identity
-            MajoranaPropagation.pop_id!(fermionic_part)
-        end
-
-        #Combination of fermionic and qubit parts
-        hsum_dict = Dict{TT,MajoranaPropagation.coefftype(fermionic_part)}()
-        for (ms, coeff) in fermionic_part
-            hs = pstr | convert(TT, ms)
-            hsum_dict[hs] = coeff
-        end
-        return HybridSum(n_fermions, n_qubits, fermionic_part.is_spinful, hsum_dict)
+    end 
+    
+    if del_m_id #remove coefficient associated to identity
+        MajoranaPropagation.pop_id!(fermionic_part)
     end
+
+    return HybridSum(fermionic_part, n_qubits, pstr)
 end
+
 
 #--- Base Overloads ------------------------------------
 Base.iterate(hsum::HybridSum, state=1) = iterate(hsum.terms, state)
