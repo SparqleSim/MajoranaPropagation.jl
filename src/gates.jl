@@ -20,17 +20,17 @@ end
     FermionicGate(symbol::Symbol, sites::Vector{Int})
 Structure to represent fermionic gates, constructed from a symbol. See `Constructors.jl` for supported symbols.
 """
-struct FermionicGate <: ParametrizedGate
+struct FermionicRotation <: ParametrizedGate
     symbol::Symbol
     sites::Vector{Int}
 end
 
-function FermionicGate(symbol::Symbol, site::Integer)
-    return FermionicGate(symbol, [site])
+function FermionicRotation(symbol::Symbol, site::Integer)
+    return FermionicRotation(symbol, [site])
 end
 
-function FermionicGate(symbol::Symbol, sites::Tuple)
-    return FermionicGate(symbol, collect(sites))
+function FermionicRotation(symbol::Symbol, sites::Tuple)
+    return FermionicRotation(symbol, collect(sites))
 end
 
 
@@ -38,7 +38,7 @@ end
     getmajoranarotations(gate::FermionicGate, n_sites::Integer)
 Given a `FermionicGate`, returns the Majorana rotations and coefficients corresponding to it.
 """
-function getmajoranarotations(gate::FermionicGate, n_sites::Integer)
+function getmajoranarotations(gate::FermionicRotation, n_sites::Integer)
     # construct msum encoding the fermionic gate
     msum = MajoranaSum(n_sites, gate.symbol, gate.sites)
     TT = getinttype(nfermions(msum))
@@ -101,7 +101,7 @@ function PropagationBase.applytoall!(gate::MajoranaRotation, prop_cache::Majoran
     return
 end
 
-function PropagationBase.applymergetruncate!(gate::FermionicGate, prop_cache::AbstractMajoranaPropagationCache, theta; truncate_each_mr=nothing, kwargs...)
+function PropagationBase.applymergetruncate!(gate::FermionicRotation, prop_cache::AbstractMajoranaPropagationCache, theta; truncate_each_mr=nothing, kwargs...)
     # get the Majorana strings and coefficients corresponding to the fermionic gate
     ms_rotations, coeffs, truncate_after_each_majrot = getmajoranarotations(gate, nsites(prop_cache))
     if !isnothing(truncate_each_mr)

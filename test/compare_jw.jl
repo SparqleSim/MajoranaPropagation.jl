@@ -22,10 +22,10 @@ include("yao_helpers/fermionicgates_to_yao.jl")
             Yao.apply!(yao_psi, state_prep)
 
             #build circuits 
-            circ::Vector{FermionicGate} = []
+            circ::Vector{FermionicRotation} = []
             thetas = []
             for (i, j) in topo
-                push!(circ, FermionicGate(:hop, [i, j]))
+                push!(circ, FermionicRotation(:hop, [i, j]))
                 push!(thetas, h)
             end
 
@@ -65,15 +65,15 @@ include("yao_helpers/fermionicgates_to_yao.jl")
             Yao.apply!(yao_psi, state_prep)
 
             #build circuits 
-            circ::Vector{FermionicGate} = []
+            circ::Vector{FermionicRotation} = []
             thetas = []
             for (i, j) in topo
-                push!(circ, FermionicGate(:hop, [i, j]))
+                push!(circ, FermionicRotation(:hop, [i, j]))
                 push!(thetas, h)
             end
 
             for (i, j) in topo
-                push!(circ, FermionicGate(:nn, [i, j]))
+                push!(circ, FermionicRotation(:nn, [i, j]))
                 push!(thetas, U)
             end
 

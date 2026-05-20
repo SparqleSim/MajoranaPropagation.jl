@@ -62,19 +62,19 @@ end
 
     fock_state = FockState(N_sites, :checkerboard, true) #create a checkerboard state with spinful fermions
 
-    circ = FermionicGate[]
+    circ = FermionicRotation[]
     thetas = Float64[]
 
     for pair in topo
-        push!(circ, FermionicGate(:hopup, pair))
+        push!(circ, FermionicRotation(:hopup, pair))
         push!(thetas, -t * dτ)
     end
     for pair in topo
-        push!(circ, FermionicGate(:hopdn, pair))
+        push!(circ, FermionicRotation(:hopdn, pair))
         push!(thetas, -t * dτ)
     end
     for i = 1:N_sites
-        push!(circ, FermionicGate(:nupndn, i))
+        push!(circ, FermionicRotation(:nupndn, i))
         push!(thetas, U * dτ)
     end
 

@@ -41,7 +41,7 @@ export
 include("gates.jl")
 export
     MajoranaRotation,
-    FermionicGate,
+    FermionicRotation,
     getnewmajoranastring,
     MajoranaRotation,
     countparameters,
