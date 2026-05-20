@@ -51,7 +51,7 @@ export
 include("imaginary_gates.jl")
 export
     ImaginaryMajoranaRotation,
-    ImaginaryFermionicGate
+    ImaginaryFermionicRotation
 
 include("propagation.jl")
 export
