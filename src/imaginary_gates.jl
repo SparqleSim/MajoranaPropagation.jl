@@ -17,20 +17,20 @@ struct ImaginaryMajoranaRotation{TT<:Integer} <: ParametrizedGate
 end
 
 
-struct ImaginaryFermionicGate <: ParametrizedGate
+struct ImaginaryFermionicRotation <: ParametrizedGate
     symbol::Symbol
     sites::Vector{Int}
 end
 
-function ImaginaryFermionicGate(symbol::Symbol, site::Integer)
-    return ImaginaryFermionicGate(symbol, [site])
+function ImaginaryFermionicRotation(symbol::Symbol, site::Integer)
+    return ImaginaryFermionicRotation(symbol, [site])
 end
 
-function PauliPropagation._toheisenberg(gate::Union{ImaginaryFermionicGate,ImaginaryMajoranaRotation}, τ)
+function PauliPropagation._toheisenberg(gate::Union{ImaginaryFermionicRotation,ImaginaryMajoranaRotation}, τ)
     throw(error("$(typeof(gate)) gates are currently not defined in the Heisenberg picture."))
 end
 
-function PauliPropagation._toschrodinger(gate::Union{ImaginaryFermionicGate,ImaginaryMajoranaRotation}, τ)
+function PauliPropagation._toschrodinger(gate::Union{ImaginaryFermionicRotation,ImaginaryMajoranaRotation}, τ)
     return gate, τ
 end
 
@@ -38,7 +38,7 @@ end
     getmajoranarotations(gate::ImaginaryFermionicGate, n_sites::Integer)
 Given a `ImaginaryFermionicGate`, returns the Majorana rotations and coefficients corresponding to it.
 """
-function getmajoranarotations(gate::ImaginaryFermionicGate, n_sites::Integer)
+function getmajoranarotations(gate::ImaginaryFermionicRotation, n_sites::Integer)
     # construct msum encoding the fermionic gate
     msum = MajoranaSum(n_sites, gate.symbol, gate.sites)
     TT = getinttype(nfermions(msum))
@@ -60,7 +60,7 @@ end
 """
 Implement exp(- beta fermionic_gate / 2) msum exp(- beta fermionic_gate / 2) for imaginary time evolution
 """
-function PropagationBase.applymergetruncate!(gate::ImaginaryFermionicGate, prop_cache::AbstractMajoranaPropagationCache, beta; truncate_each_mr=nothing, normalize_coeffs=true, kwargs...)
+function PropagationBase.applymergetruncate!(gate::ImaginaryFermionicRotation, prop_cache::AbstractMajoranaPropagationCache, beta; truncate_each_mr=nothing, normalize_coeffs=true, kwargs...)
     # get the Majorana strings and coefficients corresponding to the fermionic gate
     ms_rotations, coeffs, truncate_after_each_majrot = getmajoranarotations(gate, nsites(prop_cache))
     if !isnothing(truncate_each_mr)
