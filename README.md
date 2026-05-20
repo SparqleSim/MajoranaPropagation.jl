@@ -13,7 +13,7 @@ To install MajoranaPropagation.jl, you can install the registered package using 
 ```julia
 using Pkg
 Pkg.activate("path/to/project")
-Pkg.add("MajoranaPropgation")
+Pkg.add("MajoranaPropagation")
 ```
 Afterward, include
 ```julia
