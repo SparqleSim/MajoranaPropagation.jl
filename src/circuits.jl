@@ -86,7 +86,7 @@ function fermionic_hubbard_circ_fermionic_sites_single_layer(topology, N_spinful
     mps_thetas = []
 
     #down part
-    circ_down_hopping::Vector{FermionicGate} = []
+    circ_down_hopping::Vector{FermionicRotation} = []
     thetas_down_hopping::Vector{Float64} = []
     for (i, j) in topology
         @assert i < j
@@ -100,7 +100,7 @@ function fermionic_hubbard_circ_fermionic_sites_single_layer(topology, N_spinful
         push!(hopping_pref, +1)
         push!(hopping_pref, -1)
 
-        push!(circ_down_hopping, FermionicGate(hopping_ms, hopping_pref))
+        push!(circ_down_hopping, FermionicRotation(hopping_ms, hopping_pref))
         push!(thetas_down_hopping, -t * dt)
 
         if return_mps_instructions
@@ -110,7 +110,7 @@ function fermionic_hubbard_circ_fermionic_sites_single_layer(topology, N_spinful
     end
 
     #up part
-    circ_up_hopping::Vector{FermionicGate} = []
+    circ_up_hopping::Vector{FermionicRotation} = []
     thetas_up_hopping::Vector{Float64} = []
     for (i, j) in topology
         @assert i < j
@@ -124,7 +124,7 @@ function fermionic_hubbard_circ_fermionic_sites_single_layer(topology, N_spinful
         push!(hopping_pref, +1)
         push!(hopping_pref, -1)
 
-        push!(circ_up_hopping, FermionicGate(hopping_ms, hopping_pref))
+        push!(circ_up_hopping, FermionicRotation(hopping_ms, hopping_pref))
         push!(thetas_up_hopping, -t * dt)
 
         if return_mps_instructions
@@ -134,7 +134,7 @@ function fermionic_hubbard_circ_fermionic_sites_single_layer(topology, N_spinful
     end
 
     #repulsion term
-    circ_repulsion::Vector{FermionicGate} = []
+    circ_repulsion::Vector{FermionicRotation} = []
     thetas_repulsion::Vector{Float64} = []
     for k = 1:N_spinful_sites
         repulsion_ms::Vector{MajoranaString} = []
@@ -154,7 +154,7 @@ function fermionic_hubbard_circ_fermionic_sites_single_layer(topology, N_spinful
         push!(repulsion_pref, 1.)
         push!(repulsion_pref, up_down_pref)
 
-        push!(circ_repulsion, FermionicGate(repulsion_ms, repulsion_pref))
+        push!(circ_repulsion, FermionicRotation(repulsion_ms, repulsion_pref))
         push!(thetas_repulsion, U * dt / 2)
 
         if return_mps_instructions
@@ -333,7 +333,7 @@ function fermionic_hubbard_circ_fermionic_sites_second_order_single_layer(topolo
     mps_thetas = []
 
     #down part 
-    circ_down_hopping_initial::Vector{FermionicGate} = []
+    circ_down_hopping_initial::Vector{FermionicRotation} = []
     thetas_down_hopping_initial::Vector{Float64} = []
     for (i, j) in topology
         @assert i < j
@@ -348,7 +348,7 @@ function fermionic_hubbard_circ_fermionic_sites_second_order_single_layer(topolo
         push!(hopping_pref, +1)
         push!(hopping_pref, -1)
 
-        push!(circ_down_hopping_initial, FermionicGate(hopping_ms, hopping_pref))
+        push!(circ_down_hopping_initial, FermionicRotation(hopping_ms, hopping_pref))
         push!(thetas_down_hopping_initial, -t * dt)
 
         if return_mps_instructions
@@ -358,7 +358,7 @@ function fermionic_hubbard_circ_fermionic_sites_second_order_single_layer(topolo
     end
 
     #up part 
-    circ_up_hopping_initial::Vector{FermionicGate} = []
+    circ_up_hopping_initial::Vector{FermionicRotation} = []
     thetas_up_hopping_initial::Vector{Float64} = []
     for (i, j) in topology
         @assert i < j
@@ -372,7 +372,7 @@ function fermionic_hubbard_circ_fermionic_sites_second_order_single_layer(topolo
         push!(hopping_pref, +1)
         push!(hopping_pref, -1)
 
-        push!(circ_up_hopping_initial, FermionicGate(hopping_ms, hopping_pref))
+        push!(circ_up_hopping_initial, FermionicRotation(hopping_ms, hopping_pref))
         push!(thetas_up_hopping_initial, -t * dt)
 
         if return_mps_instructions
@@ -382,7 +382,7 @@ function fermionic_hubbard_circ_fermionic_sites_second_order_single_layer(topolo
     end
 
     #repulsion term 
-    circ_repulsion::Vector{FermionicGate} = []
+    circ_repulsion::Vector{FermionicRotation} = []
     thetas_repulsion::Vector{Float64} = []
     for k = 1:N_spinful_sites
         repulsion_ms::Vector{MajoranaString} = []
@@ -402,7 +402,7 @@ function fermionic_hubbard_circ_fermionic_sites_second_order_single_layer(topolo
         push!(repulsion_pref, 1.)
         push!(repulsion_pref, up_down_pref)
 
-        push!(circ_repulsion, FermionicGate(repulsion_ms, repulsion_pref))
+        push!(circ_repulsion, FermionicRotation(repulsion_ms, repulsion_pref))
         push!(thetas_repulsion, U * dt / 2)
 
         if return_mps_instructions
@@ -413,7 +413,7 @@ function fermionic_hubbard_circ_fermionic_sites_second_order_single_layer(topolo
     end
 
     #up part
-    circ_up_hopping_final::Vector{FermionicGate} = []
+    circ_up_hopping_final::Vector{FermionicRotation} = []
     thetas_up_hopping_final::Vector{Float64} = []
     for (i, j) in reverse(topology)
         @assert i < j
@@ -427,7 +427,7 @@ function fermionic_hubbard_circ_fermionic_sites_second_order_single_layer(topolo
         push!(hopping_pref, +1)
         push!(hopping_pref, -1)
 
-        push!(circ_up_hopping_final, FermionicGate(hopping_ms, hopping_pref))
+        push!(circ_up_hopping_final, FermionicRotation(hopping_ms, hopping_pref))
         push!(thetas_up_hopping_final, -t * dt)
 
         if return_mps_instructions
@@ -437,7 +437,7 @@ function fermionic_hubbard_circ_fermionic_sites_second_order_single_layer(topolo
     end
 
     #down part
-    circ_down_hopping_final::Vector{FermionicGate} = []
+    circ_down_hopping_final::Vector{FermionicRotation} = []
     thetas_down_hopping_final::Vector{Float64} = []
     for (i, j) in reverse(topology)
         @assert i < j
@@ -451,7 +451,7 @@ function fermionic_hubbard_circ_fermionic_sites_second_order_single_layer(topolo
         push!(hopping_pref, +1)
         push!(hopping_pref, -1)
 
-        push!(circ_down_hopping_final, FermionicGate(hopping_ms, hopping_pref))
+        push!(circ_down_hopping_final, FermionicRotation(hopping_ms, hopping_pref))
         push!(thetas_down_hopping_final, -t * dt)
 
         if return_mps_instructions

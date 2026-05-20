@@ -1,6 +1,6 @@
 include("yao_utils.jl")
 
-function circ_to_yao(nq, fg_circ::Vector{FermionicGate}, thetas; mult_pref = 2.)
+function circ_to_yao(nq, fg_circ::Vector{FermionicRotation}, thetas; mult_pref = 2.)
     @assert length(fg_circ) == length(thetas)
     circ = chain(nq)
     for (gate, theta) in zip(fg_circ, thetas)

@@ -72,6 +72,12 @@ function FockState(n_sites::Integer, ::Val{:checkerboard}, is_spinful::Bool; hol
     @error "Invalid symbol for FockState constructor."
 end
 
+function _fock_has_fermion(fock_state::TT, fermion::Int) where {TT<:Integer}
+    # -2 because we start counting bits from 0
+    bit_position = 2 * fermion - 2
+    return (fock_state >> bit_position) & 1 == 1
+end
+
 # printing for fock states
 function Base.show(io::IO, fock_state::FockState)
     is_spinful = fock_state.is_spinful
@@ -175,19 +181,48 @@ function overlapwithfock(ms::TT, fock_state_1::FockState, fock_state_2::FockStat
         gamma = ((ms >> (2 * i - 2)) & TT(1))
         gamma_prime = ((ms >> (2 * i - 1)) & TT(1))
         if gamma == gamma_prime
-            if (i in fock_state_2.occupied_sites) != (i in fock_state_1.occupied_sites)
+            if _fock_has_fermion(fock_state_1.occupied_sites, i) != _fock_has_fermion(fock_state_2.occupied_sites, i)
                 res *= 0.
                 break
             else
-                res *= (1im * (-1)^(i in fock_state_2.occupied_sites))^gamma
+                res *= (1im * (-1)^(_fock_has_fermion(fock_state_2.occupied_sites, i)))^gamma
             end
         else
-            if (i in fock_state_2.occupied_sites) == (i in fock_state_1.occupied_sites)
+            if _fock_has_fermion(fock_state_2.occupied_sites, i) == _fock_has_fermion(fock_state_1.occupied_sites, i)
                 res *= 0.
                 break
             else
-                res *= (1im * (-1)^(i in fock_state_2.occupied_sites))^gamma_prime * (-1)^(sum((j in fock_state_1.occupied_sites) for j = min(i + 1, n_fermions):n_fermions))
+                pref1 = (1im * (-1)^(_fock_has_fermion(fock_state_2.occupied_sites, i)))^gamma_prime
+                pref2 = i < n_fermions ? (-1)^(sum((_fock_has_fermion(fock_state_1.occupied_sites, j)) for j = (i+1):n_fermions)) : 1
+                res *= pref1 * pref2
             end
+        end
+    end
+    return res
+end
+
+""" 
+    overlapwithfock(ms::TT, sites_with_particle_superposition::Vector{FockState}, superposition_coefficients::Vector{<:Union{Real,Complex}}, n_fermions, unpaired_mask::TT) where {TT<:Integer}
+Compute the overlap <superposition|ms|superposition> where
+- ms is a Majorana string
+- superposition is given as a vector of Fock basis states `sites_with_particle_superposition`
+- superposition_coefficients are the coefficients of the superposition (assumed normalized)
+- n_fermions is the number of fermions in the system (used for computing the matrix element of ms between two different Fock states)
+- unpaired_mask is a mask used to check if ms has an overlap with Fock states (if compute_unpaired(ms, unpaired_mask) > 0, then the overlap is zero)
+"""
+
+function overlapwithfock(ms::TT, sites_with_particle_superposition::Vector{<:FockState}, superposition_coefficients::Vector{<:Union{Real,Complex}}, n_fermions, unpaired_mask::TT) where {TT<:Integer}
+    res = 0.
+    for (fock_state, coeff) in zip(sites_with_particle_superposition, superposition_coefficients)
+        res += abs2(coeff) * overlapwithfock(ms, unpaired_mask, fock_state)
+    end
+    for k1 = 1:length(sites_with_particle_superposition)
+        for k2 = k1+1:length(sites_with_particle_superposition)
+            fock1 = sites_with_particle_superposition[k1]
+            fock2 = sites_with_particle_superposition[k2]
+            superposition_coeff1 = superposition_coefficients[k1]
+            superposition_coeff2 = superposition_coefficients[k2]
+            res += 2. * real(conj(superposition_coeff1) * superposition_coeff2 * overlapwithfock(ms, fock1, fock2, n_fermions))
         end
     end
     return res
@@ -206,19 +241,7 @@ function overlapwithfock(msum::AbstractMajoranaSum, sites_with_particle_superpos
     unpaired_mask = create_unpaired_mask(nfermions(msum))
 
     for (ms, coeff) in zip(terms(msum), coefficients(msum))
-        for (sites_with_particle, superposition_coefficient) in zip(sites_with_particle_superposition, superposition_coefficients)
-            res += coeff * abs(superposition_coefficient)^2 * overlapwithfock(ms, unpaired_mask, sites_with_particle)
-        end
-
-        for k1 = 1:length(sites_with_particle_superposition)
-            for k2 = k1+1:length(sites_with_particle_superposition)
-                fock1 = sites_with_particle_superposition[k1]
-                fock2 = sites_with_particle_superposition[k2]
-                superposition_coeff1 = superposition_coefficients[k1]
-                superposition_coeff2 = superposition_coefficients[k2]
-                res += 2. * real(coeff * conj(superposition_coeff1) * superposition_coeff2 * overlapwithfock(ms, fock1, fock2, nfermions(msum)))
-            end
-        end
+        res += coeff * overlapwithfock(ms, sites_with_particle_superposition, superposition_coefficients, nfermions(msum), unpaired_mask)
     end
     return res
 end
