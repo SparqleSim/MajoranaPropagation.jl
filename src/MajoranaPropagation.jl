@@ -1,6 +1,7 @@
 module MajoranaPropagation
 
 using PauliPropagation
+export bricklayertopology, staircasetopology, rectangletopology, getinttype, terms, coefficients
 using PauliPropagation.PropagationBase
 import PauliPropagation.PropagationBase: propagate, propagate!
 
@@ -9,6 +10,8 @@ export
     MajoranaSum,
     MajoranaString,
     nfermions,
+    set!,
+    add!,
     length,
     get_weight,
     coefftype,
@@ -41,7 +44,7 @@ export
 include("gates.jl")
 export
     MajoranaRotation,
-    FermionicGate,
+    FermionicRotation,
     getnewmajoranastring,
     MajoranaRotation,
     countparameters,
@@ -64,7 +67,8 @@ export
     create_doublons_filters,
     compute_unpaired,
     compute_doublons,
-    truncatemajoranaweight
+    truncatemajoranaweight,
+    truncate!
 
 include("circuits.jl")
 export

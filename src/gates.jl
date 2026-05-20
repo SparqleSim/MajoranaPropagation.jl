@@ -20,17 +20,17 @@ end
     FermionicGate(symbol::Symbol, sites::Vector{Int})
 Structure to represent fermionic gates, constructed from a symbol. See `Constructors.jl` for supported symbols.
 """
-struct FermionicGate <: ParametrizedGate
+struct FermionicRotation <: ParametrizedGate
     symbol::Symbol
     sites::Vector{Int}
 end
 
-function FermionicGate(symbol::Symbol, site::Integer)
-    return FermionicGate(symbol, [site])
+function FermionicRotation(symbol::Symbol, site::Integer)
+    return FermionicRotation(symbol, [site])
 end
 
-function FermionicGate(symbol::Symbol, sites::Tuple)
-    return FermionicGate(symbol, collect(sites))
+function FermionicRotation(symbol::Symbol, sites::Tuple)
+    return FermionicRotation(symbol, collect(sites))
 end
 
 
@@ -38,7 +38,7 @@ end
     getmajoranarotations(gate::FermionicGate, n_sites::Integer)
 Given a `FermionicGate`, returns the Majorana rotations and coefficients corresponding to it.
 """
-function getmajoranarotations(gate::FermionicGate, n_sites::Integer)
+function getmajoranarotations(gate::FermionicRotation, n_sites::Integer)
     # construct msum encoding the fermionic gate
     msum = MajoranaSum(n_sites, gate.symbol, gate.sites)
     TT = getinttype(nfermions(msum))
@@ -64,7 +64,11 @@ function _applysin(coeff, sin_theta)
     return coeff * sin_theta
 end
 
-
+"""
+The splitting rule for exp(i theta gate_string / 2) ms exp(-i theta gate_string / 2) is
+-) ms, if [gate_string, ms] = 0
+-) cos(theta) ms + i sin(theta) gate_string * ms, if {gate_string, ms} = 0
+"""
 function PropagationBase.applytoall!(gate::MajoranaRotation, prop_cache::MajoranaPropagationCache, theta; kwargs...)
     msum = mainsum(prop_cache)
     aux_msum = auxsum(prop_cache)
@@ -84,7 +88,7 @@ function PropagationBase.applytoall!(gate::MajoranaRotation, prop_cache::Majoran
         # else we know the gate will split the Majorana string into two
         coeff1 = _applycos(coeff, cos_val)
         sign, new_ms = ms_mult(gate_int, ms_int, nfermions(msum))
-        coeff2 = _applysin(coeff, sin_val * real((-1im) * sign))
+        coeff2 = _applysin(coeff, sin_val * -imag(sign))
 
         # set the coefficient of the original Majorana string
         set!(msum, ms_int, coeff1)
@@ -97,7 +101,7 @@ function PropagationBase.applytoall!(gate::MajoranaRotation, prop_cache::Majoran
     return
 end
 
-function PropagationBase.applymergetruncate!(gate::FermionicGate, prop_cache::AbstractMajoranaPropagationCache, theta; truncate_each_mr=nothing, kwargs...)
+function PropagationBase.applymergetruncate!(gate::FermionicRotation, prop_cache::AbstractMajoranaPropagationCache, theta; truncate_each_mr=nothing, kwargs...)
     # get the Majorana strings and coefficients corresponding to the fermionic gate
     ms_rotations, coeffs, truncate_after_each_majrot = getmajoranarotations(gate, nsites(prop_cache))
     if !isnothing(truncate_each_mr)
@@ -166,6 +170,11 @@ function PropagationBase.applytoall!(gate::MajoranaRotation, prop_cache::VectorM
     return prop_cache
 end
 
+"""
+The splitting rule for exp(i theta gate_string / 2) ms exp(-i theta gate_string / 2) is
+-) ms, if [gate_string, ms] = 0
+-) cos(theta) ms + i sin(theta) gate_string * ms, if {gate_string, ms} = 0
+"""
 function _applymajoranarotation!(prop_cache::VectorMajoranaPropagationCache, gate_ms::TT, theta) where {TT}
 
     # pre-compute the sine and cosine values because they are used for every Majorana string that does not commute with the gate
@@ -196,7 +205,7 @@ function _applymajoranarotation!(prop_cache::VectorMajoranaPropagationCache, gat
 
             coeff1 = coeff * cos_val
             sign, new_term = ms_mult(gate_ms, term, n_fermions)
-            coeff2 = coeff * sin_val * real((-1im) * sign)
+            coeff2 = coeff * sin_val * -imag(sign)
 
             coeffs[ii] = coeff1
 
