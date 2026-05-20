@@ -21,7 +21,6 @@ using Pkg
 Pkg.activate("path/to/project")
 
 using MajoranaPropagation
-using PauliPropagation
 ```
 in the script where you want to use Majorana Propagation's functionalities.
 ### Installing from GitHub
@@ -43,7 +42,6 @@ using Pkg
 Pkg.activate("path/to/project")
 
 using MajoranaPropagation
-using PauliPropagation
 
 # Set parameters
 L_sites = 10

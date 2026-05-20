@@ -1,5 +1,4 @@
 using MajoranaPropagation
-using PauliPropagation
 using Test
 using Random
 

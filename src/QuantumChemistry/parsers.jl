@@ -31,7 +31,7 @@ function parse_fcidump(filename; min_coeff=-1.0, remove_identity=true)
                 indices = indices[1:2]
                 term = two_body_term(nsites, indices, 1.0)
                 H = H + val * term
-                #check if 4 body term
+            #check if 4 body term
             else
                 p, q, r, s = indices
                 val *= 0.5
