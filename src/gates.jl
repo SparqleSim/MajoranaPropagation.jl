@@ -38,7 +38,10 @@ end
     getmajoranarotations(gate::FermionicGate, n_sites::Integer)
 Given a `FermionicGate`, returns the Majorana rotations and coefficients corresponding to it.
 """
-function getmajoranarotations(gate::FermionicRotation, n_sites::Integer)
+function getmajoranarotations(gate::FermionicRotation, n_sites::Integer, theta::Float64)
+    if occursin("phase", String(gate.symbol))
+        return getmajoranarotations_phase(gate, n_sites, theta)
+    end
     # construct msum encoding the fermionic gate
     msum = MajoranaSum(n_sites, gate.symbol, gate.sites)
     TT = getinttype(nfermions(msum))
@@ -51,10 +54,53 @@ function getmajoranarotations(gate::FermionicRotation, n_sites::Integer)
     coefficients::Vector{Float64} = []
     for (ms, coeff) in msum
         push!(rotations, MajoranaRotation(ms))
-        push!(coefficients, coeff)
+        push!(coefficients, coeff * theta)
     end
 
     return rotations, coefficients, truncate_after_each_majrot
+end
+
+function getmajoranarotations_phase(gate::FermionicRotation, n_sites::Integer, theta::Float64)
+    hop_type = split(String(gate.symbol), "_")[1]
+    hop_phase = split(String(gate.symbol), "_")[2]
+
+    real_hop = MajoranaSum(n_sites, Symbol(hop_type), gate.sites)
+    truncate_after_each_majrot = false
+    n_fermions = nfermions(real_hop)
+    TT = getinttype(n_fermions)
+
+    rotations::Vector{MajoranaRotation{TT}} = []
+    coefficients::Vector{Float64} = []
+
+    if occursin("up", String(gate.symbol))
+        s1 = gate.sites[1]
+        gamma_i_gamma_i_prime = MajoranaString(n_fermions, [4 * s1 - 3, 4 * s1 - 2]).gammas
+    elseif occursin("dn", String(gate.symbol))
+        s1 = gate.sites[1]
+        gamma_i_gamma_i_prime = MajoranaString(n_fermions, [4 * s1 - 1, 4 * s1]).gammas
+    else
+        error("Passed undefined symbol $(gate.symbol)")
+    end
+
+    #create circ in Schrödinger order 
+    if !((hop_phase == "pifourth") || (hop_phase == "minuspifourth"))
+        error("Passed undefined symbol $(gate.symbol)")
+    end
+
+    positive_or_negative = (hop_phase == "pifourth") ? 1. : -1.
+    push!(rotations, MajoranaRotation(gamma_i_gamma_i_prime))
+    push!(coefficients, -positive_or_negative * pi / 4)
+
+    for (ms, coeff) in real_hop
+        push!(rotations, MajoranaRotation(ms))
+        push!(coefficients, coeff * theta)
+    end
+
+    push!(rotations, MajoranaRotation(gamma_i_gamma_i_prime))
+    push!(coefficients, positive_or_negative * pi / 4)
+    #flip it because #applytoall! applies them in Heisenberg order
+    return reverse(rotations), reverse(coefficients), truncate_after_each_majrot
+
 end
 
 function _applycos(coeff, cos_theta)
@@ -103,15 +149,15 @@ end
 
 function PropagationBase.applymergetruncate!(gate::FermionicRotation, prop_cache::AbstractMajoranaPropagationCache, theta; truncate_each_mr=nothing, kwargs...)
     # get the Majorana strings and coefficients corresponding to the fermionic gate
-    ms_rotations, coeffs, truncate_after_each_majrot = getmajoranarotations(gate, nsites(prop_cache))
+    ms_rotations, theta_rotations, truncate_after_each_majrot = getmajoranarotations(gate, nsites(prop_cache), theta)
     if !isnothing(truncate_each_mr)
         truncate_after_each_majrot = truncate_each_mr
     end
 
     # iterate over individual Majorana rotations and apply them to the Majorana sum
-    for (gate_ms, coeff) in zip(ms_rotations, coeffs)
+    for (gate_ms, theta_ms) in zip(ms_rotations, theta_rotations)
         # multiply coefficient by 2 since `::MajoranaRotation` implements exp(-i * theta/2 * mstring)
-        applytoall!(gate_ms, prop_cache, theta * coeff * 2.0; kwargs...)
+        applytoall!(gate_ms, prop_cache, 2.0 * theta_ms; kwargs...)
 
         # merge the auxiliary Majorana sum into the original one and empty the auxiliary one
         merge!(prop_cache; kwargs...)
