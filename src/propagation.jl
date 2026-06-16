@@ -14,21 +14,7 @@ A custom truncation function can be passed as `customtruncfunc` with the signatu
 Further `kwargs` are passed to the lower-level functions `applymergetruncate!`, `applytoall!`, and `apply`.
 """
 function PropagationBase.propagate(circuit, msum::AbstractMajoranaSum, thetas=nothing; max_weight=Inf, min_abs_coeff=1e-10, max_freq=Inf, max_sins=Inf, customtruncfunc=nothing, heisenberg=true, kwargs...)
-    CT = coefftype(msum)
-
-    # if max_freq and max_sins are used, and no PathProperties used, automatically wrap the coefficients in `PauliFreqTracker` 
-    msum = _check_wrapping_into_paulifreqtracker(msum, max_freq, max_sins)
-
-    # check that max_freq and max_sins are only used a PathProperties type tracking them
-    _checkfreqandsinfields(msum, max_freq, max_sins)
-
-    # run the in-place propagation function on a deepcopy of the input psum
-    msum = propagate!(circuit, deepcopy(msum), thetas; max_weight, min_abs_coeff, max_freq, max_sins, customtruncfunc, heisenberg, kwargs...)
-
-    # if the input psum was not a `PauliFreqTracker`, and the corresponding truncations were set,we need to unwrap the coefficients
-    msum = _check_unwrap_from_paulifreqtracker(CT, msum)
-
-    return msum
+    return propagate!(circuit, deepcopy(msum), thetas; max_weight, min_abs_coeff, max_freq, max_sins, customtruncfunc, heisenberg, kwargs...)
 end
 
 

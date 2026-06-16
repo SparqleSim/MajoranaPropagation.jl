@@ -88,4 +88,8 @@ include("Constructors.jl")
 
 include("QuantumChemistry/QuantumChemistry.jl")
 using .QuantumChemistry
+
+include("GateLookup/GateLookup.jl")
+using .GateLookup
+
 end
