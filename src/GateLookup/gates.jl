@@ -13,7 +13,7 @@ Majorana sum.
 Fields
 - `transfer_map`: the canonical transfer map (cumulative strings on canonical modes `1:k`).
 - `shifted_transfer_map`: the transfer map with cumulative strings shifted onto `site_inds`.
-- `site_inds`: the (sorted) sites the gate acts on.
+- `site_inds`: the sites the gate acts on, in the order given (order matters for e.g. :hopupdn).
 - `gate_modes`: the (sorted, 0-based) Majorana mode bit positions of the gate.
 - `is_spinful`, `sites_acted_on`: gate metadata.
 """
@@ -27,16 +27,21 @@ struct FermionicRotationLookup{TM<:MajoranaTransferMap,STM<:MajoranaTransferMap}
 end
 
 function FermionicRotationLookup(symbols::Vector{Symbol}, sites_acted_on::Integer, is_spinful::Bool,
-    site_inds, theta::Real)
+    site_inds::Vector{Int}, theta::Real)
 
-    site_inds = sort(collect(Int, site_inds))
-    @assert length(site_inds) == sites_acted_on "Expected $(sites_acted_on) site indices, got $(length(site_inds))."
-    @assert allunique(site_inds) "Site indices must be unique."
+    # `site_inds` may any collection of sites so that `FermionicRotation(symbol, site_inds)`
+    # is a valid operator with that repetition)
+    distinct_sites = sort(unique(site_inds))
 
-    gate_modes = _gate_modes(site_inds, is_spinful)
+    gate_modes = _gate_modes(distinct_sites, is_spinful)
 
-    # build the lookup table on the canonical system (sites 1:sites_acted_on)
-    raw_columns, n_fermions_canonical = _build_raw_columns(symbols, sites_acted_on, is_spinful, theta)
+    # Build the lookup table on a compact canonical system: each actual site is mapped to its rank
+    # within the distinct sites (1 = smallest, ..., k = largest). This compacts the system to sites
+    # 1:k while preserving both the order and any repetition of `site_inds`, e.g. [5, 2] -> [2, 1]
+    # and [2, 2] -> [1, 1]. The order-preserving (monotonic) mapping keeps the canonical
+    # coefficients valid once shifted onto the actual modes.
+    canonical_sites = [searchsortedfirst(distinct_sites, s) for s in site_inds]
+    raw_columns, n_fermions_canonical = _build_raw_columns(symbols, sites_acted_on, canonical_sites, is_spinful, theta)
     TT_canonical = getinttype(n_fermions_canonical)
 
     # canonical transfer map (cumulative strings on modes 1:k)
@@ -56,7 +61,7 @@ function FermionicRotationLookup(symbols::Vector{Symbol}, sites_acted_on::Intege
 end
 
 function FermionicRotationLookup(symbol::Symbol, sites_acted_on::Integer, is_spinful::Bool, site_inds, theta::Real)
-    return FermionicRotationLookup([symbol], sites_acted_on, is_spinful, site_inds, theta)
+    return FermionicRotationLookup([symbol], sites_acted_on, is_spinful, collect(Int, site_inds), theta)
 end
 
 """

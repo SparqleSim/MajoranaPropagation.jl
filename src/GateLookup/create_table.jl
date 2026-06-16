@@ -1,8 +1,8 @@
 # ========================================================================== #
 #  Building the Majorana transfer map for a fermionic gate.
 #
-#  The map is first built on a small "canonical" system with `sites_acted_on`
-#  sites placed at sites 1, 2, ..., k. Each possible restricted Majorana string
+#  The map is first built on a small "canonical" system whose sites are the gate's
+#  distinct sites placed at 1, 2, ..., k. Each possible restricted Majorana string
 #  on the gate's modes is propagated through the (trusted) `FermionicRotation`
 #  implementation, giving its image under the gate's conjugate action. From the
 #  image we extract, per output term, the cumulative gate string and a prefactor.
@@ -69,43 +69,48 @@ function _expand(canonical_string::Integer, gate_modes::Vector{Int}, ::Type{TT})
 end
 
 """
-    _build_raw_columns(symbols, sites_acted_on, is_spinful, theta)
+    _build_raw_columns(symbols, n_canonical_sites, canonical_sites, is_spinful, theta)
 
 Propagate every restricted Majorana string on the gate's modes through the
 canonical fermionic gate(s) and return `(columns, n_fermions_canonical)`.
 
+`n_canonical_sites` is the number of distinct sites of the canonical system (`1:n_canonical_sites`).
+`canonical_sites` are the rank-mapped sites the canonical gate acts on (values in
+`1:n_canonical_sites`, possibly repeated); passing them in the original site order preserves
+direction-sensitive gates.
+
 `columns[s+1]` is the image of the (canonical) input string `s`: a list of
 `(output_string, coeff)` tuples with `output_string` and `coeff` in the canonical frame.
 """
-function _build_raw_columns(symbols::Vector{Symbol}, sites_acted_on::Integer, is_spinful::Bool, theta::Real)
+function _build_raw_columns(symbols::Vector{Symbol}, n_canonical_sites::Integer, canonical_sites::Vector{Int}, is_spinful::Bool, theta::Real)
     M = _modes_per_site(is_spinful)
-    n_modes = sites_acted_on * M
-    n_fermions = is_spinful ? 2 * sites_acted_on : sites_acted_on
+    n_modes = n_canonical_sites * M
+    n_fermions = is_spinful ? 2 * n_canonical_sites : n_canonical_sites
     TT = getinttype(n_fermions)
 
-    gates = [FermionicRotation(symbol, collect(1:sites_acted_on)) for symbol in symbols]
+    gates = [FermionicRotation(symbol, canonical_sites) for symbol in symbols]
     thetas = fill(Float64(theta), length(gates))
 
     columns = Vector{Vector{Tuple{TT,ComplexF64}}}(undef, 2^n_modes)
 
     for s in 0:(2^n_modes - 1)
         # single-term observable: the restricted Majorana string `s` with coefficient 1
-        obs = MajoranaSum(Float64, sites_acted_on, is_spinful)
+        obs = MajoranaSum(Float64, n_canonical_sites, is_spinful)
         add!(obs, TT(s), 1.0)
 
         # propagate through the gate(s); keep all terms (no truncation)
         res = propagate(gates, obs, thetas; min_abs_coeff=-1.0)
 
-        column = Tuple{TT,ComplexF64}[]
+        column = Tuple{TT,Float64}[]
         for (out_string, coeff) in res
             if abs(coeff) < 1e-12
                 continue
             end
-            push!(column, (TT(out_string), ComplexF64(coeff)))
+            push!(column, (TT(out_string), coeff))
         end
         # an empty column means the gate acts as the identity on this string
         if isempty(column)
-            push!(column, (TT(s), ComplexF64(1.0)))
+            push!(column, (TT(s), 1.0))
         end
         columns[s+1] = column
     end

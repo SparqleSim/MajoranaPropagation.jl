@@ -135,6 +135,55 @@ end
 end
 
 # ---------------------------------------------------------------------------
+# arbitrary site ordering and direction-sensitive gates
+# ---------------------------------------------------------------------------
+
+@testset "arbitrary site order" begin
+    n_sites = 6
+    # symmetric gates with site indices passed in descending / arbitrary order must agree with
+    # FermionicRotation (which sorts internally)
+    observables_sl = [MajoranaSum(n_sites, :n, 3), MajoranaSum(n_sites, :hop, [3, 5])]
+    for obs in observables_sl, theta in [0.3, -0.9]
+        @test _lookup_matches_fr(:hop, false, [2, 3], theta, obs)
+        @test _lookup_matches_fr(:nn, false, [2, 5], theta, obs)
+        @test _lookup_matches_fr(:pair, false, [1, 4], theta, obs)
+    end
+
+    # direction-sensitive spinful gate: :hopupdn(up@s1, down@s2) is NOT symmetric in its sites,
+    # so both orderings must match their respective FermionicRotation
+    observables_sf = [MajoranaSum(n_sites, :nup, 2), MajoranaSum(n_sites, :nupndn, 4),
+                      MajoranaSum(n_sites, :hopup, [2, 5])]
+    for obs in observables_sf, theta in [0.4, -1.1]
+        @test _lookup_matches_fr(:hopupdn, true, [2, 4], theta, obs)
+        @test _lookup_matches_fr(:hopupdn, true, [4, 2], theta, obs)   # reversed up/down sites
+        @test _lookup_matches_fr(:hopupdn, true, [5, 1], theta, obs)
+    end
+end
+
+# ---------------------------------------------------------------------------
+# repeated site indices
+# ---------------------------------------------------------------------------
+
+@testset "repeated site indices" begin
+    # `site_inds` may repeat a site whenever FermionicRotation(symbol, site_inds) is a valid
+    # operator with that repetition. The lookup gate must build without error and still match.
+    n_sites = 5
+    observables_sl = [MajoranaSum(n_sites, :n, 3), MajoranaSum(n_sites, :hop, [2, 4])]
+    for obs in observables_sl, theta in [0.4, -0.8]
+        @test _lookup_matches_fr(:nn, false, [2, 2], theta, obs)
+        @test _lookup_matches_fr(:hop, false, [3, 3], theta, obs)
+        @test _lookup_matches_fr(:pair, false, [2, 2], theta, obs)
+    end
+
+    observables_sf = [MajoranaSum(n_sites, :nup, 3), MajoranaSum(n_sites, :nupndn, 2)]
+    for obs in observables_sf, theta in [0.4, -0.8]
+        @test _lookup_matches_fr(:hopup, true, [2, 2], theta, obs)
+        @test _lookup_matches_fr(:hopdn, true, [3, 3], theta, obs)
+        @test _lookup_matches_fr(:pairup, true, [2, 2], theta, obs)
+    end
+end
+
+# ---------------------------------------------------------------------------
 # complex-coefficient observables
 # ---------------------------------------------------------------------------
 
