@@ -6,5 +6,6 @@ using Random
     include("test_commutation_relations.jl")
     include("test_algebra.jl")
     include("compare_jw.jl")
+    include("test_gatelookup.jl")
     include("test_vector.jl")
 end

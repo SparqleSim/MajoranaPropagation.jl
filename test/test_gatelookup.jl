@@ -1,0 +1,236 @@
+using MajoranaPropagation
+using MajoranaPropagation.GateLookup
+using PauliPropagation   # for PauliRotation, used by the Yao helper
+using Test
+using Random
+
+Random.seed!(1234)
+
+# ---------------------------------------------------------------------------
+# helpers
+# ---------------------------------------------------------------------------
+
+# coefficient dict keyed by BigInt so sums with different integer widths compare cleanly
+function _coeffdict(msum)
+    d = Dict{BigInt,ComplexF64}()
+    for (k, v) in msum
+        d[BigInt(k)] = ComplexF64(v)
+    end
+    return d
+end
+
+function _msums_match(a, b; atol=1e-9)
+    da, db = _coeffdict(a), _coeffdict(b)
+    for k in union(keys(da), keys(db))
+        if abs(get(da, k, 0.0im) - get(db, k, 0.0im)) > atol
+            return false
+        end
+    end
+    return true
+end
+
+# propagate `obs` through the lookup gate and through the reference FermionicRotation, compare
+function _lookup_matches_fr(symbol, is_spinful, site_inds, theta, obs; atol=1e-9)
+    fr = FermionicRotation(symbol, site_inds)
+    ref = propagate([fr], deepcopy(obs), [theta]; min_abs_coeff=1e-14)
+
+    look = FermionicRotationLookup(symbol, length(site_inds), is_spinful, site_inds, theta)
+    got = propagate([look], deepcopy(obs); min_abs_coeff=1e-14)
+
+    return _msums_match(ref, got; atol=atol)
+end
+
+# ---------------------------------------------------------------------------
+# MajoranaTransferMap structure
+# ---------------------------------------------------------------------------
+
+@testset "MajoranaTransferMap structure" begin
+    # spinless 2-site gate => 4 Majorana modes => 2^4 = 16 columns
+    gate = FermionicRotationLookup(:hop, 2, false, [1, 2], 0.4)
+    tmap = gate.transfer_map
+    @test MajoranaPropagation.GateLookup.ncolumns(tmap) == 2^4
+    # the identity column (input string 0) maps to itself: cumulative string 0, coefficient 1
+    @test length(tmap[0]) == 1
+    @test tmap[0][1] == (0x00, 1.0 + 0.0im)
+    @test_throws BoundsError tmap[-1]
+    @test_throws BoundsError tmap[2^4]
+
+    # spinful 1-site gate => 4 Majorana modes => 16 columns
+    sgate = FermionicRotationLookup(:nupndn, 1, true, [1], 0.4)
+    @test MajoranaPropagation.GateLookup.ncolumns(sgate.transfer_map) == 2^4
+
+    # spinful 2-site gate => 8 Majorana modes => 256 columns
+    sgate2 = FermionicRotationLookup(:hopup, 2, true, [1, 2], 0.4)
+    @test MajoranaPropagation.GateLookup.ncolumns(sgate2.transfer_map) == 2^8
+end
+
+# ---------------------------------------------------------------------------
+# spinless: lookup gate matches FermionicRotation
+# ---------------------------------------------------------------------------
+
+@testset "spinless lookup == FermionicRotation" begin
+    n_sites = 6
+    thetas = [0.0, 0.13, 0.4, 1.0, -0.7, 2.4]
+
+    # observables, including ones that span the gate boundary (odd restricted weight)
+    observables = [
+        MajoranaSum(n_sites, :n, 3),
+        MajoranaSum(n_sites, :nn, [3, 4]),
+        MajoranaSum(n_sites, :hop, [3, 5]),            # spans gate boundary
+        MajoranaSum(n_sites, :hop, [1, 6]),
+        MajoranaSum(n_sites, :pair, [2, 4]),
+        MajoranaSum(n_sites, :n, 2) + MajoranaSum(n_sites, :hop, [2, 5]),
+    ]
+
+    gateconfigs = [
+        (:n, [3]),
+        (:hop, [2, 3]),
+        (:hop, [3, 5]),    # non-contiguous
+        (:nn, [3, 4]),
+        (:nn, [2, 5]),     # non-contiguous
+        (:pair, [3, 4]),
+    ]
+
+    @testset "symbol=$symbol sites=$sites" for (symbol, sites) in gateconfigs
+        for theta in thetas, obs in observables
+            @test _lookup_matches_fr(symbol, false, sites, theta, obs)
+        end
+    end
+end
+
+# ---------------------------------------------------------------------------
+# spinful: lookup gate matches FermionicRotation
+# ---------------------------------------------------------------------------
+
+@testset "spinful lookup == FermionicRotation" begin
+    n_sites = 4
+    thetas = [0.0, 0.21, 0.85, -0.55, 1.7]
+
+    observables = [
+        MajoranaSum(n_sites, :nup, 2),
+        MajoranaSum(n_sites, :ndn, 3),
+        MajoranaSum(n_sites, :nupndn, 2),
+        MajoranaSum(n_sites, :hole, 3),
+        MajoranaSum(n_sites, :hopup, [2, 4]),          # spans gate boundary
+        MajoranaSum(n_sites, :hopdn, [1, 3]),
+        MajoranaSum(n_sites, :nup, 2) + MajoranaSum(n_sites, :ndn, 3),
+    ]
+
+    gateconfigs = [
+        (:nup, [2]),
+        (:ndn, [3]),
+        (:nupndn, [2]),
+        (:hole, [3]),
+        (:hopup, [2, 3]),
+        (:hopdn, [2, 4]),    # non-contiguous
+        (:pairup, [2, 3]),
+        (:pairdn, [1, 3]),   # non-contiguous
+    ]
+
+    @testset "symbol=$symbol sites=$sites" for (symbol, sites) in gateconfigs
+        for theta in thetas, obs in observables
+            @test _lookup_matches_fr(symbol, true, sites, theta, obs)
+        end
+    end
+end
+
+# ---------------------------------------------------------------------------
+# complex-coefficient observables
+# ---------------------------------------------------------------------------
+
+@testset "complex observables" begin
+    n_sites = 4
+    for obs in [MajoranaSum(n_sites, :f, 2), MajoranaSum(n_sites, :fdag, 3)]
+        @test _lookup_matches_fr(:hop, false, [1, 2], 0.33, obs)
+        @test _lookup_matches_fr(:nn, false, [2, 3], 0.77, obs)
+    end
+end
+
+# ---------------------------------------------------------------------------
+# multi-gate circuits
+# ---------------------------------------------------------------------------
+
+@testset "multi-gate circuit (spinless)" begin
+    n_sites = 6
+    topo = bricklayertopology(n_sites)
+    obs = MajoranaSum(n_sites, :n, 3) + MajoranaSum(n_sites, :nn, [2, 5])
+
+    fr_circ = FermionicRotation[]
+    look_circ = []
+    thetas = Float64[]
+    for (i, j) in topo
+        push!(fr_circ, FermionicRotation(:hop, [i, j]))
+        push!(look_circ, FermionicRotationLookup(:hop, 2, false, [i, j], 0.2))
+        push!(thetas, 0.2)
+    end
+    for (i, j) in topo
+        push!(fr_circ, FermionicRotation(:nn, [i, j]))
+        push!(look_circ, FermionicRotationLookup(:nn, 2, false, [i, j], 0.5))
+        push!(thetas, 0.5)
+    end
+
+    ref = propagate(fr_circ, deepcopy(obs), thetas; min_abs_coeff=1e-12)
+    got = propagate(look_circ, deepcopy(obs); min_abs_coeff=1e-12)
+    @test length(ref) == length(got)
+    @test _msums_match(ref, got; atol=1e-8)
+end
+
+@testset "multi-gate circuit (spinful)" begin
+    n_sites = 4
+    obs = MajoranaSum(n_sites, :nupndn, 2)
+
+    fr_circ = FermionicRotation[]
+    look_circ = []
+    thetas = Float64[]
+    for (sym, sites, th) in [(:hopup, [1, 2], 0.3), (:hopdn, [2, 3], 0.25),
+                             (:hopup, [3, 4], 0.4), (:nupndn, [2], 0.6), (:nupndn, [3], 0.6)]
+        push!(fr_circ, FermionicRotation(sym, sites))
+        push!(look_circ, FermionicRotationLookup(sym, length(sites), true, sites, th))
+        push!(thetas, th)
+    end
+
+    ref = propagate(fr_circ, deepcopy(obs), thetas; min_abs_coeff=1e-12)
+    got = propagate(look_circ, deepcopy(obs); min_abs_coeff=1e-12)
+    @test _msums_match(ref, got; atol=1e-8)
+end
+
+# ---------------------------------------------------------------------------
+# independent ground-truth cross-check against Yao (free fermions)
+# ---------------------------------------------------------------------------
+
+@testset "lookup vs Yao (free fermions)" begin
+    include("yao_helpers/fermionicgates_to_yao.jl")
+
+    n_fermions = 8
+    h = 0.2
+    topo = bricklayertopology(n_fermions)
+
+    obs = MajoranaSum(n_fermions, :n, 4)
+
+    occupied_sites = 1:2:n_fermions
+    fock_state = FockState(n_fermions, occupied_sites)
+
+    yao_psi = Yao.zero_state(n_fermions)
+    state_prep = Yao.chain(n_fermions, Yao.put(site => Yao.X) for site in occupied_sites)
+    Yao.apply!(yao_psi, state_prep)
+
+    fr_circ = FermionicRotation[]
+    look_circ = []
+    thetas = Float64[]
+    for (i, j) in topo
+        push!(fr_circ, FermionicRotation(:hop, [i, j]))
+        push!(look_circ, FermionicRotationLookup(:hop, 2, false, [i, j], h))
+        push!(thetas, h)
+    end
+    yao_circ = circ_to_yao(n_fermions, fr_circ, thetas)
+    yao_obs = Yao.kron(n_fermions, 4 => Yao.Z)
+
+    for _ in 1:25
+        propagate!(look_circ, obs; min_abs_coeff=-1.0)
+        Yao.apply!(yao_psi, yao_circ)
+
+        mp_res = overlapwithfock(obs, fock_state)
+        yao_res = (1.0 - Yao.expect(yao_obs, yao_psi)) / 2.0
+        @test abs(mp_res - yao_res) < 1e-10
+    end
+end

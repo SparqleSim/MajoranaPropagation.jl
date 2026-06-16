@@ -1,39 +1,109 @@
+"""
+    FermionicRotationLookup(symbol::Symbol, sites_acted_on, is_spinful, site_inds, theta)
 
-function _evaluate_coeffs(coeff::LookupCT{TT}, ms_int::TT, nfermions::Int) where {TT<:Integer}
-    res = 0.
-    new_ms = TT(0)
-    for term in coeff.terms
-        pref, new_ms = ms_mult(term.cumulative_string, ms_int, nfermions)
-        res += real(pref * term.expression_pref)
-    end
-    return res, new_ms
+A `StaticGate` that applies a `FermionicRotation` via a precomputed transfer map (lookup
+table), analogous to `PauliPropagation.TransferMapGate`. The rotation angle `theta` is baked
+into the table at construction time.
+
+The gate acts on `sites_acted_on` lattice sites placed at `site_inds` of the full system
+(spinful or spinless according to `is_spinful`). It is intended as a drop-in alternative to
+applying `FermionicRotation(symbol, site_inds)` with parameter `theta`, and produces the same
+Majorana sum.
+
+Fields
+- `transfer_map`: the canonical transfer map (cumulative strings on canonical modes `1:k`).
+- `shifted_transfer_map`: the transfer map with cumulative strings shifted onto `site_inds`.
+- `site_inds`: the (sorted) sites the gate acts on.
+- `gate_modes`: the (sorted, 0-based) Majorana mode bit positions of the gate.
+- `is_spinful`, `sites_acted_on`: gate metadata.
+"""
+struct FermionicRotationLookup{TM<:MajoranaTransferMap,STM<:MajoranaTransferMap} <: StaticGate
+    transfer_map::TM
+    shifted_transfer_map::STM
+    site_inds::Vector{Int}
+    gate_modes::Vector{Int}
+    is_spinful::Bool
+    sites_acted_on::Int
 end
 
+function FermionicRotationLookup(symbols::Vector{Symbol}, sites_acted_on::Integer, is_spinful::Bool,
+    site_inds, theta::Real)
 
-function PropagationBase.applymergetruncate!(gate::FermionicRotationLookup{TT}, prop_cache::MajoranaPropagationCache, theta; kwargs...) where {TT<:Integer}
+    site_inds = sort(collect(Int, site_inds))
+    @assert length(site_inds) == sites_acted_on "Expected $(sites_acted_on) site indices, got $(length(site_inds))."
+    @assert allunique(site_inds) "Site indices must be unique."
+
+    gate_modes = _gate_modes(site_inds, is_spinful)
+
+    # build the lookup table on the canonical system (sites 1:sites_acted_on)
+    raw_columns, n_fermions_canonical = _build_raw_columns(symbols, sites_acted_on, is_spinful, theta)
+    TT_canonical = getinttype(n_fermions_canonical)
+
+    # canonical transfer map (cumulative strings on modes 1:k)
+    transfer_map = MajoranaTransferMap(
+        _finalize_columns(raw_columns, TT_canonical, c -> TT_canonical(c), n_fermions_canonical, TT_canonical)
+    )
+
+    # shifted transfer map (cumulative strings on the actual modes `site_inds`)
+    max_site = maximum(site_inds)
+    n_fermions_shifted = is_spinful ? 2 * max_site : max_site
+    TT_shifted = getinttype(n_fermions_shifted)
+    shifted_transfer_map = MajoranaTransferMap(
+        _finalize_columns(raw_columns, TT_canonical, c -> _expand(c, gate_modes, TT_shifted), n_fermions_shifted, TT_shifted)
+    )
+
+    return FermionicRotationLookup(transfer_map, shifted_transfer_map, site_inds, gate_modes, is_spinful, sites_acted_on)
+end
+
+function FermionicRotationLookup(symbol::Symbol, sites_acted_on::Integer, is_spinful::Bool, site_inds, theta::Real)
+    return FermionicRotationLookup([symbol], sites_acted_on, is_spinful, site_inds, theta)
+end
+
+"""
+    FermionicRotationLookup(gate::FermionicRotation, n_sites, is_spinful, theta)
+
+Convenience constructor that builds a lookup gate equivalent to `gate` acting with `theta`.
+"""
+function FermionicRotationLookup(gate::FermionicRotation, is_spinful::Bool, theta::Real)
+    return FermionicRotationLookup(gate.symbol, length(gate.sites), is_spinful, gate.sites, theta)
+end
+
+"""
+The conjugate action `U' O U` of the fermionic gate is read off the transfer map.
+
+For each observable string `O` we extract the restricted string on the gate's modes (the
+column index), and for each `(cumulative_string, ctilde)` entry of that column compute
+`(η, O_new) = ms_mult(cumulative_string, O)`. The full-string-dependent sign `η` combines
+with the stored prefactor `ctilde` to give the new coefficient `coeff * real(η * ctilde)`.
+Strings with no support on the gate's modes (column 0) are left unchanged.
+"""
+function PropagationBase.applytoall!(gate::FermionicRotationLookup, prop_cache::MajoranaPropagationCache; kwargs...)
     msum = mainsum(prop_cache)
     aux_msum = auxsum(prop_cache)
 
-    # loop over all Majorana strings and their coefficients in the Majorana sum
+    n_fermions = nfermions(msum)
+    smap = gate.shifted_transfer_map
+    gate_modes = gate.gate_modes
+
     for (ms_int, coeff) in msum
-        if !haskey(gate.lookup_table, ms_int)
-            # if the gate commutes with the Majorana string, do nothing
+        column_index = _compress(ms_int, gate_modes)
+
+        # no support on the gate's modes => the gate commutes through, string is unchanged
+        if column_index == 0
+            add!(aux_msum, ms_int, coeff)
             continue
         end
 
-        propagated_strings = gate.lookup_table[ms_int]
-
-        for (ms_key, gate_coeff) in propagated_strings
-            if ms_key == ms_int
-                all_cos_coeff, _ = _evaluate_coeffs(gate_coeff, ms_int, nfermions(msum))
-                set!(msum, ms_int, all_cos_coeff)
-            else
-                resulting_coeff, new_string = _evaluate_coeffs(gate_coeff, ms_key, nfermions(msum))
-                @show resulting_coeff, new_string
-                add!(aux_msum, new_string, resulting_coeff)
-            end
+        TT = typeof(ms_int)
+        for (cumulative, ctilde) in smap[column_index]
+            sign, new_ms = ms_mult(convert(TT, cumulative), ms_int, n_fermions)
+            add!(aux_msum, new_ms, coeff * real(sign * ctilde))
         end
     end
+
+    # everything was moved into the auxiliary sum; mirror the default applytoall! bookkeeping
+    empty!(msum)
+    PropagationBase.swapsums!(prop_cache)
 
     return
 end

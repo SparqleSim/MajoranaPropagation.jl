@@ -1,34 +1,75 @@
+"""
+    MajoranaTransferMap{TT<:Integer,CT}
 
-mutable struct BaseCT{TT<:Integer}
-    expression_pref::ComplexF64
-    cos_theta_pref::Vector{Float64}
-    sin_theta_pref::Vector{Float64}
-    cumulative_string::TT
-    function BaseCT(nfermions::Int)
-        TT = getinttype(nfermions)
-        return new{TT}(1., Float64[], Float64[], TT(0))
-    end
-    function BaseCT(expression_pref, cos_theta_pref, sin_theta_pref, cumulative_string::TT) where {TT<:Integer}
-        return new{TT}(expression_pref, cos_theta_pref, sin_theta_pref, cumulative_string)
-    end
+A contiguous lookup table ("transfer map") for the conjugate action of a fermionic gate
+on Majorana strings, analogous to `PauliPropagation.TransferMap`.
+
+The map is indexed by the *restricted* Majorana string on the gate's modes, compressed to
+canonical bit positions `0 .. nmodes-1` (so `tmap[0]` is the image of the identity column).
+
+Each column is a list of `(cumulative_string, coeff)` entries. Unlike the Pauli case, the
+sign of multiplying two Majorana strings depends on the *full* string and not only on the
+restricted part. Therefore an entry stores the *cumulative gate string* `cumulative_string`
+(the Majorana string that, multiplied onto the observable, produces the output string) rather
+than the output string and a fixed coefficient. At application time the output string and the
+full-string-dependent sign are obtained from `ms_mult(cumulative_string, full_observable)`,
+while `coeff` carries the remaining (full-string-independent) prefactor.
+
+Storage is a "structure of arrays": `entries` holds all `(cumulative_string, coeff)` tuples
+contiguously, and `offsets` indexes where each column starts (`offsets[i] .. offsets[i+1]-1`
+are the entries of the 0-based column `i-1`).
+"""
+struct MajoranaTransferMap{TT<:Integer,CT}
+    entries::Vector{Tuple{TT,CT}}
+    offsets::Vector{Int}
 end
 
-mutable struct LookupCT{TT<:Integer}
-    terms::Vector{BaseCT{TT}}
-    function LookupCT(nfermions::Int)
-        TT = getinttype(nfermions)
-        return new{TT}([BaseCT(nfermions)])
+"""
+    MajoranaTransferMap(columns::Vector{Vector{Tuple{TT,CT}}})
+
+Build a `MajoranaTransferMap` from a dense vector of columns, where `columns[i]` holds the
+entries of the 0-based column `i-1`.
+"""
+function MajoranaTransferMap(columns::Vector{Vector{Tuple{TT,CT}}}) where {TT<:Integer,CT}
+    total_entries = sum(length, columns; init=0)
+    entries = Vector{Tuple{TT,CT}}(undef, total_entries)
+    offsets = Vector{Int}(undef, length(columns) + 1)
+
+    next_entry = 1
+    for (column_index, column) in enumerate(columns)
+        offsets[column_index] = next_entry
+        for item in column
+            entries[next_entry] = item
+            next_entry += 1
+        end
     end
-    function LookupCT(terms::Vector{BaseCT{TT}}) where {TT<:Integer}
-        return new{TT}(terms)
+    offsets[end] = next_entry
+
+    return MajoranaTransferMap{TT,CT}(entries, offsets)
+end
+
+ncolumns(tmap::MajoranaTransferMap) = length(tmap.offsets) - 1
+Base.length(tmap::MajoranaTransferMap) = length(tmap.entries)
+
+"""
+    getindex(tmap::MajoranaTransferMap, column_index::Integer)
+
+Return a view of the entries of the 0-based `column_index`.
+"""
+function Base.getindex(tmap::MajoranaTransferMap, column_index::Integer)
+    index = Int(column_index)
+    if index < 0 || index >= ncolumns(tmap)
+        throw(BoundsError(tmap, column_index))
     end
+    start = tmap.offsets[index+1]
+    stop = tmap.offsets[index+2] - 1
+    return @view tmap.entries[start:stop]
 end
 
-function LookupCT(::Type{TT}) where {TT<:Integer}
-    return LookupCT(BaseCT{TT}[])
+function Base.:(==)(left::MajoranaTransferMap, right::MajoranaTransferMap)
+    return left.entries == right.entries && left.offsets == right.offsets
 end
 
-function Base.:+(coeff1::LookupCT{TT}, coeff2::LookupCT{TT}) where {TT<:Integer}
-    return LookupCT(vcat(coeff1.terms, coeff2.terms))
+function Base.show(io::IO, tmap::MajoranaTransferMap)
+    print(io, "MajoranaTransferMap($(ncolumns(tmap)) columns, $(length(tmap)) entries)")
 end
-
