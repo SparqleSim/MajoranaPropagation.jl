@@ -49,7 +49,8 @@ function getmajoranarotations(gate::FermionicRotation, n_sites::Integer)
 
     rotations::Vector{MajoranaRotation{TT}} = []
     coefficients::Vector{Float64} = []
-    for (ms, coeff) in msum
+    pairs = sort!(collect(msum); by=first)
+    for (ms, coeff) in pairs
         push!(rotations, MajoranaRotation(ms))
         push!(coefficients, coeff)
     end
