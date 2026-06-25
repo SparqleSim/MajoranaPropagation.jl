@@ -40,8 +40,8 @@ function FermionicRotationLookup(symbols::Vector{Symbol}, sites_acted_on::Intege
     # 1:k while preserving both the order and any repetition of `site_inds`, e.g. [5, 2] -> [2, 1]
     # and [2, 2] -> [1, 1]. The order-preserving (monotonic) mapping keeps the canonical
     # coefficients valid once shifted onto the actual modes.
-    canonical_sites = [searchsortedfirst(distinct_sites, s) for s in site_inds]
-    raw_columns, n_fermions_canonical = _build_raw_columns(symbols, sites_acted_on, canonical_sites, is_spinful, theta)
+    sites_pattern = [searchsortedfirst(distinct_sites, s) for s in site_inds]
+    raw_columns, n_fermions_canonical = _build_raw_columns(symbols, sites_acted_on, sites_pattern, is_spinful, theta)
     TT_canonical = getinttype(n_fermions_canonical)
 
     # canonical transfer map (cumulative strings on modes 1:k)
@@ -159,9 +159,9 @@ function FermionicRotationLookup(symbols::Vector{Symbol}, sites_acted_on::Intege
 
     distinct_sites = sort(unique(site_inds))
     gate_modes = _gate_modes(distinct_sites, is_spinful)
-    canonical_sites = [searchsortedfirst(distinct_sites, s) for s in site_inds]
+    sites_pattern = [searchsortedfirst(distinct_sites, s) for s in site_inds]
 
-    raw_columns, n_fermions_canonical, nparams = _build_symbolic_columns(symbols, sites_acted_on, canonical_sites, is_spinful)
+    raw_columns, n_fermions_canonical, nparams = _build_symbolic_columns(symbols, sites_acted_on, sites_pattern, is_spinful)
     TT_canonical = getinttype(n_fermions_canonical)
 
     transfer_map = MajoranaTransferMap(
@@ -238,80 +238,110 @@ end
     CanonicalFermionicRotationLookup
 
 Placement-free counterpart of [`SymbolicFermionicRotationLookup`](@ref): the symbolic transfer
-table is built once on the canonical system (sites `1:sites_acted_on`), without committing to where
-the gate acts. Build it with the no-`site_inds`, no-`theta` `FermionicRotationLookup(symbol,
-sites_acted_on, is_spinful)` constructor, then place + materialize it at an angle with
+table is built once on the canonical system, keyed by the *repetition pattern* of the gate's site
+arguments (its `canonical_pattern`, e.g. `[1,1,2,3]` for a 4-argument gate whose first two arguments
+coincide, or `[1,2]` for a plain 2-site gate). It does not commit to which actual sites the gate
+acts on. Build it with the no-`theta` `FermionicRotationLookup(symbol, sites_acted_on, is_spinful;
+sites_pattern=...)` constructor, then place + materialize it at an angle with
 [`evaluate(::CanonicalFermionicRotationLookup, theta, site_inds)`](@ref).
 
-`site_inds` supplied at evaluation must be `sites_acted_on` **distinct** sites (in any order);
-repeated indices use the `site_inds`-baked / `theta`-baking constructors instead.
+`site_inds` supplied at evaluation must have a repetition pattern equal to the table's, i.e.
+`canonical_pattern(site_inds) == table.canonical_pattern`; cache one table per pattern (e.g. keyed by
+`canonical_pattern(site_inds)`). This supports repeated indices (`:four_body_term`, on-site terms)
+and any ordering, including direction-sensitive gates.
+
+Fields: `canonical_pattern` (gate args in canonical distinct-site labels) and `sites_acted_on`
+(the number of *distinct* sites, `= maximum(canonical_pattern)`).
 """
 struct CanonicalFermionicRotationLookup{TT<:Integer}
     raw_columns::Vector{Vector{Tuple{TT,MajoranaNodePathProperties}}}
     n_fermions_canonical::Int
     nparams::Int
+    canonical_pattern::Vector{Int}
     sites_acted_on::Int
     is_spinful::Bool
 end
 
 function Base.show(io::IO, t::CanonicalFermionicRotationLookup)
-    print(io, "CanonicalFermionicRotationLookup(sites_acted_on=$(t.sites_acted_on), is_spinful=$(t.is_spinful), $(length(t.raw_columns)) columns)")
+    print(io, "CanonicalFermionicRotationLookup(pattern=$(t.canonical_pattern), is_spinful=$(t.is_spinful), $(length(t.raw_columns)) columns)")
 end
 
 """
-    CanonicalFermionicRotationLookup(symbol, sites_acted_on, is_spinful)
+    canonical_pattern(site_inds)
 
-Build the canonical (placement-free) symbolic table for a gate acting on `sites_acted_on` (distinct)
-sites. Also available via `FermionicRotationLookup(symbol, sites_acted_on, is_spinful)`.
+Repetition pattern of `site_inds` (each site replaced by its rank among the distinct sites,
+smallest = 1): `[5,5,7,8] -> [1,1,2,3]`, `[8,3] -> [2,1]`. Use it as the cache key for
+[`CanonicalFermionicRotationLookup`](@ref) tables and to check [`evaluate`](@ref) compatibility.
 """
-function CanonicalFermionicRotationLookup(symbols::Vector{Symbol}, sites_acted_on::Integer, is_spinful::Bool)
-    canonical_sites = collect(1:Int(sites_acted_on))
-    raw_columns, n_fermions_canonical, nparams = _build_symbolic_columns(symbols, sites_acted_on, canonical_sites, is_spinful)
-    return CanonicalFermionicRotationLookup(raw_columns, n_fermions_canonical, nparams, Int(sites_acted_on), is_spinful)
+canonical_pattern(site_inds) = _rank_pattern(site_inds)
+
+"""
+    CanonicalFermionicRotationLookup(symbol, sites_acted_on, is_spinful; sites_pattern=nothing)
+
+Build the canonical (placement-free) symbolic table. By default the gate acts on `sites_acted_on`
+*distinct* sites (`canonical_pattern = 1:sites_acted_on`). For gates with repeated indices, pass a
+representative `sites_pattern` (any indices — e.g. the actual `site_inds` like `[5,5,7,8]`, or a
+bare pattern like `[1,1,2,3]`); only its repetition/order pattern is used (the literal values are
+irrelevant), and `sites_acted_on` must equal its number of distinct sites. Also available via
+`FermionicRotationLookup(symbol, sites_acted_on, is_spinful; sites_pattern=...)`.
+"""
+function CanonicalFermionicRotationLookup(symbols::Vector{Symbol}, sites_acted_on::Integer, is_spinful::Bool; sites_pattern=nothing)
+    if isnothing(sites_pattern)
+        pattern = collect(1:Int(sites_acted_on))
+    else
+        pattern = _rank_pattern(collect(Int, sites_pattern))
+        maximum(pattern) == sites_acted_on || throw(ArgumentError(
+            "sites_acted_on=$(sites_acted_on) must equal the number of distinct sites in " *
+            "sites_pattern=$(sites_pattern) (= $(maximum(pattern)))."))
+    end
+    raw_columns, n_fermions_canonical, nparams = _build_symbolic_columns(symbols, sites_acted_on, pattern, is_spinful)
+    return CanonicalFermionicRotationLookup(raw_columns, n_fermions_canonical, nparams, pattern, Int(sites_acted_on), is_spinful)
 end
 
-function CanonicalFermionicRotationLookup(symbol::Symbol, sites_acted_on::Integer, is_spinful::Bool)
-    return CanonicalFermionicRotationLookup([symbol], sites_acted_on, is_spinful)
+function CanonicalFermionicRotationLookup(symbol::Symbol, sites_acted_on::Integer, is_spinful::Bool; sites_pattern=nothing)
+    return CanonicalFermionicRotationLookup([symbol], sites_acted_on, is_spinful; sites_pattern=sites_pattern)
 end
 
 # `FermionicRotationLookup(...)` with no `site_inds` and no `theta` => placement-free canonical table.
-function FermionicRotationLookup(symbols::Vector{Symbol}, sites_acted_on::Integer, is_spinful::Bool)
-    return CanonicalFermionicRotationLookup(symbols, sites_acted_on, is_spinful)
+function FermionicRotationLookup(symbols::Vector{Symbol}, sites_acted_on::Integer, is_spinful::Bool; sites_pattern=nothing)
+    return CanonicalFermionicRotationLookup(symbols, sites_acted_on, is_spinful; sites_pattern=sites_pattern)
 end
 
-function FermionicRotationLookup(symbol::Symbol, sites_acted_on::Integer, is_spinful::Bool)
-    return CanonicalFermionicRotationLookup(symbol, sites_acted_on, is_spinful)
+function FermionicRotationLookup(symbol::Symbol, sites_acted_on::Integer, is_spinful::Bool; sites_pattern=nothing)
+    return CanonicalFermionicRotationLookup(symbol, sites_acted_on, is_spinful; sites_pattern=sites_pattern)
 end
 
 """
     evaluate(table::CanonicalFermionicRotationLookup, theta::Real, site_inds)
 
-Place the canonical table on the actual `site_inds` (which must be `sites_acted_on` distinct sites)
-and materialize a concrete numeric [`FermionicRotationLookup`](@ref) at angle `theta`. Canonical
-argument `j` is placed on the `j`-th **smallest** site (a monotonic, order-preserving placement,
-required for the cumulative-string signs to stay valid), so the result is identical to
-`FermionicRotation(symbol, sort(site_inds))`.
+Place the canonical table on the actual `site_inds` and materialize a concrete numeric
+[`FermionicRotationLookup`](@ref) at angle `theta`. `site_inds` must have the same repetition
+pattern as the table (`canonical_pattern(site_inds) == table.canonical_pattern`); the result is then
+identical to `FermionicRotation(symbol, site_inds)`.
 
-For gates that are symmetric in their sites (`:hop`, `:nn`, `:pair`, `:hopup`, `:hopdn`, `:pairup`,
-`:pairdn`, …) this matches `FermionicRotation(symbol, site_inds)` for any ordering of `site_inds`.
-For direction-sensitive gates (`:hopupdn`) the placement is in ascending site order; pass
-`site_inds` ascending, or use the `site_inds`-baked / `theta`-baking constructor for a specific
-non-ascending direction.
+The pattern (which arguments coincide, and the argument order) is baked into the table, while the
+placement onto the actual modes is monotonic (canonical distinct site `j` → the `j`-th smallest
+actual distinct site), which keeps the cumulative-string signs valid. This supports repeated indices
+(e.g. `:four_body_term`, on-site terms) and any ordering, including direction-sensitive gates —
+build one table per pattern, keyed by `canonical_pattern(site_inds)`.
 """
 function evaluate(table::CanonicalFermionicRotationLookup{TT}, theta::Real, site_inds) where {TT}
     sites = collect(Int, site_inds)
-    if length(sites) != table.sites_acted_on
-        throw(ArgumentError("evaluate expects $(table.sites_acted_on) site(s), got $(length(sites)): $sites"))
+    n_args = length(table.canonical_pattern)
+    if length(sites) != n_args
+        throw(ArgumentError("evaluate expects $n_args site index/indices to match the table's pattern $(table.canonical_pattern), got $(length(sites)): $sites"))
     end
-    if !allunique(sites)
+    if _rank_pattern(sites) != table.canonical_pattern
         throw(ArgumentError(
-            "CanonicalFermionicRotationLookup requires distinct site_inds (got $sites); " *
-            "use the site_inds-baked `FermionicRotationLookup(symbol, …, site_inds[, theta])` for repeated indices."))
+            "site_inds $sites has repetition pattern $(_rank_pattern(sites)), which does not match the " *
+            "table's canonical_pattern $(table.canonical_pattern). Build/select a table whose pattern " *
+            "equals `canonical_pattern(site_inds)`."))
     end
 
     thetas = fill(Float64(theta), table.nparams)
-    # monotonic placement: canonical argument j -> j-th smallest site (sorted modes)
-    gate_modes = _gate_modes(sites, table.is_spinful)
+    # monotonic placement: canonical distinct site j -> j-th smallest actual distinct site
+    distinct_sites = sort(unique(sites))
+    gate_modes = _gate_modes(distinct_sites, table.is_spinful)
 
     n_fermions_shifted = table.is_spinful ? 2 * maximum(sites) : maximum(sites)
     TT_shifted = getinttype(n_fermions_shifted)
@@ -329,5 +359,5 @@ function evaluate(table::CanonicalFermionicRotationLookup{TT}, theta::Real, site
     transfer_map = _materialize_transfer_map(canonical_sym)
     shifted_transfer_map = _materialize_transfer_map(shifted_sym)
 
-    return FermionicRotationLookup(transfer_map, shifted_transfer_map, sites, gate_modes, table.is_spinful, table.sites_acted_on)
+    return FermionicRotationLookup(transfer_map, shifted_transfer_map, sites, gate_modes, table.is_spinful, n_args)
 end

@@ -124,26 +124,27 @@ end
 @testset "Canonical (placement-free) lookup" begin
     thetas = [0.0, 0.35, -0.9, 1.6]
 
-    @testset "spinless" begin
+    @testset "spinless, distinct (count-based table)" begin
         n = 6
         observables = [
             MajoranaSum(n, :n, 3),
             MajoranaSum(n, :hop, [2, 5]),
             MajoranaSum(n, :nn, [3, 4]) + MajoranaSum(n, :n, 1),
         ]
+        # ascending placements all share pattern [1,2] => one table serves them all
         for (sym, placements) in [
-            (:hop, [[1, 2], [3, 5], [5, 3], [2, 6]]),   # incl. reversed order
-            (:nn, [[2, 3], [4, 1]]),
-            (:pair, [[1, 4], [4, 1]]),
+            (:hop, [[1, 2], [3, 5], [2, 6]]),
+            (:nn, [[2, 3], [1, 4]]),
+            (:pair, [[1, 4], [3, 5]]),
         ]
-            table = FermionicRotationLookup(sym, 2, false)   # canonical, built once per gate type
+            table = FermionicRotationLookup(sym, 2, false)   # canonical_pattern = [1,2]
             for site_inds in placements, obs in observables, th in thetas
                 _check_canonical(table, sym, false, site_inds, th, obs)
             end
         end
     end
 
-    @testset "spinful" begin
+    @testset "spinful, distinct (count-based table)" begin
         n = 4
         observables = [
             MajoranaSum(n, :nup, 2),
@@ -151,9 +152,9 @@ end
             MajoranaSum(n, :hopup, [1, 3]),
         ]
         for (sym, placements) in [
-            (:hopup, [[1, 2], [2, 4], [4, 2]]),     # symmetric: any order
-            (:hopdn, [[1, 3], [3, 1]]),
-            (:hopupdn, [[1, 2], [1, 3], [2, 4]]),   # direction-sensitive: ascending placement
+            (:hopup, [[1, 2], [2, 4]]),
+            (:hopdn, [[1, 3], [2, 3]]),
+            (:hopupdn, [[1, 2], [1, 3], [2, 4]]),   # ascending => pattern [1,2]
             (:pairup, [[1, 2], [2, 4]]),
         ]
             table = FermionicRotationLookup(sym, 2, true)
@@ -161,7 +162,7 @@ end
                 _check_canonical(table, sym, true, site_inds, th, obs)
             end
         end
-        for sym in (:nupndn, :hole)   # single-site gates
+        for sym in (:nupndn, :hole)   # single-site gates, pattern [1]
             table = FermionicRotationLookup(sym, 1, true)
             for site in [1, 2, 4], obs in observables, th in thetas
                 _check_canonical(table, sym, true, [site], th, obs)
@@ -169,10 +170,52 @@ end
         end
     end
 
-    @testset "invalid site_inds error" begin
-        table = FermionicRotationLookup(:hop, 2, false)
-        @test_throws ArgumentError evaluate(table, 0.3, [2, 2])      # repeated indices
-        @test_throws ArgumentError evaluate(table, 0.3, [2])         # too few sites
-        @test_throws ArgumentError evaluate(table, 0.3, [1, 2, 3])   # too many sites
+    @testset "permuted / direction-sensitive (pattern-keyed table)" begin
+        # build for a non-ascending pattern from a representative, reuse on same-pattern sites
+        n = 6
+        obs = MajoranaSum(n, :n, 3) + MajoranaSum(n, :hop, [2, 5])
+        table = FermionicRotationLookup(:hop, 2, false; sites_pattern=[2, 1])   # pattern [2,1]
+        for site_inds in [[5, 3], [6, 1], [4, 2]], th in thetas
+            _check_canonical(table, :hop, false, site_inds, th, obs)
+        end
+
+        # direction-sensitive gate, reversed pattern [2,1]
+        obs_sf = MajoranaSum(4, :nupndn, 2) + MajoranaSum(4, :nup, 3)
+        table_sf = FermionicRotationLookup(:hopupdn, 2, true; sites_pattern=[2, 1])
+        for site_inds in [[2, 1], [4, 2], [3, 1]], th in thetas
+            _check_canonical(table_sf, :hopupdn, true, site_inds, th, obs_sf)
+        end
+    end
+
+    @testset "repeated indices (coinciding sites)" begin
+        n = 5
+        observables = [MajoranaSum(n, :n, 3), MajoranaSum(n, :hop, [2, 4])]
+        # 2-argument gates with both indices equal => pattern [1,1], one distinct site
+        for sym in (:nn, :hop, :pair)
+            table = FermionicRotationLookup(sym, 1, false; sites_pattern=[1, 1])
+            for site in [2, 3, 5], obs in observables, th in thetas
+                _check_canonical(table, sym, false, [site, site], th, obs)
+            end
+        end
+        obs_sf = [MajoranaSum(n, :nup, 3), MajoranaSum(n, :nupndn, 2)]
+        for sym in (:hopup, :pairup)
+            table = FermionicRotationLookup(sym, 1, true; sites_pattern=[1, 1])
+            for site in [2, 3], obs in obs_sf, th in thetas
+                _check_canonical(table, sym, true, [site, site], th, obs)
+            end
+        end
+    end
+
+    @testset "pattern helper + errors" begin
+        @test canonical_pattern([5, 5, 7, 8]) == [1, 1, 2, 3]
+        @test canonical_pattern([8, 3]) == [2, 1]
+        @test canonical_pattern([2, 2]) == [1, 1]
+
+        table = FermionicRotationLookup(:hop, 2, false)              # pattern [1,2]
+        @test_throws ArgumentError evaluate(table, 0.3, [2, 2])      # pattern [1,1] != [1,2]
+        @test_throws ArgumentError evaluate(table, 0.3, [3, 1])      # pattern [2,1] != [1,2]
+        @test_throws ArgumentError evaluate(table, 0.3, [1, 2, 3])   # wrong arity
+        # sites_acted_on must match the number of distinct sites in sites_pattern
+        @test_throws ArgumentError FermionicRotationLookup(:nn, 2, false; sites_pattern=[1, 1])
     end
 end

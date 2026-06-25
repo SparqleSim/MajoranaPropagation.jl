@@ -12,6 +12,7 @@ export
     FermionicRotationLookup,
     SymbolicFermionicRotationLookup,
     CanonicalFermionicRotationLookup,
+    canonical_pattern,
     SurrogateCoeff,
     evaluate
 end

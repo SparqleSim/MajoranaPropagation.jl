@@ -39,6 +39,21 @@ function _gate_modes(site_inds, is_spinful::Bool)
 end
 
 """
+    _rank_pattern(site_inds)
+
+Return the rank pattern of `site_inds`: each site replaced by its 1-based rank among the distinct
+sites (smallest = 1). E.g. `[5,5,7,8] -> [1,1,2,3]`, `[8,3] -> [2,1]`, `[2,2] -> [1,1]`.
+
+This pattern is exactly what determines the canonical operator of a (possibly repeated-index)
+fermionic gate: two `site_inds` tuples share a `CanonicalFermionicRotationLookup` iff they have the
+same `_rank_pattern`.
+"""
+function _rank_pattern(site_inds)
+    distinct = sort(unique(site_inds))
+    return [searchsortedfirst(distinct, s) for s in site_inds]
+end
+
+"""
     _compress(majstring, gate_modes)
 
 Extract the bits of `majstring` at positions `gate_modes` and pack them into the
@@ -69,26 +84,26 @@ function _expand(canonical_string::Integer, gate_modes::Vector{Int}, ::Type{TT})
 end
 
 """
-    _build_raw_columns(symbols, n_canonical_sites, canonical_sites, is_spinful, theta)
+    _build_raw_columns(symbols, n_canonical_sites, sites_pattern, is_spinful, theta)
 
 Propagate every restricted Majorana string on the gate's modes through the
 canonical fermionic gate(s) and return `(columns, n_fermions_canonical)`.
 
 `n_canonical_sites` is the number of distinct sites of the canonical system (`1:n_canonical_sites`).
-`canonical_sites` are the rank-mapped sites the canonical gate acts on (values in
+`sites_pattern` are the rank-mapped sites the canonical gate acts on (values in
 `1:n_canonical_sites`, possibly repeated); passing them in the original site order preserves
 direction-sensitive gates.
 
 `columns[s+1]` is the image of the (canonical) input string `s`: a list of
 `(output_string, coeff)` tuples with `output_string` and `coeff` in the canonical frame.
 """
-function _build_raw_columns(symbols::Vector{Symbol}, n_canonical_sites::Integer, canonical_sites::Vector{Int}, is_spinful::Bool, theta::Real)
+function _build_raw_columns(symbols::Vector{Symbol}, n_canonical_sites::Integer, sites_pattern::Vector{Int}, is_spinful::Bool, theta::Real)
     M = _modes_per_site(is_spinful)
     n_modes = n_canonical_sites * M
     n_fermions = is_spinful ? 2 * n_canonical_sites : n_canonical_sites
     TT = getinttype(n_fermions)
 
-    gates = [FermionicRotation(symbol, canonical_sites) for symbol in symbols]
+    gates = [FermionicRotation(symbol, sites_pattern) for symbol in symbols]
     thetas = fill(Float64(theta), length(gates))
 
     columns = Vector{Vector{Tuple{TT,ComplexF64}}}(undef, 2^n_modes)
@@ -161,7 +176,7 @@ end
 # ========================================================================== #
 
 """
-    _build_symbolic_columns(symbols, n_canonical_sites, canonical_sites, is_spinful)
+    _build_symbolic_columns(symbols, n_canonical_sites, sites_pattern, is_spinful)
 
 Surrogate analog of [`_build_raw_columns`](@ref). Propagates every restricted basis Majorana
 string through the canonical gate(s) using the surrogate and returns
@@ -171,13 +186,13 @@ dependence) and `nparams = length(symbols)` is the number of angles `evaluate` m
 All structurally-produced terms are kept (no coefficient filtering): a term that vanishes at one
 angle may be nonzero at another.
 """
-function _build_symbolic_columns(symbols::Vector{Symbol}, n_canonical_sites::Integer, canonical_sites::Vector{Int}, is_spinful::Bool)
+function _build_symbolic_columns(symbols::Vector{Symbol}, n_canonical_sites::Integer, sites_pattern::Vector{Int}, is_spinful::Bool)
     M = _modes_per_site(is_spinful)
     n_modes = n_canonical_sites * M
     n_fermions = is_spinful ? 2 * n_canonical_sites : n_canonical_sites
     TT = getinttype(n_fermions)
 
-    gates = [FermionicRotation(symbol, canonical_sites) for symbol in symbols]
+    gates = [FermionicRotation(symbol, sites_pattern) for symbol in symbols]
     nparams = length(gates)
 
     columns = Vector{Vector{Tuple{TT,MajoranaNodePathProperties}}}(undef, 2^n_modes)
