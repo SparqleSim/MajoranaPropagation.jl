@@ -148,3 +148,86 @@ function _finalize_columns(raw_columns::Vector{Vector{Tuple{TTin,ComplexF64}}}, 
     end
     return columns
 end
+
+# ========================================================================== #
+#  Angle-free (surrogate-backed) table building.
+#
+#  Identical in structure to `_build_raw_columns` / `_finalize_columns`, but each
+#  basis string is propagated through the *surrogate* (see `src/surrogate.jl`) so
+#  that the propagated coefficient `a` is kept as a node graph in the rotation angle
+#  rather than a number. The angle-independent structure (cumulative strings and the
+#  frame prefactor `1/μ`) is computed once at build time; `evaluate` later walks the
+#  node graphs to obtain `a` and forms `ctilde = a / μ` for a concrete angle.
+# ========================================================================== #
+
+"""
+    _build_symbolic_columns(symbols, n_canonical_sites, canonical_sites, is_spinful)
+
+Surrogate analog of [`_build_raw_columns`](@ref). Propagates every restricted basis Majorana
+string through the canonical gate(s) using the surrogate and returns
+`(columns, n_fermions_canonical, nparams)`, where `columns[s+1]` is a list of
+`(output_string, path)` tuples (`path::MajoranaNodePathProperties` carrying the symbolic angle
+dependence) and `nparams = length(symbols)` is the number of angles `evaluate` must supply.
+All structurally-produced terms are kept (no coefficient filtering): a term that vanishes at one
+angle may be nonzero at another.
+"""
+function _build_symbolic_columns(symbols::Vector{Symbol}, n_canonical_sites::Integer, canonical_sites::Vector{Int}, is_spinful::Bool)
+    M = _modes_per_site(is_spinful)
+    n_modes = n_canonical_sites * M
+    n_fermions = is_spinful ? 2 * n_canonical_sites : n_canonical_sites
+    TT = getinttype(n_fermions)
+
+    gates = [FermionicRotation(symbol, canonical_sites) for symbol in symbols]
+    nparams = length(gates)
+
+    columns = Vector{Vector{Tuple{TT,MajoranaNodePathProperties}}}(undef, 2^n_modes)
+
+    for s in 0:(2^n_modes - 1)
+        # single-term observable: the restricted Majorana string `s` with coefficient 1
+        obs = MajoranaSum(Float64, n_canonical_sites, is_spinful)
+        add!(obs, TT(s), 1.0)
+        obs_surr = wrapcoefficients(obs, MajoranaNodePathProperties)
+
+        # propagate through the surrogate (no thetas; builds the symbolic graph once)
+        res = propagate(gates, obs_surr)
+
+        column = Tuple{TT,MajoranaNodePathProperties}[]
+        for (out_string, path) in res
+            push!(column, (TT(out_string), path))
+        end
+        # a gate acting as the identity leaves the input string with a constant coefficient;
+        # this fallback is defensive (the surrogate never truncates, so `res` is non-empty)
+        if isempty(column)
+            push!(column, (TT(s), first(coefficients(obs_surr))))
+        end
+        columns[s+1] = column
+    end
+
+    return columns, n_fermions, nparams
+end
+
+"""
+    _finalize_symbolic_columns(raw_columns, ::Type{TTin}, transform, n_fermions, ::Type{TTout})
+
+Surrogate analog of [`_finalize_columns`](@ref). Computes the angle-independent
+`(cumulative_string, SurrogateCoeff(path, 1/μ))` entries in the frame defined by `transform`,
+leaving the symbolic coefficient `path` untouched (the node graphs are shared between the
+canonical and shifted maps, so they are evaluated only once).
+"""
+function _finalize_symbolic_columns(raw_columns::Vector{Vector{Tuple{TTin,MajoranaNodePathProperties}}}, ::Type{TTin},
+    transform, n_fermions::Integer, ::Type{TTout}) where {TTin<:Integer,TTout<:Integer}
+
+    columns = Vector{Vector{Tuple{TTout,SurrogateCoeff}}}(undef, length(raw_columns))
+    for i in eachindex(raw_columns)
+        s_in = transform(TTin(i - 1))::TTout
+        column = Tuple{TTout,SurrogateCoeff}[]
+        for (s_out, path) in raw_columns[i]
+            s_out_t = transform(s_out)::TTout
+            cumulative = s_in ⊻ s_out_t
+            mu, _ = ms_mult(cumulative, s_in, n_fermions)
+            push!(column, (cumulative, SurrogateCoeff(path, ComplexF64(1 / mu))))
+        end
+        columns[i] = column
+    end
+    return columns
+end

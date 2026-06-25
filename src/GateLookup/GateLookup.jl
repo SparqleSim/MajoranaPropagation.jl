@@ -9,5 +9,8 @@ include("./gates.jl")
 
 export
     MajoranaTransferMap,
-    FermionicRotationLookup
+    FermionicRotationLookup,
+    SymbolicFermionicRotationLookup,
+    SurrogateCoeff,
+    evaluate
 end

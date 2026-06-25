@@ -112,3 +112,115 @@ function PropagationBase.applytoall!(gate::FermionicRotationLookup, prop_cache::
 
     return
 end
+
+# ============================================================================ #
+#  Angle-free (reusable) lookup: build the transfer table once, evaluate at many
+#  angles. The angle dependence of each coefficient is stored as a surrogate node
+#  graph (`SurrogateCoeff`); `evaluate(table, theta)` materializes the concrete
+#  numeric `FermionicRotationLookup` above, which is then propagated as usual.
+# ============================================================================ #
+
+"""
+    SymbolicFermionicRotationLookup
+
+Angle-free counterpart of [`FermionicRotationLookup`](@ref). Its transfer maps store, per output
+term, a [`SurrogateCoeff`](@ref) carrying the symbolic angle dependence instead of a baked number.
+Built once with the no-`theta` `FermionicRotationLookup(...)` constructors, then turned into a
+concrete `FermionicRotationLookup` for a given angle with [`evaluate`](@ref).
+
+`nparams` is the number of angles to supply at evaluation time (one per `symbol`; equal to 1 for
+the single-symbol constructors).
+"""
+struct SymbolicFermionicRotationLookup{TM<:MajoranaTransferMap,STM<:MajoranaTransferMap}
+    transfer_map::TM
+    shifted_transfer_map::STM
+    site_inds::Vector{Int}
+    gate_modes::Vector{Int}
+    is_spinful::Bool
+    sites_acted_on::Int
+    nparams::Int
+end
+
+function Base.show(io::IO, sym::SymbolicFermionicRotationLookup)
+    print(io, "SymbolicFermionicRotationLookup(sites=$(sym.site_inds), is_spinful=$(sym.is_spinful), $(sym.transfer_map))")
+end
+
+"""
+    FermionicRotationLookup(symbol, sites_acted_on, is_spinful, site_inds)
+    FermionicRotationLookup(gate::FermionicRotation, is_spinful)
+
+Angle-free constructors: build a reusable [`SymbolicFermionicRotationLookup`](@ref) (no `theta`).
+Identical in structure to the `theta`-baking constructors above, but each basis string is
+propagated through the surrogate so the table can later be [`evaluate`](@ref)d at many angles
+without rebuilding it.
+"""
+function FermionicRotationLookup(symbols::Vector{Symbol}, sites_acted_on::Integer, is_spinful::Bool,
+    site_inds::Vector{Int})
+
+    distinct_sites = sort(unique(site_inds))
+    gate_modes = _gate_modes(distinct_sites, is_spinful)
+    canonical_sites = [searchsortedfirst(distinct_sites, s) for s in site_inds]
+
+    raw_columns, n_fermions_canonical, nparams = _build_symbolic_columns(symbols, sites_acted_on, canonical_sites, is_spinful)
+    TT_canonical = getinttype(n_fermions_canonical)
+
+    transfer_map = MajoranaTransferMap(
+        _finalize_symbolic_columns(raw_columns, TT_canonical, c -> TT_canonical(c), n_fermions_canonical, TT_canonical)
+    )
+
+    max_site = maximum(site_inds)
+    n_fermions_shifted = is_spinful ? 2 * max_site : max_site
+    TT_shifted = getinttype(n_fermions_shifted)
+    shifted_transfer_map = MajoranaTransferMap(
+        _finalize_symbolic_columns(raw_columns, TT_canonical, c -> _expand(c, gate_modes, TT_shifted), n_fermions_shifted, TT_shifted)
+    )
+
+    return SymbolicFermionicRotationLookup(transfer_map, shifted_transfer_map, site_inds, gate_modes, is_spinful, sites_acted_on, nparams)
+end
+
+function FermionicRotationLookup(symbol::Symbol, sites_acted_on::Integer, is_spinful::Bool, site_inds)
+    return FermionicRotationLookup([symbol], sites_acted_on, is_spinful, collect(Int, site_inds))
+end
+
+function FermionicRotationLookup(gate::FermionicRotation, is_spinful::Bool)
+    return FermionicRotationLookup(gate.symbol, length(gate.sites), is_spinful, gate.sites)
+end
+
+# Materialize a symbolic transfer map into a numeric one, reading the (already evaluated) node
+# values: ctilde = a * inv_mu, dropping per-angle-zero entries to match the baked numeric table.
+function _materialize_transfer_map(sym_map::MajoranaTransferMap{TT,SurrogateCoeff}) where {TT}
+    ncol = ncolumns(sym_map)
+    columns = Vector{Vector{Tuple{TT,ComplexF64}}}(undef, ncol)
+    for col in 0:(ncol - 1)
+        column = Tuple{TT,ComplexF64}[]
+        for (cumulative, sc) in sym_map[col]
+            ctilde = sc.path.node.cummulative_value * sc.inv_mu
+            if abs(ctilde) < 1e-12
+                continue
+            end
+            push!(column, (cumulative, ctilde))
+        end
+        columns[col + 1] = column
+    end
+    return MajoranaTransferMap(columns)
+end
+
+"""
+    evaluate(sym::SymbolicFermionicRotationLookup, theta::Real)
+
+Materialize the reusable symbolic lookup at rotation angle `theta`, returning a concrete numeric
+[`FermionicRotationLookup`](@ref) (a `StaticGate`) ready to `propagate`. The node graphs are
+evaluated once (shared between the canonical and shifted maps); the result is identical to
+`FermionicRotationLookup(symbol, sites_acted_on, is_spinful, site_inds, theta)`.
+"""
+function evaluate(sym::SymbolicFermionicRotationLookup, theta::Real)
+    thetas = fill(Float64(theta), sym.nparams)
+
+    # evaluate the (shared) node graphs once; both maps reference the same node objects
+    evaluate!([sc.path for (_, sc) in sym.transfer_map.entries], thetas)
+
+    transfer_map = _materialize_transfer_map(sym.transfer_map)
+    shifted_transfer_map = _materialize_transfer_map(sym.shifted_transfer_map)
+
+    return FermionicRotationLookup(transfer_map, shifted_transfer_map, sym.site_inds, sym.gate_modes, sym.is_spinful, sym.sites_acted_on)
+end

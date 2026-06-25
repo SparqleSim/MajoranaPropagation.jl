@@ -73,3 +73,16 @@ end
 function Base.show(io::IO, tmap::MajoranaTransferMap)
     print(io, "MajoranaTransferMap($(ncolumns(tmap)) columns, $(length(tmap)) entries)")
 end
+
+"""
+    SurrogateCoeff(path::MajoranaNodePathProperties, inv_mu::ComplexF64)
+
+Symbolic coefficient stored in an angle-free (surrogate-backed) transfer map. `path` is a
+surrogate node graph encoding the angle dependence of the propagated coefficient `a`, while
+`inv_mu = 1/μ` is the angle-independent frame prefactor. Evaluating the table at an angle gives the
+numeric coefficient `ctilde = a * inv_mu` (see [`evaluate`](@ref)).
+"""
+struct SurrogateCoeff
+    path::MajoranaNodePathProperties
+    inv_mu::ComplexF64
+end

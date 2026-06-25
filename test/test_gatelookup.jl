@@ -460,3 +460,68 @@ end
         @test abs(mp_res - yao_res) < 1e-10
     end
 end
+
+# ---------------------------------------------------------------------------
+# angle-free (symbolic) lookup: build the table once, evaluate at many angles
+# ---------------------------------------------------------------------------
+
+# `table` is a SymbolicFermionicRotationLookup built once (no theta); evaluate it at `theta` and
+# check the materialized gate matches both the reference FermionicRotation and the theta-baked
+# FermionicRotationLookup.
+function _symbolic_matches(table, symbol, is_spinful, site_inds, theta, obs; atol=1e-9)
+    ref = propagate([FermionicRotation(symbol, site_inds)], deepcopy(obs), [theta]; min_abs_coeff=1e-14)
+
+    baked = FermionicRotationLookup(symbol, length(site_inds), is_spinful, site_inds, theta)
+    baked_res = propagate([baked], deepcopy(obs); min_abs_coeff=1e-14)
+
+    got = propagate([evaluate(table, theta)], deepcopy(obs); min_abs_coeff=1e-14)
+
+    return _msums_match(ref, got; atol=atol) && _msums_match(baked_res, got; atol=atol)
+end
+
+@testset "angle-free (symbolic) lookup" begin
+    @testset "spinless" begin
+        n_sites = 6
+        thetas = [0.0, 0.13, 0.4, 1.0, -0.7, 2.4]
+        observables = [
+            MajoranaSum(n_sites, :n, 3),
+            MajoranaSum(n_sites, :nn, [3, 4]),
+            MajoranaSum(n_sites, :hop, [3, 5]),
+            MajoranaSum(n_sites, :pair, [2, 4]),
+            MajoranaSum(n_sites, :n, 2) + MajoranaSum(n_sites, :hop, [2, 5]),
+        ]
+        for (sym, sites) in [(:n, [3]), (:hop, [2, 3]), (:hop, [3, 5]), (:nn, [3, 4]), (:nn, [2, 5]), (:pair, [3, 4])]
+            table = FermionicRotationLookup(sym, length(sites), false, sites)   # built once, no theta
+            for obs in observables, th in thetas
+                @test _symbolic_matches(table, sym, false, sites, th, obs)
+            end
+        end
+    end
+
+    @testset "spinful" begin
+        n_sites = 4
+        thetas = [0.0, 0.4, -0.7, 1.9]
+        observables = [
+            MajoranaSum(n_sites, :nup, 2),
+            MajoranaSum(n_sites, :nupndn, 2),
+            MajoranaSum(n_sites, :hopup, [2, 4]),
+        ]
+        for (sym, sites) in [(:nupndn, [2]), (:hole, [3]), (:hopup, [1, 2]), (:hopdn, [2, 3]), (:hopupdn, [3, 1])]
+            table = FermionicRotationLookup(sym, length(sites), true, sites)
+            for obs in observables, th in thetas
+                @test _symbolic_matches(table, sym, true, sites, th, obs)
+            end
+        end
+    end
+
+    @testset "table is reusable across angles" begin
+        # build once, evaluate at many angles; each must match the per-angle baked gate
+        obs = MajoranaSum(6, :n, 3)
+        table = FermionicRotationLookup(:hop, 2, false, [2, 4])
+        for th in [-1.3, 0.0, 0.2, 0.75, 1.9, 3.1]
+            ref = propagate([FermionicRotationLookup(:hop, 2, false, [2, 4], th)], deepcopy(obs); min_abs_coeff=1e-14)
+            got = propagate([evaluate(table, th)], deepcopy(obs); min_abs_coeff=1e-14)
+            @test _msums_match(ref, got)
+        end
+    end
+end

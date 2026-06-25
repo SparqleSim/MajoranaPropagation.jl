@@ -279,8 +279,19 @@ order). After this call the cumulative values are stored on the nodes and can be
 flags are not cleared first; only do this if they have been reset manually.
 """
 function evaluate!(msum::MajoranaSum{TT,MajoranaNodePathProperties}, thetas; reset=true) where {TT<:Integer}
-    paths = collect(coefficients(msum))
+    evaluate!(collect(coefficients(msum)), thetas; reset=reset)
+    return msum
+end
 
+"""
+    evaluate!(paths::AbstractVector{<:MajoranaNodePathProperties}, thetas; reset=true)
+
+Evaluate a flat collection of surrogate node-paths at `thetas`. All nodes are reset first (unless
+`reset=false`) so that ancestor nodes shared between paths are computed once via the
+`is_evaluated` memoization. After this call each path's cumulative value can be read with
+`tonumber`.
+"""
+function evaluate!(paths::AbstractVector{<:MajoranaNodePathProperties}, thetas; reset=true)
     if reset
         for pth in paths
             reset!(pth.node)
@@ -291,7 +302,7 @@ function evaluate!(msum::MajoranaSum{TT,MajoranaNodePathProperties}, thetas; res
         _traceevalorder(pth.node, thetas)
     end
 
-    return msum
+    return paths
 end
 
 """
