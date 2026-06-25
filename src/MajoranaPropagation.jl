@@ -84,6 +84,13 @@ export
     wrapcoefficients,
     reset_tracker!
 
+include("surrogate.jl")
+export
+    MajoranaNodePathProperties,
+    MajoranaRotationNode,
+    evaluate!,
+    reset!
+
 include("Constructors.jl")
 
 include("QuantumChemistry/QuantumChemistry.jl")
