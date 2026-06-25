@@ -11,6 +11,7 @@ export
     MajoranaTransferMap,
     FermionicRotationLookup,
     SymbolicFermionicRotationLookup,
+    CanonicalFermionicRotationLookup,
     SurrogateCoeff,
     evaluate
 end

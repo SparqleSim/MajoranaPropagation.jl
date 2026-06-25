@@ -7,6 +7,7 @@ using Random
     include("test_algebra.jl")
     include("compare_jw.jl")
     include("test_gatelookup.jl")
+    include("test_gatelookup_match.jl")
     include("test_vector.jl")
     include("test_surrogate.jl")
 end

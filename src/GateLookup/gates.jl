@@ -224,3 +224,110 @@ function evaluate(sym::SymbolicFermionicRotationLookup, theta::Real)
 
     return FermionicRotationLookup(transfer_map, shifted_transfer_map, sym.site_inds, sym.gate_modes, sym.is_spinful, sym.sites_acted_on)
 end
+
+# ============================================================================ #
+#  Canonical (placement-free) reusable lookup.
+#
+#  Unlike `SymbolicFermionicRotationLookup`, this stores ONLY the canonical node
+#  columns (built on sites 1:k, independent of where the gate is placed). One table
+#  serves every placement: `evaluate(table, theta, site_inds)` shifts the canonical
+#  columns onto the actual modes and materializes a concrete `FermionicRotationLookup`.
+# ============================================================================ #
+
+"""
+    CanonicalFermionicRotationLookup
+
+Placement-free counterpart of [`SymbolicFermionicRotationLookup`](@ref): the symbolic transfer
+table is built once on the canonical system (sites `1:sites_acted_on`), without committing to where
+the gate acts. Build it with the no-`site_inds`, no-`theta` `FermionicRotationLookup(symbol,
+sites_acted_on, is_spinful)` constructor, then place + materialize it at an angle with
+[`evaluate(::CanonicalFermionicRotationLookup, theta, site_inds)`](@ref).
+
+`site_inds` supplied at evaluation must be `sites_acted_on` **distinct** sites (in any order);
+repeated indices use the `site_inds`-baked / `theta`-baking constructors instead.
+"""
+struct CanonicalFermionicRotationLookup{TT<:Integer}
+    raw_columns::Vector{Vector{Tuple{TT,MajoranaNodePathProperties}}}
+    n_fermions_canonical::Int
+    nparams::Int
+    sites_acted_on::Int
+    is_spinful::Bool
+end
+
+function Base.show(io::IO, t::CanonicalFermionicRotationLookup)
+    print(io, "CanonicalFermionicRotationLookup(sites_acted_on=$(t.sites_acted_on), is_spinful=$(t.is_spinful), $(length(t.raw_columns)) columns)")
+end
+
+"""
+    CanonicalFermionicRotationLookup(symbol, sites_acted_on, is_spinful)
+
+Build the canonical (placement-free) symbolic table for a gate acting on `sites_acted_on` (distinct)
+sites. Also available via `FermionicRotationLookup(symbol, sites_acted_on, is_spinful)`.
+"""
+function CanonicalFermionicRotationLookup(symbols::Vector{Symbol}, sites_acted_on::Integer, is_spinful::Bool)
+    canonical_sites = collect(1:Int(sites_acted_on))
+    raw_columns, n_fermions_canonical, nparams = _build_symbolic_columns(symbols, sites_acted_on, canonical_sites, is_spinful)
+    return CanonicalFermionicRotationLookup(raw_columns, n_fermions_canonical, nparams, Int(sites_acted_on), is_spinful)
+end
+
+function CanonicalFermionicRotationLookup(symbol::Symbol, sites_acted_on::Integer, is_spinful::Bool)
+    return CanonicalFermionicRotationLookup([symbol], sites_acted_on, is_spinful)
+end
+
+# `FermionicRotationLookup(...)` with no `site_inds` and no `theta` => placement-free canonical table.
+function FermionicRotationLookup(symbols::Vector{Symbol}, sites_acted_on::Integer, is_spinful::Bool)
+    return CanonicalFermionicRotationLookup(symbols, sites_acted_on, is_spinful)
+end
+
+function FermionicRotationLookup(symbol::Symbol, sites_acted_on::Integer, is_spinful::Bool)
+    return CanonicalFermionicRotationLookup(symbol, sites_acted_on, is_spinful)
+end
+
+"""
+    evaluate(table::CanonicalFermionicRotationLookup, theta::Real, site_inds)
+
+Place the canonical table on the actual `site_inds` (which must be `sites_acted_on` distinct sites)
+and materialize a concrete numeric [`FermionicRotationLookup`](@ref) at angle `theta`. Canonical
+argument `j` is placed on the `j`-th **smallest** site (a monotonic, order-preserving placement,
+required for the cumulative-string signs to stay valid), so the result is identical to
+`FermionicRotation(symbol, sort(site_inds))`.
+
+For gates that are symmetric in their sites (`:hop`, `:nn`, `:pair`, `:hopup`, `:hopdn`, `:pairup`,
+`:pairdn`, …) this matches `FermionicRotation(symbol, site_inds)` for any ordering of `site_inds`.
+For direction-sensitive gates (`:hopupdn`) the placement is in ascending site order; pass
+`site_inds` ascending, or use the `site_inds`-baked / `theta`-baking constructor for a specific
+non-ascending direction.
+"""
+function evaluate(table::CanonicalFermionicRotationLookup{TT}, theta::Real, site_inds) where {TT}
+    sites = collect(Int, site_inds)
+    if length(sites) != table.sites_acted_on
+        throw(ArgumentError("evaluate expects $(table.sites_acted_on) site(s), got $(length(sites)): $sites"))
+    end
+    if !allunique(sites)
+        throw(ArgumentError(
+            "CanonicalFermionicRotationLookup requires distinct site_inds (got $sites); " *
+            "use the site_inds-baked `FermionicRotationLookup(symbol, …, site_inds[, theta])` for repeated indices."))
+    end
+
+    thetas = fill(Float64(theta), table.nparams)
+    # monotonic placement: canonical argument j -> j-th smallest site (sorted modes)
+    gate_modes = _gate_modes(sites, table.is_spinful)
+
+    n_fermions_shifted = table.is_spinful ? 2 * maximum(sites) : maximum(sites)
+    TT_shifted = getinttype(n_fermions_shifted)
+
+    canonical_sym = MajoranaTransferMap(
+        _finalize_symbolic_columns(table.raw_columns, TT, c -> TT(c), table.n_fermions_canonical, TT)
+    )
+    shifted_sym = MajoranaTransferMap(
+        _finalize_symbolic_columns(table.raw_columns, TT, c -> _expand(c, gate_modes, TT_shifted), n_fermions_shifted, TT_shifted)
+    )
+
+    # evaluate the (shared) node graphs once; both maps reference the same node objects
+    evaluate!([sc.path for (_, sc) in canonical_sym.entries], thetas)
+
+    transfer_map = _materialize_transfer_map(canonical_sym)
+    shifted_transfer_map = _materialize_transfer_map(shifted_sym)
+
+    return FermionicRotationLookup(transfer_map, shifted_transfer_map, sites, gate_modes, table.is_spinful, table.sites_acted_on)
+end
