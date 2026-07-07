@@ -1,47 +1,51 @@
-function compute_parity_bits_and_shift(u::TT, Nbits::Int) where {TT<:Integer}
+# TODO: check if this makes sense
+const _parity_mask_cache = Dict{Tuple{DataType, Int}, Any}()
 
-    # If Nbits=1 there is no parity
+function _get_parity_masks(::Type{TT}, Nbits::Int) where {TT<:Integer}
+    key = (TT, Nbits)
+    cached = get(_parity_mask_cache, key, nothing)
+    if cached === nothing
+        full_mask = (TT(1) << Nbits) - TT(1)
+        half_mask = full_mask >> 1
+        cached = (full_mask, half_mask)
+        _parity_mask_cache[key] = cached
+    end
+    return cached::Tuple{TT, TT}
+end
+
+function compute_parity_bits_and_shift(u::TT, Nbits::Int) where {TT<:Integer}
     if Nbits <= 1
         return TT(0)
     end
 
-    # TODO: these masks can be precomputed for efficiency
+    full_mask, half_mask = _get_parity_masks(TT, Nbits)
 
-    # mask for all active bits
-    full_mask = (TT(1) << Nbits) - TT(1)
+    p = u & half_mask
 
-    # mask for Nbits - 1 bits.
-    mask = (full_mask >> 1)
-
-    # crop last bit
-    p = u & mask
-
-    # this is a parallel prefix xor operation
-    # runs in log2(Nbits) steps
     s = 1
     while s < Nbits
         p ⊻= (p << s)
         s <<= 1
     end
 
-    # shift necessary for consistency with site convention
     p = p << 1
-
-    # mask all bits
     return p & full_mask
 end
 
 function omega_L_mult(ms1::MajoranaString, ms2::MajoranaString)
-    return omega_L_mult(ms1.gammas, ms2.gammas, 2 * ms1.nfermions)
+    return omega_L_mult_right_string_parity_shifted(ms1.gammas, compute_parity_bits_and_shift(ms2.gammas, 2 * ms1.nfermions))
 end
 
 function omega_L_mult(ms1::TT, ms2::TT, Nbits) where {TT<:Integer}
-    return mod(Bits.weight(ms1 & compute_parity_bits_and_shift(ms2, Nbits)), 2)
+    return omega_L_mult_right_string_parity_shifted(ms1, compute_parity_bits_and_shift(ms2, Nbits))
+end
+
+function omega_L_mult_right_string_parity_shifted(ms1::TT, ms2_ps::TT) where {TT<:Integer}
+    return mod(get_weight(ms1 & ms2_ps), 2)
 end
 
 function omega_L_mult(ms::TT) where {TT<:Integer}
-    wms = get_weight(ms)
-    return mod((wms^2 - wms) / 2, 2)
+    return (get_weight(ms) >> 1) & 1
 end
 
 function omega_L_mult(ms::MajoranaString)
@@ -130,6 +134,18 @@ function ms_mult(ms1::TT, ms2::TT, n_fermions::Integer) where {TT<:Integer}
         return 1im * prefactor, result
     end
     return prefactor, result
+end
+
+function majoranarotationproduct(term_ms::TT, gate_ms::TT, gate_ms_ps::TT) where {TT<:Integer}
+    new_term = gate_ms ⊻ term_ms
+    omega_l_gate = omega_L_mult(gate_ms)
+    omega_l_term = omega_L_mult(term_ms)
+    omega_term_gate = omega_mult(term_ms, gate_ms)
+    omega_l_term_gate = omega_L_mult_right_string_parity_shifted(term_ms, gate_ms_ps)
+    fprefactor_precomputed = omega_l_gate * omega_l_term + omega_term_gate * (omega_l_gate + omega_l_term + 1)
+    exp = omega_l_term_gate + fprefactor_precomputed
+    sign = iseven(exp) ? 1 : -1
+    return new_term, sign
 end
 
 function commutes(ms1::MajoranaString, ms2::MajoranaString)

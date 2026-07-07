@@ -67,7 +67,7 @@ end
 """
 The splitting rule for exp(i theta gate_string / 2) ms exp(-i theta gate_string / 2) is
 -) ms, if [gate_string, ms] = 0
--) cos(theta) ms + i sin(theta) gate_string * ms, if {gate_string, ms} = 0
+-) cos(theta) ms - i sin(theta) ms * gate_string, if {gate_string, ms} = 0
 """
 function PropagationBase.applytoall!(gate::MajoranaRotation, prop_cache::MajoranaPropagationCache, theta; kwargs...)
     msum = mainsum(prop_cache)
@@ -77,6 +77,7 @@ function PropagationBase.applytoall!(gate::MajoranaRotation, prop_cache::Majoran
     sin_val = sin(theta)
 
     gate_int = gate.ms_int
+    gate_int_ps = compute_parity_bits_and_shift(gate_int, 2 * nfermions(msum))
 
     # loop over all Majorana strings and their coefficients in the Majorana sum
     for (ms_int, coeff) in msum
@@ -87,8 +88,8 @@ function PropagationBase.applytoall!(gate::MajoranaRotation, prop_cache::Majoran
 
         # else we know the gate will split the Majorana string into two
         coeff1 = _applycos(coeff, cos_val)
-        sign, new_ms = ms_mult(gate_int, ms_int, nfermions(msum))
-        coeff2 = _applysin(coeff, sin_val * -imag(sign))
+        new_ms, sign = majoranarotationproduct(ms_int, gate_int, gate_int_ps)
+        coeff2 = _applysin(coeff, sin_val * sign)
 
         # set the coefficient of the original Majorana string
         set!(msum, ms_int, coeff1)
@@ -141,6 +142,7 @@ function PropagationBase.applytoall!(gate::MajoranaRotation, prop_cache::VectorM
 
     # get the Majorana string integer representation because the gate cannot be in the function when using GPU
     gate_ms = gate.ms_int
+    gate_ms_ps = compute_parity_bits_and_shift(gate_ms, 2 * nfermions(prop_cache))
 
     # flag terms that anticommute with the gate
     anticommutesfunc(trm) = !commutes(trm, gate_ms)
@@ -162,7 +164,7 @@ function PropagationBase.applytoall!(gate::MajoranaRotation, prop_cache::VectorM
     end
 
     # does the branching logic
-    _applymajoranarotation!(prop_cache, gate_ms, theta)
+    _applymajoranarotation!(prop_cache, gate_ms, gate_ms_ps, theta)
 
     # we now have n_new possibly duplicate Majorana strings in the array
     setactivesize!(prop_cache, n_new)
@@ -173,9 +175,9 @@ end
 """
 The splitting rule for exp(i theta gate_string / 2) ms exp(-i theta gate_string / 2) is
 -) ms, if [gate_string, ms] = 0
--) cos(theta) ms + i sin(theta) gate_string * ms, if {gate_string, ms} = 0
+-) cos(theta) ms - i sin(theta) ms * gate_string, if {gate_string, ms} = 0
 """
-function _applymajoranarotation!(prop_cache::VectorMajoranaPropagationCache, gate_ms::TT, theta) where {TT}
+function _applymajoranarotation!(prop_cache::VectorMajoranaPropagationCache, gate_ms::TT, gate_ms_ps::TT, theta) where {TT}
 
     # pre-compute the sine and cosine values because they are used for every Majorana string that does not commute with the gate
     cos_val = cos(theta)
@@ -204,8 +206,8 @@ function _applymajoranarotation!(prop_cache::VectorMajoranaPropagationCache, gat
             coeff = coeffs[ii]
 
             coeff1 = coeff * cos_val
-            sign, new_term = ms_mult(gate_ms, term, n_fermions)
-            coeff2 = coeff * sin_val * -imag(sign)
+            new_term, sign = majoranarotationproduct(term, gate_ms, gate_ms_ps)
+            coeff2 = coeff * sin_val * sign
 
             coeffs[ii] = coeff1
 

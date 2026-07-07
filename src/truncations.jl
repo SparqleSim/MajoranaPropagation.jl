@@ -64,13 +64,13 @@ function PropagationBase.truncate!(
         is_truncated = false
         if PauliPropagation.truncatemincoeff(coeff, min_abs_coeff)
             is_truncated = true
-        elseif truncateunpaired(mstr, max_unpaired, unpaired_mask)
+        elseif max_unpaired < Inf && truncateunpaired(mstr, max_unpaired, unpaired_mask)
             is_truncated = true
-        elseif truncatemajoranaweight(mstr, max_weight)
+        elseif max_weight < Inf && truncatemajoranaweight(mstr, max_weight)
             is_truncated = true
-        elseif PauliPropagation.truncatefrequency(coeff, max_freq)
+        elseif max_freq < Inf && PauliPropagation.truncatefrequency(coeff, max_freq)
             is_truncated = true
-        elseif PauliPropagation.truncatesins(coeff, max_sins)
+        elseif max_sins < Inf && PauliPropagation.truncatesins(coeff, max_sins)
             is_truncated = true
         elseif !isnothing(customtruncfunc) && customtruncfunc(mstr, coeff)
             is_truncated = true
@@ -100,13 +100,13 @@ function PropagationBase.truncate!(
         is_truncated = false
         if PauliPropagation.truncatemincoeff(coeff, min_abs_coeff)
             is_truncated = true
-        elseif truncateunpaired(mstr, max_unpaired, unpaired_mask)
+        elseif max_unpaired < Inf && truncateunpaired(mstr, max_unpaired, unpaired_mask)
             is_truncated = true
-        elseif truncatemajoranaweight(mstr, max_weight)
+        elseif max_weight < Inf && truncatemajoranaweight(mstr, max_weight)
             is_truncated = true
-        elseif PauliPropagation.truncatefrequency(coeff, max_freq)
+        elseif max_freq < Inf && PauliPropagation.truncatefrequency(coeff, max_freq)
             is_truncated = true
-        elseif PauliPropagation.truncatesins(coeff, max_sins)
+        elseif max_sins < Inf && PauliPropagation.truncatesins(coeff, max_sins)
             is_truncated = true
         elseif !isnothing(customtruncfunc) && customtruncfunc(mstr, coeff)
             is_truncated = true
