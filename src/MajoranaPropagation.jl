@@ -88,4 +88,7 @@ include("Constructors.jl")
 
 include("QuantumChemistry/QuantumChemistry.jl")
 using .QuantumChemistry
+
+include("FermionToQubitMapping/FermionQubitMapping.jl")
+using .FermionToQubitMappings
 end
