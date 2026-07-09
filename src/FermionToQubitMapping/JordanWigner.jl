@@ -61,14 +61,13 @@ function JordanWigner(circ::Vector{FermionicRotation}, thetas::Vector{CT}, n_sit
     pp_circ = PauliRotation[]
     pp_thetas = CT[]
     for (gate, theta) in zip(circ, thetas)
-        ms_rotations, coeffs, _ = MajoranaPropagation.getmajoranarotations(gate, n_sites)
-        for (ms_rotation, coeff) in zip(ms_rotations, coeffs)
-            # TODO: buggy if spinful, FIX asap
+        ms_rotations, theta_into_majorana_decomposition, _ = MajoranaPropagation.getmajoranarotations(gate, n_sites, theta)
+        for (ms_rotation, theta_coeff) in zip(ms_rotations, theta_into_majorana_decomposition)
             ms_jw, phase = JordanWigner(ms_rotation.ms_int, n_sites, is_spinful)
             push!(pp_circ, make_gate(ms_jw, n_sites))
             # factor 2 because `FermionicRotation` applies each `MajoranaRotation` with angle 2 * coeff * theta,
             # matching `PauliRotation`'s exp(-i * theta/2 * pstr) convention
-            push!(pp_thetas, 2.0 * coeff * theta * phase)
+            push!(pp_thetas, 2. * theta_coeff * phase)
         end
     end
     return pp_circ, pp_thetas
