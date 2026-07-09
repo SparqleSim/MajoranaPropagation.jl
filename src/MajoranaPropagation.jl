@@ -23,6 +23,7 @@ export
 include("MajoranaAlgebra.jl")
 export
     ms_mult,
+    majoranarotationproduct,
     commutator,
     commutes,
     norm,
@@ -88,4 +89,7 @@ include("Constructors.jl")
 
 include("QuantumChemistry/QuantumChemistry.jl")
 using .QuantumChemistry
+
+include("FermionToQubitMapping/FermionQubitMapping.jl")
+using .FermionToQubitMappings
 end
