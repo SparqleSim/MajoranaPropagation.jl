@@ -55,5 +55,9 @@ function PropagationBase.propagate!(circuit, prop_cache::AbstractMajoranaPropaga
         circuit, thetas = toschrodinger(circuit, thetas)
     end
 
+    # for vector caches: sort and deduplicate once upfront so that subsequent merges
+    # only need to sort the newly appended terms (see mergesortedruns!)
+    _presortcache!(prop_cache)
+
     return PropagationBase._propagate!(circuit, prop_cache, thetas; max_weight, min_abs_coeff, max_freq, max_sins, customtruncfunc, kwargs...)
 end

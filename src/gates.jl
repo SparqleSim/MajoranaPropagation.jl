@@ -111,11 +111,17 @@ function PropagationBase.applymergetruncate!(gate::FermionicRotation, prop_cache
 
     # iterate over individual Majorana rotations and apply them to the Majorana sum
     for (gate_ms, coeff) in zip(ms_rotations, coeffs)
+        # for vector caches, the currently active terms form a sorted, deduplicated
+        # prefix that applytoall! appends to and mergesortedruns! exploits
+        n_sorted = _sortedprefixsize(prop_cache)
+
         # multiply coefficient by 2 since `::MajoranaRotation` implements exp(-i * theta/2 * mstring)
         applytoall!(gate_ms, prop_cache, theta * coeff * 2.0; kwargs...)
 
         # merge the auxiliary Majorana sum into the original one and empty the auxiliary one
-        merge!(prop_cache; kwargs...)
+        # (for vector caches: deduplicate within the main sum via the sorted-runs merge;
+        # the gate string lets it sort the appended tail without a comparison sort)
+        _mergeafterapply!(prop_cache, n_sorted, gate_ms.ms_int; kwargs...)
 
         # truncate after each Majorana rotation 
         if truncate_after_each_majrot
