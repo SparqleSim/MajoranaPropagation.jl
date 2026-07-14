@@ -7,11 +7,11 @@
 struct ImaginaryMajoranaRotation{TT<:Integer} <: ParametrizedGate
     ms_int::TT
     function ImaginaryMajoranaRotation(ms::MajoranaString{TT}) where {TT<:Integer}
-        @assert get_weight(ms) % 2 == 0 # only even parity operations
+        iseven(get_weight(ms)) || throw(ArgumentError("ImaginaryMajoranaRotation requires an even-weight Majorana string, got weight $(get_weight(ms))"))
         return new{TT}(ms.gammas)
     end
     function ImaginaryMajoranaRotation(ms_int::TT) where {TT<:Integer}
-        @assert get_weight(ms_int) % 2 == 0 # only even parity operations
+        iseven(get_weight(ms_int)) || throw(ArgumentError("ImaginaryMajoranaRotation requires an even-weight Majorana string, got weight $(get_weight(ms_int))"))
         return new{TT}(ms_int)
     end
 end
@@ -105,15 +105,17 @@ function PropagationBase.applytoall!(gate::ImaginaryMajoranaRotation, prop_cache
     sinh_val = -sinh(beta)
 
     gate_int = gate.ms_int
+    gate_int_ps = compute_parity_bits_and_shift(gate_int, 2 * nfermions(msum))
+    omega_l_gate = omega_L_mult(gate_int)
 
     # loop over all Majorana strings and their coefficients in the Majorana sum
     for (ms_int, coeff) in msum
-        if commutes(gate_int, ms_int)
+        if _commutes_evengate(ms_int, gate_int)
 
             # the imaginary gate will split the Majorana string into two
             coeff1 = coeff * cosh_val
-            sign, new_ms = ms_mult(gate_int, ms_int, nfermions(msum))
-            coeff2 = coeff * sinh_val * real(sign)
+            new_ms, sign = _rotationproduct_evengate_commuting(ms_int, gate_int, gate_int_ps, omega_l_gate)
+            coeff2 = coeff * sinh_val * sign
 
             # set the coefficient of the original Majorana string
             set!(msum, ms_int, coeff1)
@@ -143,9 +145,12 @@ function PropagationBase.applytoall!(gate::ImaginaryMajoranaRotation, prop_cache
 
     # get the Majorana string integer representation because the gate cannot be in the function when using GPU
     gate_ms = gate.ms_int
+    # gate invariants hoisted once per gate; gate_ms has even weight by construction
+    gate_ms_ps = compute_parity_bits_and_shift(gate_ms, 2 * nfermions(prop_cache))
+    omega_l_gate = omega_L_mult(gate_ms)
 
     # in imaginary time we split upon commutation
-    commutesfunc(trm) = MajoranaPropagation.commutes(trm, gate_ms)
+    commutesfunc(trm) = _commutes_evengate(trm, gate_ms)
     PropagationBase.flagterms!(commutesfunc, prop_cache)
 
     # this runs a cumsum over the flags to get the indices
@@ -164,7 +169,7 @@ function PropagationBase.applytoall!(gate::ImaginaryMajoranaRotation, prop_cache
     end
 
     # does the branching logic
-    _applyimaginarymajoranarotation!(prop_cache, gate_ms, beta)
+    _applyimaginarymajoranarotation!(prop_cache, gate_ms, gate_ms_ps, omega_l_gate, beta)
 
     # we now have n_new possibly duplicate Majorana strings in the array
     PropagationBase.setactivesize!(prop_cache, n_new)
@@ -177,7 +182,7 @@ For a Majorana string ms, the splitting rule for exp(- beta majorana_rotation / 
 -) ms, if {majorana_rotation, ms} = 0
 -) cosh(beta) ms - sinh(beta)  majorana_rotation * ms, if [majorana_rotation, ms] = 0
 """
-function _applyimaginarymajoranarotation!(prop_cache::VectorMajoranaPropagationCache, gate_ms::TT, beta) where {TT}
+function _applyimaginarymajoranarotation!(prop_cache::VectorMajoranaPropagationCache, gate_ms::TT, gate_ms_ps::TT, omega_l_gate::Int, beta) where {TT}
 
     # pre-compute the sine and cosine values because they are used for every Majorana string that does not commute with the gate
     cosh_val = cosh(beta)
@@ -205,8 +210,8 @@ function _applyimaginarymajoranarotation!(prop_cache::VectorMajoranaPropagationC
             coeff = coeffs[ii]
 
             coeff1 = coeff * cosh_val
-            sign, new_term = ms_mult(gate_ms, term, nfermions(prop_cache))
-            coeff2 = coeff * sinh_val * real(sign)
+            new_term, sign = _rotationproduct_evengate_commuting(term, gate_ms, gate_ms_ps, omega_l_gate)
+            coeff2 = coeff * sinh_val * sign
 
             coeffs[ii] = coeff1
 

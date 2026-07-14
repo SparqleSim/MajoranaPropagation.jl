@@ -148,6 +148,44 @@ function majoranarotationproduct(term_ms::TT, gate_ms::TT, gate_ms_ps::TT) where
     return new_term, sign
 end
 
+"""
+    _commutes_evengate(term_ms, gate_ms)
+
+Commutation check specialized to even-weight `gate_ms`: the weight product in `omega_mult` is then
+even for any term, so commutation reduces to an even popcount of the overlap.
+"""
+@inline function _commutes_evengate(term_ms::TT, gate_ms::TT) where {TT<:Integer}
+    return iseven(count_ones(term_ms & gate_ms))
+end
+
+"""
+    _rotationproduct_evengate(term_ms, gate_ms, gate_ms_ps, omega_l_gate)
+
+`majoranarotationproduct` specialized to even-weight `gate_ms` and anticommuting `term_ms`
+"""
+@inline function _rotationproduct_evengate(term_ms::TT, gate_ms::TT, gate_ms_ps::TT, omega_l_gate::Int) where {TT<:Integer}
+    new_term = gate_ms ⊻ term_ms
+    omega_l_term = (count_ones(term_ms) >> 1) & 1
+    omega_l_term_gate = count_ones(term_ms & gate_ms_ps) & 1
+    exp = omega_l_term_gate + omega_l_gate * omega_l_term + omega_l_gate + omega_l_term + 1
+    sign = iseven(exp) ? 1 : -1
+    return new_term, sign
+end
+
+"""
+    _rotationproduct_evengate_commuting(term_ms, gate_ms, gate_ms_ps, omega_l_gate)
+
+Sign and result of the product `gate_ms * term_ms` specialized to even-weight `gate_ms` and commuting `term_ms` (the imaginary-time splitting branch)
+"""
+@inline function _rotationproduct_evengate_commuting(term_ms::TT, gate_ms::TT, gate_ms_ps::TT, omega_l_gate::Int) where {TT<:Integer}
+    new_term = gate_ms ⊻ term_ms
+    omega_l_term = (count_ones(term_ms) >> 1) & 1
+    omega_l_term_gate = count_ones(term_ms & gate_ms_ps) & 1
+    exp = omega_l_term_gate + omega_l_gate * omega_l_term
+    sign = iseven(exp) ? 1 : -1
+    return new_term, sign
+end
+
 function commutes(ms1::MajoranaString, ms2::MajoranaString)
     return commutes(ms1.gammas, ms2.gammas)
 end

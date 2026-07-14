@@ -7,11 +7,13 @@ Defined by passing a Majorana string `ms` of even weight.
 struct MajoranaRotation{TT<:Integer} <: ParametrizedGate
     ms_int::TT
     function MajoranaRotation(ms::MajoranaString{TT}) where {TT<:Integer}
-        @assert get_weight(ms) % 2 == 0 # only even parity operations
+        # only even parity operations; the even weight is also a correctness invariant of the
+        # specialized _commutes_evengate/_rotationproduct_evengate kernels used in applytoall!
+        iseven(get_weight(ms)) || throw(ArgumentError("MajoranaRotation requires an even-weight Majorana string, got weight $(get_weight(ms))"))
         return new{TT}(ms.gammas)
     end
     function MajoranaRotation(ms_int::TT) where {TT<:Integer}
-        @assert get_weight(ms_int) % 2 == 0 # only even parity operations
+        iseven(get_weight(ms_int)) || throw(ArgumentError("MajoranaRotation requires an even-weight Majorana string, got weight $(get_weight(ms_int))"))
         return new{TT}(ms_int)
     end
 end
@@ -78,17 +80,18 @@ function PropagationBase.applytoall!(gate::MajoranaRotation, prop_cache::Majoran
 
     gate_int = gate.ms_int
     gate_int_ps = compute_parity_bits_and_shift(gate_int, 2 * nfermions(msum))
+    omega_l_gate = omega_L_mult(gate_int)
 
     # loop over all Majorana strings and their coefficients in the Majorana sum
     for (ms_int, coeff) in msum
-        if commutes(gate_int, ms_int)
+        if _commutes_evengate(ms_int, gate_int)
             # if the gate commutes with the Majorana string, do nothing
             continue
         end
 
         # else we know the gate will split the Majorana string into two
         coeff1 = _applycos(coeff, cos_val)
-        new_ms, sign = majoranarotationproduct(ms_int, gate_int, gate_int_ps)
+        new_ms, sign = _rotationproduct_evengate(ms_int, gate_int, gate_int_ps, omega_l_gate)
         coeff2 = _applysin(coeff, sin_val * sign)
 
         # set the coefficient of the original Majorana string
@@ -149,9 +152,10 @@ function PropagationBase.applytoall!(gate::MajoranaRotation, prop_cache::VectorM
     # get the Majorana string integer representation because the gate cannot be in the function when using GPU
     gate_ms = gate.ms_int
     gate_ms_ps = compute_parity_bits_and_shift(gate_ms, 2 * nfermions(prop_cache))
+    omega_l_gate = omega_L_mult(gate_ms)
 
     # flag terms that anticommute with the gate
-    anticommutesfunc(trm) = !commutes(trm, gate_ms)
+    anticommutesfunc(trm) = !_commutes_evengate(trm, gate_ms)
     flagterms!(anticommutesfunc, prop_cache)
 
     # this runs a cumsum over the flags to get the indices
@@ -170,7 +174,7 @@ function PropagationBase.applytoall!(gate::MajoranaRotation, prop_cache::VectorM
     end
 
     # does the branching logic
-    _applymajoranarotation!(prop_cache, gate_ms, gate_ms_ps, theta)
+    _applymajoranarotation!(prop_cache, gate_ms, gate_ms_ps, omega_l_gate, theta)
 
     # we now have n_new possibly duplicate Majorana strings in the array
     setactivesize!(prop_cache, n_new)
@@ -183,7 +187,7 @@ The splitting rule for exp(i theta gate_string / 2) ms exp(-i theta gate_string 
 -) ms, if [gate_string, ms] = 0
 -) cos(theta) ms - i sin(theta) ms * gate_string, if {gate_string, ms} = 0
 """
-function _applymajoranarotation!(prop_cache::VectorMajoranaPropagationCache, gate_ms::TT, gate_ms_ps::TT, theta) where {TT}
+function _applymajoranarotation!(prop_cache::VectorMajoranaPropagationCache, gate_ms::TT, gate_ms_ps::TT, omega_l_gate::Int, theta) where {TT}
 
     # pre-compute the sine and cosine values because they are used for every Majorana string that does not commute with the gate
     cos_val = cos(theta)
@@ -212,7 +216,7 @@ function _applymajoranarotation!(prop_cache::VectorMajoranaPropagationCache, gat
             coeff = coeffs[ii]
 
             coeff1 = coeff * cos_val
-            new_term, sign = majoranarotationproduct(term, gate_ms, gate_ms_ps)
+            new_term, sign = _rotationproduct_evengate(term, gate_ms, gate_ms_ps, omega_l_gate)
             coeff2 = coeff * sin_val * sign
 
             coeffs[ii] = coeff1
