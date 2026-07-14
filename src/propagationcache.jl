@@ -86,117 +86,119 @@ function Base.resize!(prop_cache::VectorMajoranaPropagationCache, n_new::Int)
     return prop_cache
 end
 
-# ========== sorted-runs merge ========== #
+# ========== gate-aware sorted-tail merge ========== #
 
-# Called once at the start of propagate! so that the active terms are sorted and
-# deduplicated. From then on, every merge only has to deal with the unsorted tail
-# appended by applytoall! (see mergesortedruns!).
-_presortcache!(prop_cache::AbstractMajoranaPropagationCache) = prop_cache
-_presortcache!(prop_cache::VectorMajoranaPropagationCache) = merge!(prop_cache)
-
-# The size of the sorted, deduplicated prefix before applytoall! appends new terms.
-# For dict caches there is no such notion; merging is cheap there anyway.
-_sortedprefixsize(prop_cache::AbstractMajoranaPropagationCache) = 0
-_sortedprefixsize(prop_cache::VectorMajoranaPropagationCache) = activesize(prop_cache)
-
-_mergeafterapply!(prop_cache::AbstractMajoranaPropagationCache, n_sorted::Int, gate_int; kwargs...) = merge!(prop_cache; kwargs...)
-_mergeafterapply!(prop_cache::VectorMajoranaPropagationCache, n_sorted::Int, gate_int; kwargs...) = mergesortedruns!(prop_cache, n_sorted, gate_int; kwargs...)
+# Merge the tail appended by a Majorana rotation into the sorted prefix tracked on the
+# vector sum (see `sortedprefix`). Dict caches just merge; vector caches use the gate's
+# Majorana string to sort the tail without a comparison sort where possible, and defer to
+# the generic `merge!` (which picks between `sortedtailmerge!` and a full sort) otherwise.
+_mergeafterapply!(prop_cache::AbstractMajoranaPropagationCache, gate_int; kwargs...) = merge!(prop_cache; kwargs...)
+_mergeafterapply!(prop_cache::VectorMajoranaPropagationCache, gate_int; kwargs...) = xorsortedtailmerge!(prop_cache, gate_int; kwargs...)
 
 """
-    mergesortedruns!(prop_cache::VectorMajoranaPropagationCache, n_sorted::Int, [gate_int]; kwargs...)
+    xorsortedtailmerge!(prop_cache::VectorMajoranaPropagationCache, gate_int; thread=true, kwargs...)
 
-Merge and deduplicate the active terms of `prop_cache`, exploiting that the first `n_sorted`
-active terms are already sorted and deduplicated (the state a previous `merge!` or
-`mergesortedruns!` leaves behind, which `applytoall!` and `truncate!` preserve), while the
-remaining active terms are the unsorted tail appended by `applytoall!`.
-
-Instead of the full `sortperm` over all active terms that `merge!` performs, this only sorts
-the tail and then combines the two sorted runs in a single linear pass, merging coefficients
-of equal terms on the fly. Falls back to a full `merge!` if the sorted-prefix assumption
-cannot be verified.
-
-If the Majorana string `gate_int` of the rotation that produced the tail is passed, the tail
-permutation is computed with `popcount(gate_int)` linear block-swap passes (see
-`_xorsortperm!`) instead of a comparison sort.
+`PropagationBase.sortedtailmerge!` specialized to a tail appended by the Majorana rotation
+`gate_int`: the tail is `gate_int ⊻ (an ascending subset of the sorted prefix)`, so its
+sorted permutation follows from `popcount(gate_int)` linear block-swap passes (see
+`_xorsortperm!`) instead of a comparison sort. The two sorted runs are then combined with
+the same parallel two-pointer merge kernel as `sortedtailmerge!`. Falls back to the generic
+`merge!` whenever an XOR precondition does not hold (no valid sorted prefix, non-CPU
+storage, tail larger than `_XORSORT_MAX_TAIL`, or insufficient index scratch).
 """
-mergesortedruns!(prop_cache::VectorMajoranaPropagationCache, n_sorted::Int; kwargs...) =
-    mergesortedruns!(prop_cache, n_sorted, nothing; kwargs...)
+function xorsortedtailmerge!(prop_cache::VectorMajoranaPropagationCache, gate_int::Union{Integer,Nothing}; thread::Bool=true, kwargs...)
+    main_terms = majoranas(mainsum(prop_cache))
+    main_coeffs = coefficients(mainsum(prop_cache))
+    n_old = sortedprefix(mainsum(prop_cache))
+    n_new = activesize(prop_cache)
+    n_tail = n_new - n_old
 
-function mergesortedruns!(prop_cache::VectorMajoranaPropagationCache, n_sorted::Int, gate_int::Union{Integer,Nothing}; kwargs...)
-    n_total = activesize(prop_cache)
-
-    if n_total == 0
+    if n_new == 0
         return prop_cache
     end
 
-    main_terms = majoranas(mainsum(prop_cache))
-    main_coeffs = coefficients(mainsum(prop_cache))
-
-    # the fast path requires CPU arrays (scalar indexing) and a valid sorted prefix
     if !(main_terms isa Vector) ||
-       n_sorted <= 0 ||
-       n_sorted > n_total ||
-       !issorted(view(main_terms, 1:n_sorted))
-        return merge!(prop_cache; kwargs...)
+       !(gate_int isa eltype(main_terms)) ||
+       !(eltype(main_terms) <: Unsigned) ||
+       n_old <= 0 ||
+       n_old > n_new ||
+       n_tail > _XORSORT_MAX_TAIL ||
+       length(indices(prop_cache)) < 2 * n_tail
+        return merge!(prop_cache; thread, kwargs...)
     end
 
-    m = n_total - n_sorted
-    if m == 0
-        # fully sorted and already deduplicated by the previous merge
+    if n_tail == 0
+        # nothing was appended; the whole active range is still sorted and deduplicated
         return prop_cache
     end
 
     aux_terms = majoranas(auxsum(prop_cache))
     aux_coeffs = coefficients(auxsum(prop_cache))
-    @assert length(aux_terms) >= n_total "VectorMajoranaPropagationCache aux terms array is not large enough to hold the merged terms."
 
-    tail_terms = view(main_terms, n_sorted+1:n_total)
-    tail_coeffs = view(main_coeffs, n_sorted+1:n_total)
+    unsorted_tail_terms = view(main_terms, n_old+1:n_new)
+    unsorted_tail_coeffs = view(main_coeffs, n_old+1:n_new)
 
-    # sort a permutation of the tail, reusing the cache's indices array as scratch
-    tail_perm = view(prop_cache.indices, 1:m)
-    if gate_int isa eltype(main_terms) &&
-       eltype(main_terms) <: Unsigned &&
-       m <= _XORSORT_MAX_TAIL &&
-       length(prop_cache.indices) >= 2 * m
-        # the tail is gate_int ⊻ (terms in ascending order), so its sorted order follows
-        # from popcount(gate_int) linear block-swap passes instead of a comparison sort
-        scratch = view(prop_cache.indices, m+1:2*m)
-        _xorsortperm!(tail_perm, scratch, tail_terms, gate_int)
+    # XOR block-swap permutation of the tail, reusing the cache's indices array as perm + scratch
+    tail_perm = view(indices(prop_cache), 1:n_tail)
+    perm_scratch = view(indices(prop_cache), n_tail+1:2*n_tail)
+    _xorsortperm!(tail_perm, perm_scratch, unsorted_tail_terms, gate_int)
+
+    # as in sortedtailmerge!: the merge output occupies at most aux[1:n_new], so spare aux
+    # capacity beyond n_new is free scratch for the sorted tail; else allocate fresh
+    if length(aux_terms) - n_new >= n_tail
+        tail_terms = view(aux_terms, n_new+1:n_new+n_tail)
+        tail_coeffs = view(aux_coeffs, n_new+1:n_new+n_tail)
     else
-        AK.sortperm!(tail_perm, tail_terms)
+        tail_terms = Base.similar(unsorted_tail_terms)
+        tail_coeffs = Base.similar(unsorted_tail_coeffs)
     end
+    permuteviaindices!(tail_terms, tail_coeffs, unsorted_tail_terms, unsorted_tail_coeffs, tail_perm; thread)
 
-    # single linear pass over both sorted runs, writing into the aux arrays;
-    # equal terms end up adjacent in the output, so coefficients are combined on the fly
-    k = 0
-    i = 1
-    j = 1
-    @inbounds while i <= n_sorted || j <= m
-        take_prefix = j > m || (i <= n_sorted && !isless(tail_terms[tail_perm[j]], main_terms[i]))
+    task_partitioner = AK.TaskPartitioner(n_old, _maxtasks(thread), PropagationBase._TAILMERGE_MIN_ELEMS_PER_TASK)
+    n_tasks = task_partitioner.num_tasks
 
-        if take_prefix
-            term = main_terms[i]
-            coeff = main_coeffs[i]
-            i += 1
-        else
-            p = tail_perm[j]
-            term = tail_terms[p]
-            coeff = tail_coeffs[p]
-            j += 1
+    if n_tasks == 1
+        merged_count = PropagationBase._tailmerge_write!(aux_terms, aux_coeffs, 1,
+            main_terms, main_coeffs, 1, n_old, tail_terms, tail_coeffs, 1, n_tail, Val(true))
+    else
+        # slice and partition the two-pointer merge across threads (same scheme as sortedtailmerge!)
+        tail_bounds_per_task = Vector{Int}(undef, n_tasks + 1)
+        tail_bounds_per_task[1] = 1
+        tail_bounds_per_task[n_tasks+1] = n_tail + 1
+        @inbounds for task_id in 1:(n_tasks-1)
+            head_chunk_boundary_term = main_terms[task_partitioner[task_id].stop]
+            tail_bounds_per_task[task_id+1] = searchsortedlast(tail_terms, head_chunk_boundary_term) + 1
         end
 
-        if k > 0 && aux_terms[k] == term
-            aux_coeffs[k] = mergefunc(aux_coeffs[k], coeff)
-        else
-            k += 1
-            aux_terms[k] = term
-            aux_coeffs[k] = coeff
+        # dry run: each task counts its own merged output size (unknown ahead of time due to collisions)
+        merged_counts_per_task = Vector{Int}(undef, n_tasks)
+        AK.itask_partition(n_tasks, n_tasks, 1) do task_id, _
+            head_range = task_partitioner[task_id]
+            merged_counts_per_task[task_id] = PropagationBase._tailmerge_write!(aux_terms, aux_coeffs, 1,
+                main_terms, main_coeffs, head_range.start, head_range.stop,
+                tail_terms, tail_coeffs, tail_bounds_per_task[task_id], tail_bounds_per_task[task_id+1] - 1, Val(false))
+        end
+
+        # prefix sum over the per-task counts gives each task its exact final write offset
+        write_offsets_per_task = Vector{Int}(undef, n_tasks + 1)
+        write_offsets_per_task[1] = 1
+        @inbounds for task_id in 1:n_tasks
+            write_offsets_per_task[task_id+1] = write_offsets_per_task[task_id] + merged_counts_per_task[task_id]
+        end
+        merged_count = write_offsets_per_task[n_tasks+1] - 1
+
+        # real pass: each task redoes the same merge, now writing directly into its final position
+        AK.itask_partition(n_tasks, n_tasks, 1) do task_id, _
+            head_range = task_partitioner[task_id]
+            PropagationBase._tailmerge_write!(aux_terms, aux_coeffs, write_offsets_per_task[task_id],
+                main_terms, main_coeffs, head_range.start, head_range.stop,
+                tail_terms, tail_coeffs, tail_bounds_per_task[task_id], tail_bounds_per_task[task_id+1] - 1, Val(true))
         end
     end
 
     swapsums!(prop_cache)
-    setactivesize!(prop_cache, k)
+    setactivesize!(prop_cache, merged_count)
+    setsortedprefix!(mainsum(prop_cache), merged_count)
 
     return prop_cache
 end
