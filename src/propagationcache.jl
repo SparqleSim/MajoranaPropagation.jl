@@ -106,7 +106,7 @@ the same parallel two-pointer merge kernel as `sortedtailmerge!`. Falls back to 
 `merge!` whenever an XOR precondition does not hold (no valid sorted prefix, non-CPU
 storage, tail larger than `_XORSORT_MAX_TAIL`, or insufficient index scratch).
 """
-function xorsortedtailmerge!(prop_cache::VectorMajoranaPropagationCache, gate_int::Union{Integer,Nothing}; thread::Bool=true, kwargs...)
+function xorsortedtailmerge!(prop_cache::VectorMajoranaPropagationCache, gate_int::Union{Integer,Nothing}; thread::Bool=true, truncfunc=nothing, kwargs...)
     main_terms = majoranas(mainsum(prop_cache))
     main_coeffs = coefficients(mainsum(prop_cache))
     n_old = sortedprefix(mainsum(prop_cache))
@@ -124,7 +124,7 @@ function xorsortedtailmerge!(prop_cache::VectorMajoranaPropagationCache, gate_in
        n_old > n_new ||
        n_tail > _XORSORT_MAX_TAIL ||
        length(indices(prop_cache)) < 2 * n_tail
-        return merge!(prop_cache; thread, kwargs...)
+        return merge!(prop_cache; thread, truncfunc, kwargs...)
     end
 
     if n_tail == 0
@@ -154,12 +154,12 @@ function xorsortedtailmerge!(prop_cache::VectorMajoranaPropagationCache, gate_in
     end
     permuteviaindices!(tail_terms, tail_coeffs, unsorted_tail_terms, unsorted_tail_coeffs, tail_perm; thread)
 
-    task_partitioner = AK.TaskPartitioner(n_old, _maxtasks(thread), PropagationBase._TAILMERGE_MIN_ELEMS_PER_TASK)
+    task_partitioner = AK.TaskPartitioner(n_old, maxtasks(thread), _MIN_ELEMS_PER_TASK)
     n_tasks = task_partitioner.num_tasks
 
     if n_tasks == 1
         merged_count = PropagationBase._tailmerge_write!(aux_terms, aux_coeffs, 1,
-            main_terms, main_coeffs, 1, n_old, tail_terms, tail_coeffs, 1, n_tail, Val(true))
+            main_terms, main_coeffs, 1, n_old, tail_terms, tail_coeffs, 1, n_tail, truncfunc, Val(true))
     else
         # slice and partition the two-pointer merge across threads (same scheme as sortedtailmerge!)
         tail_bounds_per_task = Vector{Int}(undef, n_tasks + 1)
@@ -176,7 +176,7 @@ function xorsortedtailmerge!(prop_cache::VectorMajoranaPropagationCache, gate_in
             head_range = task_partitioner[task_id]
             merged_counts_per_task[task_id] = PropagationBase._tailmerge_write!(aux_terms, aux_coeffs, 1,
                 main_terms, main_coeffs, head_range.start, head_range.stop,
-                tail_terms, tail_coeffs, tail_bounds_per_task[task_id], tail_bounds_per_task[task_id+1] - 1, Val(false))
+                tail_terms, tail_coeffs, tail_bounds_per_task[task_id], tail_bounds_per_task[task_id+1] - 1, truncfunc, Val(false))
         end
 
         # prefix sum over the per-task counts gives each task its exact final write offset
@@ -192,7 +192,7 @@ function xorsortedtailmerge!(prop_cache::VectorMajoranaPropagationCache, gate_in
             head_range = task_partitioner[task_id]
             PropagationBase._tailmerge_write!(aux_terms, aux_coeffs, write_offsets_per_task[task_id],
                 main_terms, main_coeffs, head_range.start, head_range.stop,
-                tail_terms, tail_coeffs, tail_bounds_per_task[task_id], tail_bounds_per_task[task_id+1] - 1, Val(true))
+                tail_terms, tail_coeffs, tail_bounds_per_task[task_id], tail_bounds_per_task[task_id+1] - 1, truncfunc, Val(true))
         end
     end
 

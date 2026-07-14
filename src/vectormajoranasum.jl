@@ -3,6 +3,8 @@
 using AcceleratedKernels
 const AK = AcceleratedKernels
 
+const _MIN_ELEMS_PER_TASK = PropagationBase._MIN_ELEMS_PER_TASK
+
 
 mutable struct VectorMajoranaSum{TV,CV} <: AbstractMajoranaSum
     nsites::Int

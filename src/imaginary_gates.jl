@@ -205,7 +205,7 @@ function _applyimaginarymajoranarotation!(prop_cache::VectorMajoranaPropagationC
     indices = PropagationBase.activeindices(prop_cache)
 
     # branching pattern for Majorana rotations
-    AK.foreachindex(active_terms; max_tasks=_maxtasks(thread)) do ii
+    AK.foreachindex(active_terms; max_tasks=maxtasks(thread), min_elems=_MIN_ELEMS_PER_TASK) do ii
         # here it commutes
         if flags[ii]
             term = terms[ii]
