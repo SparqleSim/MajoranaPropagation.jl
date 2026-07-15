@@ -134,6 +134,16 @@ function PropagationBase.applymergetruncate!(gate::FermionicRotation, prop_cache
     return prop_cache
 end
 
+# bare MajoranaRotation gates take the same gate-aware merge as the rotations inside a
+# FermionicRotation (the upstream generic applymergetruncate! would use the plain merge!,
+# discarding the gate string that lets vector caches skip the comparison sort)
+function PropagationBase.applymergetruncate!(gate::MajoranaRotation, prop_cache::AbstractMajoranaPropagationCache, theta; kwargs...)
+    applytoall!(gate, prop_cache, theta; kwargs...)
+    _mergeafterapply!(prop_cache, gate.ms_int; kwargs...)
+    truncate!(prop_cache; kwargs...)
+    return prop_cache
+end
+
 
 # ========== vector specializations ========== #
 

@@ -28,7 +28,7 @@ function PropagationBase.setauxsum!(prop_cache::AbstractMajoranaPropagationCache
     return prop_cache
 end
 
-majoranatype(propcache::AbstractMajoranaPropagationCache) = majoranatype(main_msum(propcache))
+majoranatype(propcache::AbstractMajoranaPropagationCache) = majoranatype(mainsum(propcache))
 
 # VectorMajoranaPropagationCache
 mutable struct VectorMajoranaPropagationCache{VMS<:VectorMajoranaSum,VB,VI} <: AbstractMajoranaPropagationCache
@@ -101,12 +101,12 @@ _mergeafterapply!(prop_cache::VectorMajoranaPropagationCache, gate_int; kwargs..
     xorsortedtailmerge!(prop_cache::VectorMajoranaPropagationCache, gate_int; thread=true, kwargs...)
 
 `PropagationBase.sortedtailmerge!` specialized to a tail appended by the Majorana rotation
-`gate_int`: the tail is `gate_int ⊻ (an ascending subset of the sorted prefix)`, so its
-sorted permutation follows from `popcount(gate_int)` linear block-swap passes (see
-`_xorsortperm!`) instead of a comparison sort. The two sorted runs are then combined with
-the same parallel two-pointer merge kernel as `sortedtailmerge!`. Falls back to the generic
-`merge!` whenever an XOR precondition does not hold (no valid sorted prefix, non-CPU
-storage, tail larger than `_XORSORT_MAX_TAIL`, or insufficient index scratch).
+`gate_int`: the tail is `gate_int ⊻ (an ascending subset of the sorted prefix)`, so it is
+sorted by `popcount(gate_int)` parallel block-swap passes (see `_xorsorttail!`) instead of
+a comparison sort. The two sorted runs are then combined with the same parallel two-pointer
+merge kernel as `sortedtailmerge!`. Falls back to the generic `merge!` whenever an XOR
+precondition does not hold (no valid sorted prefix, non-CPU storage, or a gate/eltype
+mismatch).
 """
 function xorsortedtailmerge!(prop_cache::VectorMajoranaPropagationCache, gate_int::Union{Integer,Nothing}; thread::Bool=true, truncfunc=nothing, kwargs...)
     main_terms = majoranas(mainsum(prop_cache))
@@ -123,9 +123,7 @@ function xorsortedtailmerge!(prop_cache::VectorMajoranaPropagationCache, gate_in
        !(gate_int isa eltype(main_terms)) ||
        !(eltype(main_terms) <: Unsigned) ||
        n_old <= 0 ||
-       n_old > n_new ||
-       n_tail > _XORSORT_MAX_TAIL ||
-       length(indices(prop_cache)) < 2 * n_tail
+       n_old > n_new
         return merge!(prop_cache; thread, truncfunc, kwargs...)
     end
 
@@ -137,24 +135,24 @@ function xorsortedtailmerge!(prop_cache::VectorMajoranaPropagationCache, gate_in
     aux_terms = majoranas(auxsum(prop_cache))
     aux_coeffs = coefficients(auxsum(prop_cache))
 
-    unsorted_tail_terms = view(main_terms, n_old+1:n_new)
-    unsorted_tail_coeffs = view(main_coeffs, n_old+1:n_new)
+    # ping-pong pair A: the appended tail, in place at the end of the main arrays
+    a_terms = view(main_terms, n_old+1:n_new)
+    a_coeffs = view(main_coeffs, n_old+1:n_new)
 
-    # XOR block-swap permutation of the tail, reusing the cache's indices array as perm + scratch
-    tail_perm = view(indices(prop_cache), 1:n_tail)
-    perm_scratch = view(indices(prop_cache), n_tail+1:2*n_tail)
-    _xorsortperm!(tail_perm, perm_scratch, unsorted_tail_terms, gate_int)
-
-    # as in sortedtailmerge!: the merge output occupies at most aux[1:n_new], so spare aux
-    # capacity beyond n_new is free scratch for the sorted tail; else allocate fresh
+    # ping-pong pair B: as in sortedtailmerge!, the merge output occupies at most aux[1:n_new],
+    # so spare aux capacity beyond n_new is free scratch; else allocate fresh. Both branches
+    # produce views of Vectors so the A/B swaps in _xorsorttail! stay type-stable.
     if length(aux_terms) - n_new >= n_tail
-        tail_terms = view(aux_terms, n_new+1:n_new+n_tail)
-        tail_coeffs = view(aux_coeffs, n_new+1:n_new+n_tail)
+        b_terms = view(aux_terms, n_new+1:n_new+n_tail)
+        b_coeffs = view(aux_coeffs, n_new+1:n_new+n_tail)
     else
-        tail_terms = Base.similar(unsorted_tail_terms)
-        tail_coeffs = Base.similar(unsorted_tail_coeffs)
+        b_terms = view(Base.similar(main_terms, n_tail), 1:n_tail)
+        b_coeffs = view(Base.similar(main_coeffs, n_tail), 1:n_tail)
     end
-    permuteviaindices!(tail_terms, tail_coeffs, unsorted_tail_terms, unsorted_tail_coeffs, tail_perm; thread)
+
+    # popcount(gate_int) parallel block-swap passes; the sorted tail lands back in A when
+    # the popcount is even (always, for even-weight Majorana rotation strings), in B when odd
+    tail_terms, tail_coeffs = _xorsorttail!(a_terms, a_coeffs, b_terms, b_coeffs, gate_int; thread)
 
     task_partitioner = AK.TaskPartitioner(n_old, maxtasks(thread), _MIN_ELEMS_PER_TASK)
     n_tasks = task_partitioner.num_tasks
@@ -205,69 +203,173 @@ function xorsortedtailmerge!(prop_cache::VectorMajoranaPropagationCache, gate_in
     return prop_cache
 end
 
-# Above this tail size, the multithreaded comparison sort outpaces the serial
-# XOR block-swap shuffle (both are memory-bandwidth-bound at large sizes, but the
-# sample sort uses all threads).
-const _XORSORT_MAX_TAIL = 100_000
-
 """
-    _xorsortperm!(perm, scratch, tail_terms, g)
+    _xorsorttail!(a_terms, a_coeffs, b_terms, b_coeffs, g; thread=true)
 
-Fill `perm` with the permutation that sorts `tail_terms`, given that
-`tail_terms[i] == sources[i] ⊻ g` for a strictly ascending sequence of sources
-(the anticommuting terms of the sorted prefix, in order).
+Sort the tail held in pair A, given `a_terms[i] == sources[i] ⊻ g` for a strictly
+ascending sequence of sources (the anticommuting terms of the sorted prefix, in order),
+moving coefficients along with their terms. Pair B is same-length scratch. Returns the
+pair holding the sorted tail: A when `popcount(g)` is even (always, for even-weight
+Majorana rotation strings), B when odd.
 
 XOR with a fixed `g` preserves the relative order of two values unless the highest bit
-in which they differ is a set bit of `g`. Consequently the sorted order of the tail is
-obtained by, for each set bit `b` of `g` from most significant to least significant,
-swapping the two half-blocks (bit `b` = 0 and bit `b` = 1 of the source) within every
-group of elements that agree on all source bits above `b`. Each pass is a single linear
-gather, so the total cost is `popcount(g)` passes of O(length(perm)) instead of a
-comparison sort. `scratch` must have the same length as `perm`.
+in which they differ is a set bit of `g`. So the tail is sorted by one block-swap pass
+per set bit `b` of `g`, most significant first: before the pass the buffer is ascending
+in `value ⊻ (g masked to bits ≤ b)`, and swapping the two bit-`b` half-blocks within
+every run of elements agreeing on the value bits above `b` restores the invariant with
+`b` cleared. Each pass is a parallel scatter of contiguous block copies (see
+`_xorsortpass!`), so the total cost is `popcount(g)` passes of O(n_tail) instead of a
+comparison sort.
 """
-function _xorsortperm!(perm::AbstractVector{Int}, scratch::AbstractVector{Int}, tail_terms, g::TT) where {TT<:Integer}
-    m = length(perm)
-
-    @inbounds for i in 1:m
-        perm[i] = i
-    end
-
-    src = perm
-    dst = scratch
+function _xorsorttail!(a_terms, a_coeffs, b_terms, b_coeffs, g::TT; thread::Bool=true) where {TT<:Unsigned}
+    src_terms, src_coeffs = a_terms, a_coeffs
+    dst_terms, dst_coeffs = b_terms, b_coeffs
     remaining_bits = g
     nbits = 8 * sizeof(TT)
-
-    @inbounds while !iszero(remaining_bits)
+    while !iszero(remaining_bits)
         b = (nbits - 1) - leading_zeros(remaining_bits)
         remaining_bits ⊻= one(TT) << b
-        hishift = b + 1
+        _xorsortpass!(dst_terms, dst_coeffs, src_terms, src_coeffs, b; thread)
+        src_terms, dst_terms = dst_terms, src_terms
+        src_coeffs, dst_coeffs = dst_coeffs, src_coeffs
+    end
+    return src_terms, src_coeffs
+end
 
-        i = 1
-        while i <= m
-            # scan the group of elements agreeing on all source bits above b,
-            # counting how many have source bit b == 0 (they come first, sources ascend)
-            group_hi = (tail_terms[src[i]] ⊻ g) >> hishift
-            j = i
-            n0 = 0
-            while j <= m
-                source = tail_terms[src[j]] ⊻ g
-                (source >> hishift) == group_hi || break
-                n0 += Int(iszero((source >> b) & one(TT)))
-                j += 1
-            end
+# One block-swap pass for set bit b, scattered over contiguous source chunks: each task
+# writes the destinations of its own source elements, which are disjoint across tasks
+# (sub-blocks map affinely to their destinations and the permutation is a bijection), so
+# no synchronization is needed. Separate from the ping-pong loop in _xorsorttail! so the
+# closure only captures never-reassigned arguments (no boxing).
+function _xorsortpass!(dst_terms, dst_coeffs, src_terms, src_coeffs, b::Int; thread::Bool=true)
+    AK.task_partition(length(src_terms), maxtasks(thread), _MIN_ELEMS_PER_TASK) do chunk
+        _xorsortpass_chunk!(dst_terms, dst_coeffs, src_terms, src_coeffs, b, first(chunk), last(chunk))
+    end
+    return
+end
 
-            # bit b of the image is flipped, so the bit-1 sources come first in the output
-            n1 = (j - i) - n0
-            copyto!(dst, i, src, i + n0, n1)
-            copyto!(dst, i + n1, src, i, n0)
-            i = j
+function _xorsortpass_chunk!(dst_terms, dst_coeffs, src_terms::AbstractVector{TT}, src_coeffs,
+    b::Int, c_lo::Int, c_hi::Int) where {TT<:Unsigned}
+    m = length(src_terms)
+    hishift = b + 1
+
+    i = c_lo
+    @inbounds begin
+        # a group straddling the left chunk boundary is recovered in full by binary search
+        # (the neighboring task does the same) and only our clipped slice of it is copied
+        if c_lo > 1 && (src_terms[c_lo-1] >> hishift) == (src_terms[c_lo] >> hishift)
+            i_g = _xorgroupfirst(src_terms, hishift, c_lo)
+            j_g = _xorgrouplast(src_terms, hishift, c_lo, m) + 1
+            m_split = _xorbitsplit(src_terms, b, i_g, j_g)
+            _xormovegroup!(dst_terms, dst_coeffs, src_terms, src_coeffs, i_g, m_split, j_g, c_lo, c_hi)
+            i = j_g  # may exceed c_hi when the group swallows the whole chunk
         end
 
-        src, dst = dst, src
+        while i <= c_hi
+            # group of elements agreeing on all value bits above b, starting at i:
+            # linear scan, counting the leading run with value bit b == 1
+            group_hi = src_terms[i] >> hishift
+            j = i
+            n_first = 0
+            while j <= c_hi && (src_terms[j] >> hishift) == group_hi
+                n_first += Int(!iszero((src_terms[j] >> b) & one(TT)))
+                j += 1
+            end
+            if j > c_hi && j <= m && (src_terms[j] >> hishift) == group_hi
+                # the group continues past the right chunk boundary
+                j_g = _xorgrouplast(src_terms, hishift, j, m) + 1
+                m_split = _xorbitsplit(src_terms, b, i, j_g)
+                _xormovegroup!(dst_terms, dst_coeffs, src_terms, src_coeffs, i, m_split, j_g, c_lo, c_hi)
+                break
+            end
+            # group [i, j) lies fully inside the chunk; its bit-1 elements are the leading n_first
+            _xormovegroup!(dst_terms, dst_coeffs, src_terms, src_coeffs, i, i + n_first, j, c_lo, c_hi)
+            i = j
+        end
     end
+    return
+end
 
-    if src !== perm
-        copyto!(perm, src)
+# block copy with a manual loop below the length where copyto!'s call and bounds-check
+# overhead dominates (groups are often singletons, e.g. on low-bit passes of random data)
+@inline function _xorcopyrange!(dst_terms, dst_coeffs, src_terms, src_coeffs, d0::Int, s0::Int, n::Int)
+    if n < 32
+        @inbounds for k in 0:n-1
+            dst_terms[d0+k] = src_terms[s0+k]
+            dst_coeffs[d0+k] = src_coeffs[s0+k]
+        end
+    else
+        copyto!(dst_terms, d0, src_terms, s0, n)
+        copyto!(dst_coeffs, d0, src_coeffs, s0, n)
     end
-    return perm
+    return
+end
+
+# Move one group's two half-blocks to their swapped destinations -- the bit-1 block
+# [i_g, m_split) goes after the bit-0 block [m_split, j_g) -- restricted to the source
+# positions in [c_lo, c_hi] owned by the calling task.
+@inline function _xormovegroup!(dst_terms, dst_coeffs, src_terms, src_coeffs,
+    i_g::Int, m_split::Int, j_g::Int, c_lo::Int, c_hi::Int)
+    n_first = m_split - i_g
+    n_second = j_g - m_split
+    lo = max(i_g, c_lo)
+    hi = min(m_split - 1, c_hi)
+    if lo <= hi
+        _xorcopyrange!(dst_terms, dst_coeffs, src_terms, src_coeffs, lo + n_second, lo, hi - lo + 1)
+    end
+    lo = max(m_split, c_lo)
+    hi = min(j_g - 1, c_hi)
+    if lo <= hi
+        _xorcopyrange!(dst_terms, dst_coeffs, src_terms, src_coeffs, lo - n_first, lo, hi - lo + 1)
+    end
+    return
+end
+
+# first index in [1, idx] whose value shares the bits above b (i.e. >> hishift) with terms[idx];
+# terms >> hishift is non-decreasing, so this is a plain first-true binary search
+@inline function _xorgroupfirst(terms::AbstractVector{TT}, hishift::Int, idx::Int) where {TT<:Unsigned}
+    @inbounds key = terms[idx] >> hishift
+    lo = 1
+    hi = idx
+    @inbounds while lo < hi
+        mid = (lo + hi) >>> 1
+        if (terms[mid] >> hishift) == key
+            hi = mid
+        else
+            lo = mid + 1
+        end
+    end
+    return lo
+end
+
+# last index in [idx, m] whose value shares the bits above b (i.e. >> hishift) with terms[idx]
+@inline function _xorgrouplast(terms::AbstractVector{TT}, hishift::Int, idx::Int, m::Int) where {TT<:Unsigned}
+    @inbounds key = terms[idx] >> hishift
+    lo = idx
+    hi = m
+    @inbounds while lo < hi
+        mid = (lo + hi + 1) >>> 1
+        if (terms[mid] >> hishift) == key
+            lo = mid
+        else
+            hi = mid - 1
+        end
+    end
+    return lo
+end
+
+# first index in [i_g, j_g) whose value has bit b == 0 (within a group the bit-1 run comes
+# first), or j_g when every element has bit b == 1
+@inline function _xorbitsplit(terms::AbstractVector{TT}, b::Int, i_g::Int, j_g::Int) where {TT<:Unsigned}
+    lo = i_g
+    hi = j_g
+    @inbounds while lo < hi
+        mid = (lo + hi) >>> 1
+        if iszero((terms[mid] >> b) & one(TT))
+            hi = mid
+        else
+            lo = mid + 1
+        end
+    end
+    return lo
 end

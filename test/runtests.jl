@@ -8,4 +8,5 @@ using Random
     include("check_evengates.jl")
     include("compare_jw.jl")
     include("test_vector.jl")
+    include("test_xormerge.jl")
 end
