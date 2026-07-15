@@ -117,7 +117,7 @@ Given a MajoranaSum, return a new MajoranaSum with terms that have an overlap wi
 """
 function fock_mask(msum::MajoranaSum)
     clean_res = similar(msum)
-    singles_filter = create_unpaired_mask(nfermions(msum))
+    singles_filter = create_unpaired_mask(majoranatype(msum), nfermions(msum))
     for (ms, coeff) in zip(terms(msum), coefficients(msum))
         if compute_unpaired(ms, singles_filter) > 0
             continue
@@ -134,7 +134,7 @@ Compute the overlap <fock_state|msum|fock_state> where fock_state is a `FockStat
 function overlapwithfock(msum::AbstractMajoranaSum, fock_state::FockState)
     @assert is_spinful(msum) == fock_state.is_spinful "The MajoranaSum and the fock_state must both be spinful or both spinless."
     res = 0.
-    unpaired_mask = create_unpaired_mask(nfermions(msum))
+    unpaired_mask = create_unpaired_mask(majoranatype(msum), nfermions(msum))
     for (ms, coeff) in zip(majoranas(msum), coefficients(msum))
         res += tonumber(coeff) * overlapwithfock(ms, unpaired_mask, fock_state)
     end
@@ -238,7 +238,7 @@ function overlapwithfock(msum::AbstractMajoranaSum, sites_with_particle_superpos
     # check normalization
     @assert sum(abs2, superposition_coefficients) ≈ 1. "Superposition coefficients must be normalized."
     res = 0.
-    unpaired_mask = create_unpaired_mask(nfermions(msum))
+    unpaired_mask = create_unpaired_mask(majoranatype(msum), nfermions(msum))
 
     for (ms, coeff) in zip(terms(msum), coefficients(msum))
         res += coeff * overlapwithfock(ms, sites_with_particle_superposition, superposition_coefficients, nfermions(msum), unpaired_mask)

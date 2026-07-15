@@ -1,24 +1,11 @@
-# TODO: check if this makes sense
-const _parity_mask_cache = Dict{Tuple{DataType, Int}, Any}()
-
-function _get_parity_masks(::Type{TT}, Nbits::Int) where {TT<:Integer}
-    key = (TT, Nbits)
-    cached = get(_parity_mask_cache, key, nothing)
-    if cached === nothing
-        full_mask = (TT(1) << Nbits) - TT(1)
-        half_mask = full_mask >> 1
-        cached = (full_mask, half_mask)
-        _parity_mask_cache[key] = cached
-    end
-    return cached::Tuple{TT, TT}
-end
 
 function compute_parity_bits_and_shift(u::TT, Nbits::Int) where {TT<:Integer}
     if Nbits <= 1
         return TT(0)
     end
 
-    full_mask, half_mask = _get_parity_masks(TT, Nbits)
+    full_mask = (TT(1) << Nbits) - TT(1)
+    half_mask = full_mask >> 1
 
     p = u & half_mask
 

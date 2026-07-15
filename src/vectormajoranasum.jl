@@ -33,6 +33,8 @@ PropagationBase.storage(vmsum::VectorMajoranaSum) = (vmsum.terms, vmsum.coeffs)
 PropagationBase.sortedprefix(vmsum::VectorMajoranaSum) = vmsum._terms_sorted
 PropagationBase.setsortedprefix!(vmsum::VectorMajoranaSum, n::Int) = (vmsum._terms_sorted = n; vmsum)
 
+majoranatype(vmsum::VectorMajoranaSum{TV,CV}) where {TV,CV} = eltype(TV)
+
 
 """
     nsites(vmsum::VectorMajoranaSum)
