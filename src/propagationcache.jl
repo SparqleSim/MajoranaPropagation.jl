@@ -28,6 +28,8 @@ function PropagationBase.setauxsum!(prop_cache::AbstractMajoranaPropagationCache
     return prop_cache
 end
 
+majoranatype(propcache::AbstractMajoranaPropagationCache) = majoranatype(mainsum(propcache))
+
 # VectorMajoranaPropagationCache
 mutable struct VectorMajoranaPropagationCache{VMS<:VectorMajoranaSum,VB,VI} <: AbstractMajoranaPropagationCache
     main_msum::VMS

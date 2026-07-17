@@ -179,10 +179,9 @@ function PropagationBase.applymergetruncate!(gate::FermionicRotation, prop_cache
     return prop_cache
 end
 
-
 # ========== vector specializations ========== #
 
-function PropagationBase.applytoall!(gate::MajoranaRotation, prop_cache::VectorMajoranaPropagationCache, theta; kwargs...)
+function PropagationBase.applytoall!(gate::MajoranaRotation, prop_cache::VectorMajoranaPropagationCache, theta; thread::Bool=true, kwargs...)
 
     if prop_cache.active_size == 0
         return prop_cache
@@ -197,10 +196,10 @@ function PropagationBase.applytoall!(gate::MajoranaRotation, prop_cache::VectorM
 
     # flag terms that anticommute with the gate
     anticommutesfunc(trm) = !_commutes_evengate(trm, gate_ms)
-    flagterms!(anticommutesfunc, prop_cache)
+    flagterms!(anticommutesfunc, prop_cache; thread)
 
     # this runs a cumsum over the flags to get the indices
-    flagstoindices!(prop_cache)
+    flagstoindices!(prop_cache; thread)
 
     # the final index is the number of new terms
     n_noncommutes = lastactiveindex(prop_cache)
@@ -215,7 +214,7 @@ function PropagationBase.applytoall!(gate::MajoranaRotation, prop_cache::VectorM
     end
 
     # does the branching logic
-    _applymajoranarotation!(prop_cache, gate_ms, gate_ms_ps, omega_l_gate, theta)
+    _applymajoranarotation!(prop_cache, gate_ms, gate_ms_ps, omega_l_gate, theta; thread)
 
     # we now have n_new possibly duplicate Majorana strings in the array
     setactivesize!(prop_cache, n_new)
@@ -228,7 +227,7 @@ The splitting rule for exp(i theta gate_string / 2) ms exp(-i theta gate_string 
 -) ms, if [gate_string, ms] = 0
 -) cos(theta) ms - i sin(theta) ms * gate_string, if {gate_string, ms} = 0
 """
-function _applymajoranarotation!(prop_cache::VectorMajoranaPropagationCache, gate_ms::TT, gate_ms_ps::TT, omega_l_gate::Int, theta) where {TT}
+function _applymajoranarotation!(prop_cache::VectorMajoranaPropagationCache, gate_ms::TT, gate_ms_ps::TT, omega_l_gate::Int, theta; thread::Bool=true) where {TT}
 
     # pre-compute the sine and cosine values because they are used for every Majorana string that does not commute with the gate
     cos_val = cos(theta)
@@ -250,7 +249,7 @@ function _applymajoranarotation!(prop_cache::VectorMajoranaPropagationCache, gat
     indices = activeindices(prop_cache)
 
     # branching pattern for Majorana rotations
-    AK.foreachindex(active_terms) do ii
+    AK.foreachindex(active_terms; max_tasks=maxtasks(thread), min_elems=_MIN_ELEMS_PER_TASK) do ii
         # here it anticommutes
         if flags[ii]
             term = terms[ii]
