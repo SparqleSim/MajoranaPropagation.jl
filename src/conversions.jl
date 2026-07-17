@@ -1,4 +1,10 @@
 
+"""
+    VectorMajoranaSum(msum::MajoranaSum)
+    VectorMajoranaSum(mstrs::Union{AbstractArray,Tuple,Base.Generator})
+
+Convert a dictionary-based `MajoranaSum`, or a collection of Majorana terms with coefficients, into a `VectorMajoranaSum`.
+"""
 VectorMajoranaSum(msum::MajoranaSum) = VectorMajoranaSum(msum.nsites, msum.is_spinful, collect(majoranas(msum)), collect(coefficients(msum)))
 function VectorMajoranaSum(mstrs::Union{AbstractArray,Tuple,Base.Generator})
     nsites = _checknumberofsites(mstrs)

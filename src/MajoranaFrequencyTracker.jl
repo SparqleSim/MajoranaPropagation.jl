@@ -1,4 +1,10 @@
 
+"""
+    MajoranaFrequencyTracker(coeff)
+
+A `PathProperties` wrapper around a coefficient of type `CT` that additionally tracks how many times the coefficient was multiplied by a cosine or sine during propagation: `freq` counts both, `ncos` the cosines, and `nsins` the sines.
+Used for the `max_freq` and `max_sins` truncations.
+"""
 struct MajoranaFrequencyTracker{CT} <: PathProperties
     coeff::CT
     freq::Int
@@ -10,6 +16,12 @@ function MajoranaFrequencyTracker(coeff)
     return MajoranaFrequencyTracker(coeff, 0, 0, 0)
 end
 
+"""
+    wrapcoefficients(msum::MajoranaSum, ::Type{MProp}) where {MProp<:PathProperties}
+
+Return a new `MajoranaSum` with every coefficient wrapped into the `PathProperties` type `MProp`, e.g. `MajoranaFrequencyTracker`.
+The type `MProp` must provide a single-argument constructor `MProp(coeff)`.
+"""
 function wrapcoefficients(msum::MajoranaSum, ::Type{MProp}) where {MProp<:PathProperties}
     if length(msum) == 0
         throw("The majoranaSum is empty.")
@@ -27,6 +39,11 @@ function wrapcoefficients(msum::MajoranaSum, ::Type{MProp}) where {MProp<:PathPr
     return MajoranaSum(msum.nfermions, Dict(mstr => MProp(coeff) for (mstr, coeff) in msum))
 end
 
+"""
+    reset_tracker!(msum::MajoranaSum{TT,MajoranaFrequencyTracker{CT}}) where {TT<:Integer,CT}
+
+Reset the `freq`, `nsins`, and `ncos` counters of every coefficient of `msum` to zero in-place, keeping the coefficient values.
+"""
 function reset_tracker!(msum::MajoranaSum{TT,MajoranaFrequencyTracker{CT}}) where {TT<:Integer,CT}
     for (ms_int, coeff) in msum.Majoranas
         set!(msum, ms_int, MajoranaFrequencyTracker(coeff.coeff, 0, 0, 0))

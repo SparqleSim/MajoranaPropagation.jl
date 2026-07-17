@@ -1,8 +1,19 @@
 abstract type AbstractMajoranaPropagationCache <: AbstractPropagationCache end
 
+"""
+    nfermions(prop_cache::AbstractMajoranaPropagationCache)
+
+Get the number of fermions that the main Majorana sum of the propagation cache is defined on.
+"""
 nfermions(prop_cache::AbstractMajoranaPropagationCache) = nfermions(mainsum(prop_cache))
 
 
+"""
+    MajoranaPropagationCache(msum::MS) where {MS<:AbstractMajoranaSum}
+
+A cache structure used during propagation, holding the main Majorana sum `main_msum` and an auxiliary sum `aux_msum` into which newly created Majorana strings are written before being merged.
+Created from the Majorana sum `msum` to be propagated.
+"""
 mutable struct MajoranaPropagationCache{MS<:AbstractMajoranaSum} <: AbstractMajoranaPropagationCache
     main_msum::MS
     aux_msum::MS
@@ -57,12 +68,22 @@ function VectorMajoranaPropagationCache(msum::MajoranaSum)
 end
 
 # Convert back to vector and dense sums
+"""
+    VectorMajoranaSum(prop_cache::VectorMajoranaPropagationCache)
+
+Extract a copy of the active part of the main `VectorMajoranaSum` from the propagation cache.
+"""
 function VectorMajoranaSum(prop_cache::VectorMajoranaPropagationCache)
     vecmsum = deepcopy(mainsum(prop_cache))
     resize!(vecmsum, activesize(prop_cache))
     return vecmsum
 end
 
+"""
+    MajoranaSum(prop_cache::VectorMajoranaPropagationCache)
+
+Merge the propagation cache and convert its main sum into a dictionary-based `MajoranaSum`.
+"""
 function MajoranaSum(prop_cache::VectorMajoranaPropagationCache)
     merge!(prop_cache)
     return MajoranaSum(nqubits(prop_cache), Dict(zip(activeterms(prop_cache), activecoeffs(prop_cache))))
@@ -78,6 +99,11 @@ PropagationBase.flags(prop_cache::VectorMajoranaPropagationCache) = prop_cache.f
 majoranas(prop_cache::VectorMajoranaPropagationCache) = activeterms(prop_cache)
 PropagationBase.coefficients(prop_cache::VectorMajoranaPropagationCache) = activecoeffs(prop_cache)
 
+"""
+    resize!(prop_cache::VectorMajoranaPropagationCache, n_new::Int)
+
+Resize all internal arrays of the propagation cache to length `n_new`.
+"""
 function Base.resize!(prop_cache::VectorMajoranaPropagationCache, n_new::Int)
     resize!(prop_cache.main_msum, n_new)
     resize!(prop_cache.aux_msum, n_new)

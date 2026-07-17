@@ -1,3 +1,9 @@
+"""
+    parse_fcidump(filename; min_coeff=-1.0, remove_identity=true)
+
+Parse a quantum chemistry Hamiltonian from an FCIDUMP file into a spinful `MajoranaSum`, assembling it from `two_body_term` and `four_body_term` (the latter scaled by 1/2).
+Terms with absolute coefficient smaller than `min_coeff` are dropped, and the identity component is removed if `remove_identity=true`.
+"""
 function parse_fcidump(filename; min_coeff=-1.0, remove_identity=true)
     nsites = 0
     for line in eachline(filename)

@@ -1,3 +1,12 @@
+"""
+    hubbard_circ_fermionic_sites_single_layer(topology, N_spinful_sites::Int, t::Float64, U::Float64, dt::Float64; return_mps_instructions=false, return_separated=false)
+
+Build one first-order Trotter layer of the time evolution ``e^{-i \\, dt \\, H}`` of the Fermi-Hubbard Hamiltonian ``H = -t \\sum_{(i,j), \\sigma} (f_{i\\sigma}^\\dagger f_{j\\sigma} + f_{j\\sigma}^\\dagger f_{i\\sigma}) + U \\sum_i n_{i\\uparrow} n_{i\\downarrow}`` as a circuit of `MajoranaRotation`s.
+The bonds ``(i, j)`` with ``i < j`` are given by `topology`, on a system of `N_spinful_sites` spinful sites.
+Returns a tuple `(circuit, thetas)`, with the layer ordered as spin-down hoppings, spin-up hoppings, on-site repulsion.
+If `return_separated=true`, `circuit` and `thetas` are instead grouped into these three blocks as vectors of vectors.
+If `return_mps_instructions=true`, additionally returns `(mps_instructions, mps_thetas)` describing the equivalent gate sequence for an MPS simulation.
+"""
 function hubbard_circ_fermionic_sites_single_layer(topology, N_spinful_sites::Int, t::Float64, U::Float64, dt::Float64; return_mps_instructions=false, return_separated=false)
     mps_instructions = []
     mps_thetas = []
@@ -81,6 +90,12 @@ function hubbard_circ_fermionic_sites_single_layer(topology, N_spinful_sites::In
     return circs, thetas
 end
 
+"""
+    fermionic_hubbard_circ_fermionic_sites_single_layer(topology, N_spinful_sites::Int, t::Float64, U::Float64, dt::Float64; return_mps_instructions=false, return_separated=false)
+
+Variant of `hubbard_circ_fermionic_sites_single_layer` that groups the Majorana strings of each Hamiltonian term into `FermionicRotation` gates instead of individual `MajoranaRotation`s.
+Same arguments and return values.
+"""
 function fermionic_hubbard_circ_fermionic_sites_single_layer(topology, N_spinful_sites::Int, t::Float64, U::Float64, dt::Float64; return_mps_instructions=false, return_separated=false)
     mps_instructions = []
     mps_thetas = []
@@ -179,6 +194,12 @@ function fermionic_hubbard_circ_fermionic_sites_single_layer(topology, N_spinful
 end
 
 
+"""
+    hubbard_circ_fermionic_sites(topology, N_spinful_sites::Int, n_layers::Int, t::Float64, U::Float64, T::Float64; return_mps_instructions=false)
+
+Build the first-order Trotter circuit for the Fermi-Hubbard time evolution ``e^{-i \\, T \\, H}`` by repeating `hubbard_circ_fermionic_sites_single_layer` with `dt = T / n_layers` for `n_layers` layers.
+Returns `(circuit, thetas)`, and additionally `(mps_instructions, mps_thetas)` if `return_mps_instructions=true`.
+"""
 function hubbard_circ_fermionic_sites(topology, N_spinful_sites::Int, n_layers::Int, t::Float64, U::Float64, T::Float64; return_mps_instructions=false)
     circ::Vector{MajoranaRotation} = []
     thetas::Vector{Float64} = []
@@ -202,6 +223,12 @@ function hubbard_circ_fermionic_sites(topology, N_spinful_sites::Int, n_layers::
     return circ, thetas
 end
 
+"""
+    hubbard_circ_fermionic_sites_second_order_single_layer(topology, N_spinful_sites::Int, t::Float64, U::Float64, dt::Float64; return_mps_instructions=false, return_separated=false)
+
+Build one second-order (symmetric) Trotter layer of the Fermi-Hubbard time evolution ``e^{-i \\, dt \\, H}`` as a circuit of `MajoranaRotation`s: half-step spin-down and spin-up hoppings, a full repulsion step, then the up and down hoppings again in reversed order for the second half step.
+Same arguments and return values as `hubbard_circ_fermionic_sites_single_layer`; with `return_separated=true` the circuit is grouped into these five blocks.
+"""
 function hubbard_circ_fermionic_sites_second_order_single_layer(topology, N_spinful_sites::Int, t::Float64, U::Float64, dt::Float64; return_mps_instructions=false, return_separated=false)
     mps_instructions = []
     mps_thetas = []
@@ -328,6 +355,12 @@ function hubbard_circ_fermionic_sites_second_order_single_layer(topology, N_spin
 
 end
 
+"""
+    fermionic_hubbard_circ_fermionic_sites_second_order_single_layer(topology, N_spinful_sites::Int, t::Float64, U::Float64, dt::Float64; return_mps_instructions=false, return_separated=false)
+
+Variant of `hubbard_circ_fermionic_sites_second_order_single_layer` that groups the Majorana strings of each Hamiltonian term into `FermionicRotation` gates instead of individual `MajoranaRotation`s.
+Same arguments and return values.
+"""
 function fermionic_hubbard_circ_fermionic_sites_second_order_single_layer(topology, N_spinful_sites::Int, t::Float64, U::Float64, dt::Float64; return_mps_instructions=false, return_separated=false)
     mps_instructions = []
     mps_thetas = []
@@ -477,6 +510,12 @@ end
 
 
 
+"""
+    hubbard_circ_fermionic_sites_second_order(topology, N_spinful_sites::Int, n_layers::Int, t::Float64, U::Float64, T::Float64; return_mps_instructions=false)
+
+Build the second-order Trotter circuit for the Fermi-Hubbard time evolution ``e^{-i \\, T \\, H}`` by repeating `hubbard_circ_fermionic_sites_second_order_single_layer` with `dt = T / n_layers` for `n_layers` layers.
+Returns `(circuit, thetas)`, and additionally `(mps_instructions, mps_thetas)` if `return_mps_instructions=true`.
+"""
 function hubbard_circ_fermionic_sites_second_order(topology, N_spinful_sites::Int, n_layers::Int, t::Float64, U::Float64, T::Float64; return_mps_instructions=false)
     circ::Vector{MajoranaRotation} = []
     thetas::Vector{Float64} = []

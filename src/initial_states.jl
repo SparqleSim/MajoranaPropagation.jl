@@ -36,6 +36,13 @@ function FockState(n_sites::Int, up_occupied_sites_iter::AbstractVector, down_oc
     return FockState(n_sites, true, occupied_sites)
 end
 
+"""
+    FockState(n_sites::Integer, symb::Symbol, is_spinful::Bool; hole_positions=nothing, kwargs...)
+
+Create a Fock basis state from the named filling pattern `symb`.
+The only supported symbol is `:checkerboard`, an antiferromagnetic pattern: for spinful systems, alternating spin-up and spin-down fermions on a grid with `nx` sites per row (`nx = n_sites` if not given); for spinless systems, every odd site occupied.
+Sites listed in `hole_positions` are left empty.
+"""
 function FockState(n_sites::Integer, symb::Symbol, is_spinful::Bool; hole_positions=nothing, kwargs...)
     return FockState(n_sites, Val(symb), is_spinful; hole_positions=hole_positions, kwargs...)
 end
@@ -128,8 +135,9 @@ function fock_mask(msum::MajoranaSum)
 end
 
 """
-    overlapwithfock(msum::MajoranaSum, fock_state::FockState)
-Compute the overlap <fock_state|msum|fock_state> where fock_state is a `FockState` object.
+    overlapwithfock(msum::AbstractMajoranaSum, fock_state::FockState)
+
+Compute the expectation value ``\\langle F | msum | F \\rangle`` of the Majorana sum in the Fock basis state ``|F\\rangle`` given by `fock_state`.
 """
 function overlapwithfock(msum::AbstractMajoranaSum, fock_state::FockState)
     @assert is_spinful(msum) == fock_state.is_spinful "The MajoranaSum and the fock_state must both be spinful or both spinless."
@@ -144,7 +152,7 @@ end
 """
     overlapwithfock(msum::MajoranaSum{TT,CT}, fock_state_1::FockState, fock_state_2::FockState) where {TT<:Integer,CT}
 
-Evaluate the matrix element <fock_state_1|ms|fock_state_2> where fock_state_j are Fock basis states given as list of integers indicating which sites are occupied.
+Evaluate the matrix element ``\\langle F_1 | msum | F_2 \\rangle`` of the Majorana sum between the two Fock basis states given by `fock_state_1` and `fock_state_2`.
 """
 function overlapwithfock(msum::MajoranaSum{TT,CT}, fock_state_1::FockState, fock_state_2::FockState) where {TT<:Integer,CT}
     @assert is_spinful(msum) == fock_state_1.is_spinful == fock_state_2.is_spinful "The MajoranaSum and the fock_states must both be spinful or both spinless."
@@ -159,7 +167,9 @@ end
 
 """
     overlapwithfock(ms::TT, unpaired_mask::TT, fock_state::FockState) where {TT<:Integer}
-Compute the overlap <fock_state|ms|fock_state> where fock_state is a `FockState` object.
+
+Compute the expectation value ``\\langle F | ms | F \\rangle`` of a single Majorana string in the Fock basis state ``|F\\rangle`` given by `fock_state`.
+`unpaired_mask` is the mask created by `create_unpaired_mask`.
 """
 function overlapwithfock(ms::TT, unpaired_mask::TT, fock_state::FockState) where {TT<:Integer}
     if compute_unpaired(ms, unpaired_mask) > 0
@@ -171,9 +181,9 @@ function overlapwithfock(ms::TT, unpaired_mask::TT, fock_state::FockState) where
 end
 
 """
-    overlapwithfock(ms::TT, fock_state_1::FockState, fock_state_2::FockState) where {TT<:Integer}
+    overlapwithfock(ms::TT, fock_state_1::FockState, fock_state_2::FockState, n_fermions) where {TT<:Integer}
 
-Evaluate the matrix element <fock_state_1|ms|fock_state_2> where fock_state_j are Fock basis states given as list of integers indicating which sites are occupied.
+Evaluate the matrix element ``\\langle F_1 | ms | F_2 \\rangle`` of a single Majorana string between the two Fock basis states given by `fock_state_1` and `fock_state_2`.
 """
 function overlapwithfock(ms::TT, fock_state_1::FockState, fock_state_2::FockState, n_fermions) where {TT<:Integer}
     res = (1im)^omega_L_mult(ms)
@@ -201,16 +211,13 @@ function overlapwithfock(ms::TT, fock_state_1::FockState, fock_state_2::FockStat
     return res
 end
 
-""" 
-    overlapwithfock(ms::TT, sites_with_particle_superposition::Vector{FockState}, superposition_coefficients::Vector{<:Union{Real,Complex}}, n_fermions, unpaired_mask::TT) where {TT<:Integer}
-Compute the overlap <superposition|ms|superposition> where
-- ms is a Majorana string
-- superposition is given as a vector of Fock basis states `sites_with_particle_superposition`
-- superposition_coefficients are the coefficients of the superposition (assumed normalized)
-- n_fermions is the number of fermions in the system (used for computing the matrix element of ms between two different Fock states)
-- unpaired_mask is a mask used to check if ms has an overlap with Fock states (if compute_unpaired(ms, unpaired_mask) > 0, then the overlap is zero)
 """
+    overlapwithfock(ms::TT, sites_with_particle_superposition::Vector{<:FockState}, superposition_coefficients::Vector{<:Union{Real,Complex}}, n_fermions, unpaired_mask::TT) where {TT<:Integer}
 
+Compute the overlap ``\\langle \\psi | ms | \\psi \\rangle`` of a Majorana string with the superposition ``|\\psi\\rangle = \\sum_k c_k |F_k\\rangle`` of the Fock basis states `sites_with_particle_superposition` with coefficients `superposition_coefficients` (assumed normalized).
+`n_fermions` is the number of fermions in the system, used for computing the matrix elements of `ms` between two different Fock states.
+`unpaired_mask` is the mask created by `create_unpaired_mask`, used to detect strings with vanishing diagonal matrix elements.
+"""
 function overlapwithfock(ms::TT, sites_with_particle_superposition::Vector{<:FockState}, superposition_coefficients::Vector{<:Union{Real,Complex}}, n_fermions, unpaired_mask::TT) where {TT<:Integer}
     res = 0.
     for (fock_state, coeff) in zip(sites_with_particle_superposition, superposition_coefficients)
