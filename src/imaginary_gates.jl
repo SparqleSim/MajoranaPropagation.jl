@@ -72,9 +72,7 @@ function PropagationBase.applymergetruncate!(gate::ImaginaryFermionicRotation, p
         applytoall!(gate_ms, prop_cache, beta * coeff; kwargs...)
 
         # merge the auxiliary Majorana sum into the original one and empty the auxiliary one
-        # (for vector caches: the appended tail is gate ⊻ (ascending commuting terms), so the
-        # same XOR-sorted tail merge as in the real-time path applies)
-        _mergeafterapply!(prop_cache, gate_ms.ms_int; kwargs...)
+        merge!(prop_cache; kwargs...)
 
         # normalize coefficients to preserve state normalization
         if normalize_coeffs

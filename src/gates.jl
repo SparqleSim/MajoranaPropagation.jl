@@ -118,9 +118,7 @@ function PropagationBase.applymergetruncate!(gate::FermionicRotation, prop_cache
         applytoall!(gate_ms, prop_cache, theta * coeff * 2.0; kwargs...)
 
         # merge the auxiliary Majorana sum into the original one and empty the auxiliary one
-        # (for vector caches: the appended tail is merged into the sorted prefix tracked on
-        # the sum; the gate string lets it sort the tail without a comparison sort)
-        _mergeafterapply!(prop_cache, gate_ms.ms_int; kwargs...)
+        merge!(prop_cache; kwargs...)
 
         # truncate after each Majorana rotation 
         if truncate_after_each_majrot
@@ -133,17 +131,6 @@ function PropagationBase.applymergetruncate!(gate::FermionicRotation, prop_cache
 
     return prop_cache
 end
-
-# bare MajoranaRotation gates take the same gate-aware merge as the rotations inside a
-# FermionicRotation (the upstream generic applymergetruncate! would use the plain merge!,
-# discarding the gate string that lets vector caches skip the comparison sort)
-function PropagationBase.applymergetruncate!(gate::MajoranaRotation, prop_cache::AbstractMajoranaPropagationCache, theta; kwargs...)
-    applytoall!(gate, prop_cache, theta; kwargs...)
-    _mergeafterapply!(prop_cache, gate.ms_int; kwargs...)
-    truncate!(prop_cache; kwargs...)
-    return prop_cache
-end
-
 
 # ========== vector specializations ========== #
 
