@@ -40,7 +40,7 @@ end
     FockState(n_sites::Integer, symb::Symbol, is_spinful::Bool; hole_positions=nothing, kwargs...)
 
 Create a Fock basis state from the named filling pattern `symb`.
-The only supported symbol is `:checkerboard`, an antiferromagnetic pattern: for spinful systems, alternating spin-up and spin-down fermions on a grid with `nx` sites per row (`nx = n_sites` if not given); for spinless systems, every odd site occupied.
+The only supported symbol so far is `:checkerboard`, an antiferromagnetic pattern: for spinful systems, alternating spin-up and spin-down fermions on a grid with `nx` sites per row (`nx = n_sites` if not given); for spinless systems, every odd site occupied.
 Sites listed in `hole_positions` are left empty.
 """
 function FockState(n_sites::Integer, symb::Symbol, is_spinful::Bool; hole_positions=nothing, kwargs...)

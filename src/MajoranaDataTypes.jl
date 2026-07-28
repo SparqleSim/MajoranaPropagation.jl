@@ -100,7 +100,7 @@ end
 """
     MajoranaSum(::Type{CT}, n_sites::Integer, is_spinful::Bool) where {CT}
 
-Create a MajoranaSum with `n_sites` sites, spinful or spinless depending on `is_spinful`, and coefficient type `CT`.
+Create a MajoranaSum with `n_sites` sites, spinful or spinless, and coefficient type `CT`.
 """
 function MajoranaSum(::Type{CT}, n_sites::Integer, is_spinful::Bool) where {CT}
     if is_spinful
@@ -135,19 +135,19 @@ end
 import PauliPropagation.PropagationBase: add!, set!, delete!, empty!
 
 """
-    add!(ms::MajoranaSum{TT,CT}, symbol::Symbol, sites, coeff=1.) where {TT<:Integer,CT}
-    add!(ms::MajoranaSum{TT,CT}, ms2::MajoranaString{TT}, value::CT) where {TT<:Integer,CT}
+    add!(msum::MajoranaSum{TT,CT}, symbol::Symbol, sites, coeff=1.) where {TT<:Integer,CT}
+    add!(msum::MajoranaSum{TT,CT}, mstr::MajoranaString{TT}, value::CT) where {TT<:Integer,CT}
 
-Add a term to `ms` in-place: either the observable defined by `symbol` acting on `sites`, scaled by `coeff`, or the single Majorana string `ms2` with coefficient `value`.
+Add a term to `msum` in-place: either the observable defined by `symbol` acting on `sites`, scaled by `coeff`, or the single Majorana string `mstr` with coefficient `value`.
 See `MajoranaSum(n_sites::Integer, symb::Symbol, sites)` for the supported symbols.
 """
-function add!(ms::MajoranaSum{TT,CT}, symbol::Symbol, sites, coeff=1.) where {TT<:Integer,CT}
-    add!(ms, coeff * MajoranaSum(nsites(ms), symbol, sites))
-    return ms
+function add!(msum::MajoranaSum{TT,CT}, symbol::Symbol, sites, coeff=1.) where {TT<:Integer,CT}
+    add!(msum, coeff * MajoranaSum(nsites(msum), symbol, sites))
+    return msum
 end
 
-function add!(ms::MajoranaSum{TT,CT}, ms2::MajoranaString{TT}, value::CT) where {TT<:Integer,CT}
-    add!(ms, ms2.gammas, value)
+function add!(msum::MajoranaSum{TT,CT}, mstr::MajoranaString{TT}, value::CT) where {TT<:Integer,CT}
+    add!(msum, mstr.gammas, value)
 end
 
 """

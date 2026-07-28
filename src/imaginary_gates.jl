@@ -1,8 +1,3 @@
-#using PauliPropagation.PropagationBase
-#import PauliPropagation.PropagationBase: mainsum, auxsum
-#using MajoranaPropagation: AbstractMajoranaPropagationCache, VectorMajoranaPropagationCache, AbstractMajoranaSum, majoranas
-#import AcceleratedKernels
-#const AK = AcceleratedKernels
 
 """
     ImaginaryMajoranaRotation(ms::MajoranaString{TT}) where {TT<:Integer}

@@ -12,7 +12,6 @@ nfermions(prop_cache::AbstractMajoranaPropagationCache) = nfermions(mainsum(prop
     MajoranaPropagationCache(msum::MS) where {MS<:AbstractMajoranaSum}
 
 A cache structure used during propagation, holding the main Majorana sum `main_msum` and an auxiliary sum `aux_msum` into which newly created Majorana strings are written before being merged.
-Created from the Majorana sum `msum` to be propagated.
 """
 mutable struct MajoranaPropagationCache{MS<:AbstractMajoranaSum} <: AbstractMajoranaPropagationCache
     main_msum::MS

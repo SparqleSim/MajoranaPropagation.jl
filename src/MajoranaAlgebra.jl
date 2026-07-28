@@ -64,8 +64,6 @@ end
     omega_mult(gammas1::TT, gammas2::TT) where {TT<:Integer}
 
 Compute the commutation parity ``\\omega(ms_1, ms_2) = v_1^T \\Omega \\, v_2 \\bmod 2`` of two Majorana strings, with ``\\Omega`` the all-ones matrix with zero diagonal.
-The strings satisfy ``ms_1 \\, ms_2 = (-1)^{\\omega(ms_1, ms_2)} \\, ms_2 \\, ms_1``, so `0` means they commute and `1` that they anticommute.
-The one-argument form `omega_mult(ms::MajoranaString)` is equivalent to the self parity `omega_L_mult(ms)`.
 """
 function omega_mult(ms1::MajoranaString, ms2::MajoranaString)
     return omega_mult(ms1.gammas, ms2.gammas)
@@ -89,7 +87,6 @@ end
     +(ms1::MajoranaString, ms2::MajoranaString)
 
 Compose two Majorana strings, returning the string that contains the Majorana operators present in exactly one of the two (bitwise XOR).
-This is the string part of the product `ms_mult(ms1, ms2)`, without the prefactor.
 """
 function Base.:(+)(ms1::MajoranaString, ms2::MajoranaString)
     _checknfermions(ms1, ms2)
@@ -209,8 +206,8 @@ end
 """
     commutator(msum1::MajoranaSum{TT,CT1}, msum2::MajoranaSum{TT,CT2}) where {TT<:Integer,CT1,CT2}
 
-Compute half the commutator ``(msum_1 \\, msum_2 - msum_2 \\, msum_1) / 2`` of two MajoranaSums.
-Note the factor ``1/2``; the result is returned as a `MajoranaSum` with `ComplexF64` coefficients.
+Compute half the commutator ``(msum_1 \\, msum_2 - msum_2 \\, msum_1)`` of two MajoranaSums.
+The result is returned as a `MajoranaSum` with `ComplexF64` coefficients.
 """
 function commutator(msum1::MajoranaSum{TT,CT1}, msum2::MajoranaSum{TT,CT2}) where {TT<:Integer,CT1,CT2}
     res = MajoranaSum(ComplexF64, nsites(msum1), is_spinful(msum1))
@@ -220,7 +217,7 @@ function commutator(msum1::MajoranaSum{TT,CT1}, msum2::MajoranaSum{TT,CT2}) wher
                 continue
             end
             prefactor, ms3 = ms_mult(ms1, ms2, nfermions(msum1))
-            add!(res, ms3, prefactor * coeff1 * coeff2)
+            add!(res, ms3, 2. * prefactor * coeff1 * coeff2)
         end
     end
     return res
@@ -229,8 +226,7 @@ end
 """
     scalarproduct(msum1::AbstractMajoranaSum, msum2::AbstractMajoranaSum)
 
-Compute the Hilbert-Schmidt scalar product ``\\mathrm{Tr}[\\hat{A}\\hat{B}] / 2^n`` of two MajoranaSums ``\\hat{A}, \\hat{B}`` on ``n`` fermions, i.e. the sum over matching Majorana strings of the products of their coefficients.
-The coefficients are multiplied without complex conjugation.
+Compute the Hilbert-Schmidt scalar product ``\\mathrm{Tr}[\\hat{A}\\hat{B}] / 2^n`` of two MajoranaSums ``\\hat{A}, \\hat{B}`` on ``n`` fermions.
 """
 function scalarproduct(msum1::AbstractMajoranaSum, msum2::AbstractMajoranaSum)
     res = zero(eltype(coefficients(msum1)))

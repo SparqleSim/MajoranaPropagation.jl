@@ -10,8 +10,6 @@ const AK = AcceleratedKernels
     VectorMajoranaSum(::Type{CT}, nsites::Int, is_spinful::Bool) where {CT}
 
 A struct to represent a linear combination of Majorana strings, storing the integer representations and the coefficients in two aligned vectors `terms` and `coeffs`.
-Functionally equivalent to the dictionary-based `MajoranaSum`, but suited for vectorized and GPU propagation.
-The initializers above create an empty spinless (or spinful) sum with coefficient type `CT` (`Float64` if omitted).
 """
 struct VectorMajoranaSum{TV,CV} <: AbstractMajoranaSum
     nsites::Int

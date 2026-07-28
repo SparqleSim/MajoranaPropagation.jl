@@ -17,7 +17,6 @@ end
 
 Compute the number of unpaired Majorana operators of the Majorana string `res`, i.e. the number of fermionic modes on which exactly one of the two Majorana operators is present.
 `mask` is the bit mask created by `create_unpaired_mask`.
-Majorana strings with unpaired operators have vanishing expectation value in any Fock basis state.
 """
 function compute_unpaired(res::TT, mask::TT) where {TT<:Integer}
     number_unpaired = res ⊻ (TT(2) * res)
