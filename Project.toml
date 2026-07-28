@@ -15,7 +15,7 @@ AcceleratedKernels = "0.4.3"
 BitIntegers = "0.3.5"
 Bits = "0.2.0"
 LinearAlgebra = "1.11.0"
-PauliPropagation = "0.7.2"
+PauliPropagation = "0.8.0"
 julia = "1.10"
 
 [extras]
