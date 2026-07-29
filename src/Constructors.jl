@@ -7,33 +7,35 @@ function order_sites(site_indices)
     return site_indices
 end
 
-# TODO: list all supported symbols in the docstring below
 # higher-level constructor for when passing symbols
 # they wrap Symbol into Val for dispatch
-""" 
-    MajoranaSum(n_sites::Integer, symb::Symbol, sites::Integer)
+"""
     MajoranaSum(n_sites::Integer, symb::Symbol, sites)
 
-Returns a `MajoranaSum` corresponding to the observable defined by the symbol `symb` acting on one `site` or multiple `sites`.
-Multiple sites can be passed as a vector or any iterable collection of integers.
-The supported symbols are:
-- Spinless operators 
-    - `:n`: number operator on one given site
-    - `:hop`: hopping operator between two given sites
-    - `:nn`: number-number operator between the two given sites
-    - `:pair`: pair creation operator between the two given sites
+Return a `MajoranaSum` corresponding to the observable defined by the symbol `symb` acting on one site or multiple `sites` (a single integer, or any iterable of integers).
+For spinless symbols the first argument counts the fermions, for spinful symbols it counts the (two-fermion) sites.
+Two-site operators are defined with the site indices sorted as ``i < j``, except for `:hopupdn` (see below).
+The fermionic annihilation and creation operators on site ``i`` are denoted ``f_i, f_i^\\dagger``, with ``n_i = f_i^\\dagger f_i``.
 
-- Spinful operators:
-    - `:nup`: number operator for spin-up fermion on the given site
-    - `:ndn`: number operator for spin-down fermion on the given site
-    - `:nupndn`: number operator for undetermined spin fermion on the given site
-    - `:hopup`: hopping operator for spin-up fermion between the two given sites
-    - `:hopdn`: hopping operator for spin-down fermion between the two given sites
-    - `:hole`: hole operator on the given site
-    - `:pairup`: pair creation operator for spin-up fermions between the two given sites
-    - `:pairdn`: pair creation operator for spin-down fermions between the two given
+Spinless operators:
+- `:n`: number operator ``n_i`` on the given site
+- `:hop`: hopping operator ``f_i^\\dagger f_j + f_j^\\dagger f_i`` between the two given sites
+- `:nn`: density-density operator ``n_i n_j`` between the two given sites
+- `:pair`: pairing operator ``f_i^\\dagger f_j^\\dagger + f_j f_i`` between the two given sites
+- `:f`: annihilation operator ``f_i`` on the given site (complex coefficients)
+- `:fdag`: creation operator ``f_i^\\dagger`` on the given site (complex coefficients)
+
+Spinful operators:
+- `:nup`, `:ndn`: number operator ``n_{i\\uparrow}`` / ``n_{i\\downarrow}`` on the given site
+- `:nupndn`: double-occupancy operator ``n_{i\\uparrow} n_{i\\downarrow}`` on the given site
+- `:hole`: hole operator ``(1 - n_{i\\uparrow})(1 - n_{i\\downarrow})`` on the given site
+- `:hopup`, `:hopdn`: hopping operator ``f_{i\\uparrow}^\\dagger f_{j\\uparrow} + f_{j\\uparrow}^\\dagger f_{i\\uparrow}`` (resp. spin down) between the two given sites
+- `:hop_on_site`: on-site spin-flip operator ``f_{i\\uparrow}^\\dagger f_{i\\downarrow} + f_{i\\downarrow}^\\dagger f_{i\\uparrow}`` on the given site
+- `:hopupdn`: spin-mixing hopping ``f_{i\\uparrow}^\\dagger f_{j\\downarrow} + f_{j\\downarrow}^\\dagger f_{i\\uparrow}``, where the first given site carries the spin-up and the second the spin-down fermion (the two sites are not sorted)
+- `:pairup`, `:pairdn`: pairing operator ``f_{i\\uparrow}^\\dagger f_{j\\uparrow}^\\dagger + f_{j\\uparrow} f_{i\\uparrow}`` (resp. spin down) between the two given sites
+- `:fup`, `:fupdag`, `:fdn`, `:fdndag`: annihilation / creation operators ``f_{i\\uparrow}``, ``f_{i\\uparrow}^\\dagger``, ``f_{i\\downarrow}``, ``f_{i\\downarrow}^\\dagger`` on the given site (complex coefficients)
+- `:Sz`: spin operator ``(n_{i\\uparrow} - n_{i\\downarrow})/2`` on the given site
 """
-
 function MajoranaSum(n_sites::Integer, symb::Symbol, sites)
     return MajoranaSum(n_sites, Val(symb), sites)
 end

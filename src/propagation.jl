@@ -2,15 +2,15 @@
     propagate(circuit, msum::AbstractMajoranaSum, thetas=nothing; min_abs_coeff=1e-10, max_weight=Inf, max_unpaired=Inf,  unpaired_mask=nothing, max_freq=Inf, max_sins=Inf, customtruncfunc=nothing, heisenberg=true, kwargs...)
     propagate!(circuit, msum::AbstractMajoranaSum, thetas=nothing; min_abs_coeff=1e-10, max_weight=Inf, max_unpaired=Inf,  unpaired_mask=nothing, max_freq=Inf, max_sins=Inf, customtruncfunc=nothing, heisenberg=true, kwargs...)
 
-Propagate a Majorana sum `msum` through the circuit `circ`. 
-By default this is done in the Heisenberg picture, as indicated by `heisenberg=true`. 
+Propagate a Majorana sum `msum` through the circuit `circuit`.
+By default this is done in the Heisenberg picture, as indicated by `heisenberg=true`.
 This means that the circuit is applied to the Majorana sum in reverse order, and the action of each gate is its conjugate action.
 In `propagate()` the Majorana sum `msum` is deepcopied and passed into the in-place propagation function `propagate!()`.
-Parameters for the parametrized gates in `circ` are given by `thetas`, and need to be passed as if the circuit was applied as written in the Schrödinger picture.
+Parameters for the parametrized gates in `circuit` are given by `thetas`, and need to be passed as if the circuit was applied as written in the Schrödinger picture.
 If thetas are not passed, the circuit must contain only non-parametrized `StaticGates`.
 Default truncations are `min_abs_coeff`, `max_weight`, `max_freq`, and `max_sins`.
 `max_freq`, and `max_sins` will lead to automatic conversion if the coefficients are not already wrapped in suitable `PathProperties` objects.
-A custom truncation function can be passed as `customtruncfunc` with the signature customtruncfunc(pstr::PauliStringType, coefficient)::Bool.
+A custom truncation function can be passed as `customtruncfunc` with the signature `customtruncfunc(mstr, coefficient)::Bool`, where `mstr` is the integer representation of a Majorana string.
 Further `kwargs` are passed to the lower-level functions `applymergetruncate!`, `applytoall!`, and `apply`.
 """
 function PropagationBase.propagate(circuit, msum::AbstractMajoranaSum, thetas=nothing; max_weight=Inf, min_abs_coeff=1e-10, max_freq=Inf, max_sins=Inf, customtruncfunc=nothing, heisenberg=true, kwargs...)
@@ -35,7 +35,7 @@ end
 """
     propagate!(circuit, prop_cache::AbstractMajoranaPropagationCache, thetas=nothing; min_abs_coeff=1e-10, max_weight=Inf, max_freq=Inf, max_sins=Inf, customtruncfunc=nothing, heisenberg=true, kwargs...)
 
-In-place propagation of an `AbstractMajoranaPropagationCache` through the circuit `circ` in the Heisenberg picture.
+In-place propagation of an `AbstractMajoranaPropagationCache` through the circuit `circuit`, by default in the Heisenberg picture.
 """
 function PropagationBase.propagate!(circuit, prop_cache::AbstractMajoranaPropagationCache, thetas=nothing; max_weight=Inf, min_abs_coeff=1e-10, max_freq=Inf, max_sins=Inf, customtruncfunc=nothing, heisenberg=true, kwargs...)
 
