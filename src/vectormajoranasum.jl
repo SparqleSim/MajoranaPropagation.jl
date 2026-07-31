@@ -5,7 +5,13 @@ const AK = AcceleratedKernels
 
 const _MIN_ELEMS_PER_TASK = PropagationBase._MIN_ELEMS_PER_TASK
 
+"""
+    VectorMajoranaSum(nsites::Int)
+    VectorMajoranaSum(nsites::Int, is_spinful::Bool)
+    VectorMajoranaSum(::Type{CT}, nsites::Int, is_spinful::Bool) where {CT}
 
+A struct to represent a linear combination of Majorana strings, storing the integer representations and the coefficients in two aligned vectors `terms` and `coeffs`.
+"""
 mutable struct VectorMajoranaSum{TV,CV} <: AbstractMajoranaSum
     nsites::Int
     is_spinful::Bool
@@ -28,6 +34,11 @@ VectorMajoranaSum(nsites::Int) = VectorMajoranaSum(Float64, nsites, false)
 VectorMajoranaSum(nsites::Int, is_spinful::Bool) = VectorMajoranaSum(Float64, nsites, is_spinful)
 VectorMajoranaSum(::Type{CT}, nsites::Int, is_spinful::Bool) where {CT} = VectorMajoranaSum(nsites, is_spinful, getinttype(nsites)[], CT[])
 
+"""
+    storage(vmsum::VectorMajoranaSum)
+
+Get the tuple `(terms, coeffs)` of the underlying vectors of `vmsum`.
+"""
 PropagationBase.storage(vmsum::VectorMajoranaSum) = (vmsum.terms, vmsum.coeffs)
 
 PropagationBase.sortedprefix(vmsum::VectorMajoranaSum) = vmsum._terms_sorted
@@ -39,19 +50,30 @@ majoranatype(vmsum::VectorMajoranaSum{TV,CV}) where {TV,CV} = eltype(TV)
 """
     nsites(vmsum::VectorMajoranaSum)
 
-Get the number of qubits that the `VectorMajoranaSum` is defined on.
+Get the number of sites that the `VectorMajoranaSum` is defined on.
 """
 PropagationBase.nsites(vmsum::VectorMajoranaSum) = vmsum.nsites
 
-""" 
+"""
     is_spinful(vmsum::VectorMajoranaSum)
+
 Check if the `VectorMajoranaSum` is defined for spinful fermions.
 """
 is_spinful(vmsum::VectorMajoranaSum) = vmsum.is_spinful
 
 
+"""
+    similar(vmsum::VectorMajoranaSum)
+
+Create a `VectorMajoranaSum` of the same shape and types as `vmsum`, with uninitialized terms and coefficients.
+"""
 Base.similar(vmsum::VectorMajoranaSum) = VectorMajoranaSum(nsites(vmsum), is_spinful(vmsum), Base.similar(vmsum.terms), Base.similar(vmsum.coeffs))
 
+"""
+    resize!(vmsum::VectorMajoranaSum, n_new::Int)
+
+Resize the terms and coefficients vectors of `vmsum` to length `n_new`.
+"""
 function Base.resize!(vmsum::VectorMajoranaSum, n_new::Int)
     resize!(vmsum.terms, n_new)
     resize!(vmsum.coeffs, n_new)

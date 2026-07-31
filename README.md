@@ -1,4 +1,7 @@
 # MajoranaPropagation.jl
+
+[![Dev Docs](https://img.shields.io/badge/docs-dev-blue.svg)](https://SparqleSim.github.io/MajoranaPropagation.jl/dev/)
+
 A Julia library for Majorana propagation simulation of fermionic quantum circuits and quantum systems.
 Majorana propagation works in the Heisenberg picture, backpropagating fermionic observables $\hat O$ through the fermionic circuit $\mathcal C$.
 It is then possible to compute expectation values with initial states $\rho$ as $\mathrm{Tr}(\rho~\mathcal C^\dagger \hat O \mathcal C)$, or to evaluate inner products between observables, $\mathrm{Tr}(\hat O_1~\mathcal C^\dagger \hat O_2 \mathcal C)$.
