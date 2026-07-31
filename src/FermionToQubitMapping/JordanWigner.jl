@@ -2,7 +2,6 @@
 using MajoranaPropagation
 using PauliPropagation
 
-
 function JordanWigner(msum::MajoranaSum{TT,CT}) where {TT<:Integer,CT}
     @assert msum.is_spinful == false
     n_fermions = MajoranaPropagation.nfermions(msum)
@@ -44,7 +43,7 @@ function JordanWigner(mstr::TT, n_sites::Int, is_spinful::Bool) where {TT<:Integ
     return mstr_jw, phase
 end
 
-function make_gate(Pj, nq)
+function _make_gate(Pj, nq)
     Pj_paulis = inttosymbol(Pj, nq)
     symbs = []
     indices = []
@@ -57,7 +56,7 @@ function make_gate(Pj, nq)
     return PauliRotation(symbs, indices)
 end
 
-function JordanWigner(circ::Vector{FermionicRotation}, thetas::Vector{CT}, n_sites, is_spinful) where {CT}
+function JordanWigner(n_sites, is_spinful, circ::Vector{FermionicRotation}, thetas::Vector{CT}) where {CT}
     pp_circ = PauliRotation[]
     pp_thetas = CT[]
     for (gate, theta) in zip(circ, thetas)
@@ -65,7 +64,7 @@ function JordanWigner(circ::Vector{FermionicRotation}, thetas::Vector{CT}, n_sit
         for (ms_rotation, coeff) in zip(ms_rotations, coeffs)
             # TODO: buggy if spinful, FIX asap
             ms_jw, phase = JordanWigner(ms_rotation.ms_int, n_sites, is_spinful)
-            push!(pp_circ, make_gate(ms_jw, n_sites))
+            push!(pp_circ, _make_gate(ms_jw, n_sites))
             # factor 2 because `FermionicRotation` applies each `MajoranaRotation` with angle 2 * coeff * theta,
             # matching `PauliRotation`'s exp(-i * theta/2 * pstr) convention
             push!(pp_thetas, 2.0 * coeff * theta * phase)
@@ -74,3 +73,26 @@ function JordanWigner(circ::Vector{FermionicRotation}, thetas::Vector{CT}, n_sit
     return pp_circ, pp_thetas
 end
 
+# PauliPropagation >= 0.8 defines `paulipropagation2yao` itself; with older versions
+# it only exists in YaoBlocks' PauliPropagationExt, so resolve it at call time
+function _paulipropagation2yao(args...)
+    if isdefined(PauliPropagation, :paulipropagation2yao)
+        return PauliPropagation.paulipropagation2yao(args...)
+    end
+    for (id, mod) in Base.loaded_modules
+        if id.name == "YaoBlocks" && isdefined(mod, :paulipropagation2yao)
+            return mod.paulipropagation2yao(args...)
+        end
+    end
+    error("`paulipropagation2yao` not found. Load Yao (`using Yao`) or use PauliPropagation >= 0.8.")
+end
+
+function majoranapropagation2yao(n_sites, is_spinful, circ, thetas)
+    nqubits = is_spinful ? 2 * n_sites : n_sites
+    pp_circ, pp_thetas = JordanWigner(n_sites, is_spinful, circ, thetas)
+    return _paulipropagation2yao(nqubits, pp_circ, pp_thetas)
+end
+
+function majoranapropagation2yao(msum::MajoranaSum)
+    return _paulipropagation2yao(JordanWigner(msum))
+end

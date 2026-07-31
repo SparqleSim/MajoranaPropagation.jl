@@ -5,6 +5,7 @@ using PauliPropagation
 
 include("./JordanWigner.jl")
 export 
-    JordanWigner
+    JordanWigner,
+    majoranapropagation2yao
 
 end

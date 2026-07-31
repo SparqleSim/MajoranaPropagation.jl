@@ -4,7 +4,6 @@ using Yao
 using MajoranaPropagation.FermionToQubitMappings
 using Test
 
-include("yao_helpers/fermionicgates_to_yao.jl")
 @testset "MP vs. Jordan-Wigner PP vs. Jordan-Wigner statevector" begin
     # spinless tests 
     @testset "spinless" begin
@@ -35,8 +34,8 @@ include("yao_helpers/fermionicgates_to_yao.jl")
                 push!(thetas, h)
             end
 
-            pp_circ, pp_thetas = JordanWigner(circ, thetas, n_fermions, is_spinful)
-            yao_circ = circ_to_yao(n_fermions, circ, thetas)
+            pp_circ, pp_thetas = JordanWigner(n_fermions, is_spinful, circ, thetas)
+            yao_circ = majoranapropagation2yao(n_fermions, is_spinful, circ, thetas)
 
             mp_res = overlapwithfock(msum, fock_state)
             pp_res = overlapwithcomputational(msum_pp, occupied_sites)
@@ -94,8 +93,8 @@ include("yao_helpers/fermionicgates_to_yao.jl")
                 push!(thetas, U)
             end
 
-            pp_circ, pp_thetas = JordanWigner(circ, thetas, n_fermions, is_spinful)
-            yao_circ = circ_to_yao(n_fermions, circ, thetas)
+            pp_circ, pp_thetas = JordanWigner(n_fermions, is_spinful, circ, thetas)
+            yao_circ = majoranapropagation2yao(n_fermions, is_spinful, circ, thetas)
 
             n_iters = 5
             for _ in 1:n_iters
