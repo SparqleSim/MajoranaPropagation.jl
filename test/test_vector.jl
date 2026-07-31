@@ -5,8 +5,6 @@ using Test
 using Random
 Random.seed!(42)
 
-using ProgressMeter
-
 function random_circuit(nfermions, n_gates, n_steps, maxW_gates, msum_terms, min_abs_coeffs)
     TT = getinttype(nfermions)
     max_val = MajoranaString(nfermions, [2 * nfermions]).gammas
@@ -40,7 +38,7 @@ function random_circuit(nfermions, n_gates, n_steps, maxW_gates, msum_terms, min
         obs_vec = VectorMajoranaSum(deepcopy(msum))
         truncate!(obs; min_abs_coeff)
         truncate!(obs_vec; min_abs_coeff)
-        @showprogress for _ = 1:n_steps
+        for _ = 1:n_steps
             @time propagate!(circ, obs, thetas; min_abs_coeff)
             @time propagate!(circ, obs_vec, thetas; min_abs_coeff)
             @test length(obs) == length(obs_vec)

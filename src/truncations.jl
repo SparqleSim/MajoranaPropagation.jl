@@ -1,11 +1,18 @@
-function create_unpaired_mask(n_fermions::Int)
-    TT = getinttype(n_fermions)
-    mask::TT = 0
-    for k = 1:2:(2*n_fermions)
-        mask |= TT(1) << k
+# mask with every odd bit set (bits 1, 3, ..., 2*n_fermions - 1), built by log-doubling;
+# pass TT explicitly for a type-stable result (getinttype(n) is only known at runtime)
+function create_unpaired_mask(::Type{TT}, n_fermions::Integer) where {TT<:Integer}
+    Nbits = 2 * n_fermions
+    mask = TT(2)
+    s = 2
+    while s < Nbits
+        mask |= mask << s
+        s <<= 1
     end
-    return mask
+    full_mask = (TT(1) << Nbits) - TT(1)
+    return mask & full_mask
 end
+
+create_unpaired_mask(n_fermions::Int) = create_unpaired_mask(getinttype(n_fermions), n_fermions)
 
 function compute_unpaired(res::TT, mask::TT) where {TT<:Integer}
     number_unpaired = res ⊻ (TT(2) * res)
@@ -55,8 +62,8 @@ function PropagationBase.truncate!(
     customtruncfunc=nothing,
     kwargs...
 )
-    if isnothing(unpaired_mask)
-        unpaired_mask = create_unpaired_mask(nfermions(mainsum(prop_cache)))
+    if isnothing(unpaired_mask) && max_unpaired < Inf
+        unpaired_mask = create_unpaired_mask(majoranatype(prop_cache), nfermions(prop_cache))
     end
     function truncfunc(mstr, coeff)
         # slight customization of the truncation function 
@@ -64,13 +71,13 @@ function PropagationBase.truncate!(
         is_truncated = false
         if PauliPropagation.truncatemincoeff(coeff, min_abs_coeff)
             is_truncated = true
-        elseif truncateunpaired(mstr, max_unpaired, unpaired_mask)
+        elseif max_unpaired < Inf && truncateunpaired(mstr, max_unpaired, unpaired_mask)
             is_truncated = true
-        elseif truncatemajoranaweight(mstr, max_weight)
+        elseif max_weight < Inf && truncatemajoranaweight(mstr, max_weight)
             is_truncated = true
-        elseif PauliPropagation.truncatefrequency(coeff, max_freq)
+        elseif max_freq < Inf && PauliPropagation.truncatefrequency(coeff, max_freq)
             is_truncated = true
-        elseif PauliPropagation.truncatesins(coeff, max_sins)
+        elseif max_sins < Inf && PauliPropagation.truncatesins(coeff, max_sins)
             is_truncated = true
         elseif !isnothing(customtruncfunc) && customtruncfunc(mstr, coeff)
             is_truncated = true
@@ -91,8 +98,8 @@ function PropagationBase.truncate!(
     customtruncfunc=nothing,
     kwargs...
 )
-    if isnothing(unpaired_mask)
-        unpaired_mask = create_unpaired_mask(nfermions(msum))
+    if isnothing(unpaired_mask) && max_unpaired < Inf
+        unpaired_mask = create_unpaired_mask(majoranatype(msum), nfermions(msum))
     end
     function truncfunc(mstr, coeff)
         # slight customization of the truncation function 
@@ -100,13 +107,13 @@ function PropagationBase.truncate!(
         is_truncated = false
         if PauliPropagation.truncatemincoeff(coeff, min_abs_coeff)
             is_truncated = true
-        elseif truncateunpaired(mstr, max_unpaired, unpaired_mask)
+        elseif max_unpaired < Inf && truncateunpaired(mstr, max_unpaired, unpaired_mask)
             is_truncated = true
-        elseif truncatemajoranaweight(mstr, max_weight)
+        elseif max_weight < Inf && truncatemajoranaweight(mstr, max_weight)
             is_truncated = true
-        elseif PauliPropagation.truncatefrequency(coeff, max_freq)
+        elseif max_freq < Inf && PauliPropagation.truncatefrequency(coeff, max_freq)
             is_truncated = true
-        elseif PauliPropagation.truncatesins(coeff, max_sins)
+        elseif max_sins < Inf && PauliPropagation.truncatesins(coeff, max_sins)
             is_truncated = true
         elseif !isnothing(customtruncfunc) && customtruncfunc(mstr, coeff)
             is_truncated = true

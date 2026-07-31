@@ -1,47 +1,38 @@
-function compute_parity_bits_and_shift(u::TT, Nbits::Int) where {TT<:Integer}
 
-    # If Nbits=1 there is no parity
+function compute_parity_bits_and_shift(u::TT, Nbits::Int) where {TT<:Integer}
     if Nbits <= 1
         return TT(0)
     end
 
-    # TODO: these masks can be precomputed for efficiency
-
-    # mask for all active bits
     full_mask = (TT(1) << Nbits) - TT(1)
+    half_mask = full_mask >> 1
 
-    # mask for Nbits - 1 bits.
-    mask = (full_mask >> 1)
+    p = u & half_mask
 
-    # crop last bit
-    p = u & mask
-
-    # this is a parallel prefix xor operation
-    # runs in log2(Nbits) steps
     s = 1
     while s < Nbits
         p ⊻= (p << s)
         s <<= 1
     end
 
-    # shift necessary for consistency with site convention
     p = p << 1
-
-    # mask all bits
     return p & full_mask
 end
 
 function omega_L_mult(ms1::MajoranaString, ms2::MajoranaString)
-    return omega_L_mult(ms1.gammas, ms2.gammas, 2 * ms1.nfermions)
+    return omega_L_mult_right_string_parity_shifted(ms1.gammas, compute_parity_bits_and_shift(ms2.gammas, 2 * ms1.nfermions))
 end
 
 function omega_L_mult(ms1::TT, ms2::TT, Nbits) where {TT<:Integer}
-    return mod(Bits.weight(ms1 & compute_parity_bits_and_shift(ms2, Nbits)), 2)
+    return omega_L_mult_right_string_parity_shifted(ms1, compute_parity_bits_and_shift(ms2, Nbits))
+end
+
+function omega_L_mult_right_string_parity_shifted(ms1::TT, ms2_ps::TT) where {TT<:Integer}
+    return mod(get_weight(ms1 & ms2_ps), 2)
 end
 
 function omega_L_mult(ms::TT) where {TT<:Integer}
-    wms = get_weight(ms)
-    return mod((wms^2 - wms) / 2, 2)
+    return (get_weight(ms) >> 1) & 1
 end
 
 function omega_L_mult(ms::MajoranaString)
@@ -130,6 +121,56 @@ function ms_mult(ms1::TT, ms2::TT, n_fermions::Integer) where {TT<:Integer}
         return 1im * prefactor, result
     end
     return prefactor, result
+end
+
+function majoranarotationproduct(term_ms::TT, gate_ms::TT, gate_ms_ps::TT) where {TT<:Integer}
+    new_term = gate_ms ⊻ term_ms
+    omega_l_gate = omega_L_mult(gate_ms)
+    omega_l_term = omega_L_mult(term_ms)
+    omega_term_gate = omega_mult(term_ms, gate_ms)
+    omega_l_term_gate = omega_L_mult_right_string_parity_shifted(term_ms, gate_ms_ps)
+    fprefactor_precomputed = omega_l_gate * omega_l_term + omega_term_gate * (omega_l_gate + omega_l_term + 1)
+    exp = omega_l_term_gate + fprefactor_precomputed
+    sign = iseven(exp) ? 1 : -1
+    return new_term, sign
+end
+
+"""
+    _commutes_evengate(term_ms, gate_ms)
+
+Commutation check specialized to even-weight `gate_ms`: the weight product in `omega_mult` is then
+even for any term, so commutation reduces to an even popcount of the overlap.
+"""
+@inline function _commutes_evengate(term_ms::TT, gate_ms::TT) where {TT<:Integer}
+    return iseven(count_ones(term_ms & gate_ms))
+end
+
+"""
+    _rotationproduct_evengate(term_ms, gate_ms, gate_ms_ps, omega_l_gate)
+
+`majoranarotationproduct` specialized to even-weight `gate_ms` and anticommuting `term_ms`
+"""
+@inline function _rotationproduct_evengate(term_ms::TT, gate_ms::TT, gate_ms_ps::TT, omega_l_gate::Int) where {TT<:Integer}
+    new_term = gate_ms ⊻ term_ms
+    omega_l_term = (count_ones(term_ms) >> 1) & 1
+    omega_l_term_gate = count_ones(term_ms & gate_ms_ps) & 1
+    exp = omega_l_term_gate + omega_l_gate * omega_l_term + omega_l_gate + omega_l_term + 1
+    sign = iseven(exp) ? 1 : -1
+    return new_term, sign
+end
+
+"""
+    _rotationproduct_evengate_commuting(term_ms, gate_ms, gate_ms_ps, omega_l_gate)
+
+Sign and result of the product `gate_ms * term_ms` specialized to even-weight `gate_ms` and commuting `term_ms` (the imaginary-time splitting branch)
+"""
+@inline function _rotationproduct_evengate_commuting(term_ms::TT, gate_ms::TT, gate_ms_ps::TT, omega_l_gate::Int) where {TT<:Integer}
+    new_term = gate_ms ⊻ term_ms
+    omega_l_term = (count_ones(term_ms) >> 1) & 1
+    omega_l_term_gate = count_ones(term_ms & gate_ms_ps) & 1
+    exp = omega_l_term_gate + omega_l_gate * omega_l_term
+    sign = iseven(exp) ? 1 : -1
+    return new_term, sign
 end
 
 function commutes(ms1::MajoranaString, ms2::MajoranaString)
