@@ -1,7 +1,9 @@
 """
     create_unpaired_mask(n_fermions::Int)
+    create_unpaired_mask(::Type{TT}, n_fermions::Integer) where {TT<:Integer}
 
 Create the bit mask for a system of `n_fermions` fermions to be used in `compute_unpaired`.
+Pass the integer type `TT` explicitly for a type-stable result (`getinttype(n_fermions)` is only known at runtime).
 """
 function create_unpaired_mask(::Type{TT}, n_fermions::Integer) where {TT<:Integer}
     Nbits = 2 * n_fermions

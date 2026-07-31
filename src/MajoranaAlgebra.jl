@@ -169,6 +169,12 @@ function ms_mult(ms1::TT, ms2::TT, n_fermions::Integer) where {TT<:Integer}
 end
 
 
+"""
+    majoranarotationproduct(term_ms::TT, gate_ms::TT, gate_ms_ps::TT) where {TT<:Integer}
+
+Compute the anticommuting branch of the Majorana rotation splitting rule: returns `(new_term, sign)` with `new_term = gate_ms ⊻ term_ms` and `sign = ±1` such that ``-i \\hat{M}_{term} \\hat{M}_{gate} = \\mathrm{sign} \\cdot \\hat{M}_{new}`` for anticommuting Majorana strings.
+`gate_ms_ps` is the precomputed `compute_parity_bits_and_shift` of `gate_ms`.
+"""
 function majoranarotationproduct(term_ms::TT, gate_ms::TT, gate_ms_ps::TT) where {TT<:Integer}
     new_term = gate_ms ⊻ term_ms
     omega_l_gate = omega_L_mult(gate_ms)
@@ -248,7 +254,7 @@ end
 """
     commutator(msum1::MajoranaSum{TT,CT1}, msum2::MajoranaSum{TT,CT2}) where {TT<:Integer,CT1,CT2}
 
-Compute half the commutator ``(msum_1 \\, msum_2 - msum_2 \\, msum_1)`` of two MajoranaSums.
+Compute the commutator ``msum_1 \\, msum_2 - msum_2 \\, msum_1`` of two MajoranaSums.
 The result is returned as a `MajoranaSum` with `ComplexF64` coefficients.
 """
 function commutator(msum1::MajoranaSum{TT,CT1}, msum2::MajoranaSum{TT,CT2}) where {TT<:Integer,CT1,CT2}

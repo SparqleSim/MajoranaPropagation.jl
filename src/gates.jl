@@ -74,9 +74,9 @@ function _applysin(coeff, sin_theta)
 end
 
 """
-The splitting rule for exp(i theta gate_string / 2) ms exp(-i theta gate_string / 2) is
--) ms, if [gate_string, ms] = 0
--) cos(theta) ms - i sin(theta) ms * gate_string, if {gate_string, ms} = 0
+For a Majorana string ``ms``, the splitting rule for ``e^{i \\theta G / 2} \\, ms \\, e^{-i \\theta G / 2}`` with gate string ``G`` is
+- ``ms``, if ``[G, ms] = 0``
+- ``\\cos(\\theta) \\, ms - i \\sin(\\theta) \\, ms \\, G``, if ``\\{G, ms\\} = 0``
 """
 function PropagationBase.applytoall!(gate::MajoranaRotation, prop_cache::MajoranaPropagationCache, theta; kwargs...)
     msum = mainsum(prop_cache)
@@ -196,9 +196,9 @@ function PropagationBase.applytoall!(gate::MajoranaRotation, prop_cache::VectorM
 end
 
 """
-The splitting rule for exp(i theta gate_string / 2) ms exp(-i theta gate_string / 2) is
--) ms, if [gate_string, ms] = 0
--) cos(theta) ms - i sin(theta) ms * gate_string, if {gate_string, ms} = 0
+For a Majorana string ``ms``, the splitting rule for ``e^{i \\theta G / 2} \\, ms \\, e^{-i \\theta G / 2}`` with gate string ``G`` is
+- ``ms``, if ``[G, ms] = 0``
+- ``\\cos(\\theta) \\, ms - i \\sin(\\theta) \\, ms \\, G``, if ``\\{G, ms\\} = 0``
 """
 function _applymajoranarotation!(prop_cache::VectorMajoranaPropagationCache, gate_ms::TT, gate_ms_ps::TT, omega_l_gate::Int, theta; thread::Bool=true) where {TT}
 
