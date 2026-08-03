@@ -1,6 +1,6 @@
 name = "MajoranaPropagation"
 uuid = "c1ba0b60-2606-4ffc-8aea-7c4a0f2726e4"
-version = "0.3.0"
+version = "0.3.1"
 authors = ["Matteo D'Anna", "Manuel S. Rudolph"]
 
 [deps]
