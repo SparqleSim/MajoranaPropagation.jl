@@ -25,10 +25,7 @@ end
             @test isapprox(dense_sum(A + B, gam), dA + dB, atol=1e-12)
             @test isapprox(dense_sum(A * B, gam), dA * dB, atol=1e-12)
             @test isapprox(dense_sum(2.5 * A, gam), 2.5 * dA, atol=1e-12)
-
-            # NOTE convention: commutator(A, B) implements (AB - BA)/2, i.e. half
-            # the matrix commutator (PauliPropagation's commutator is the full one).
-            @test isapprox(dense_sum(MajoranaPropagation.commutator(A, B), gam), (dA * dB - dB * dA) / 2, atol=1e-12)
+            @test isapprox(dense_sum(MajoranaPropagation.commutator(A, B), gam), (dA * dB - dB * dA), atol=1e-12)
 
             # scalarproduct(A, B) = Tr[A B]/2^nf, norm(A) = Frobenius norm/2^(nf/2)
             @test isapprox(MajoranaPropagation.scalarproduct(A, B), tr(dA * dB) / 2^nf, atol=1e-12)
