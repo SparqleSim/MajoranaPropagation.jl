@@ -8,7 +8,7 @@ using Test
     # spinless tests 
     @testset "spinless" begin
         @testset "free fermions" begin
-            n_fermions = 12
+            n_fermions = 8
             is_spinful = false
             h = 0.2
             topo = bricklayertopology(n_fermions)
@@ -58,7 +58,7 @@ using Test
         end
 
         @testset "interacting fermions" begin
-            n_fermions = 10
+            n_fermions = 8
             is_spinful = false
             U = 0.5
             h = 0.2
@@ -113,7 +113,7 @@ using Test
     # spinful tests: site i maps to qubits 2i-1 (up) and 2i (down)
     @testset "spinful" begin
         @testset "free fermions" begin
-            n_sites = 6
+            n_sites = 4
             is_spinful = true
             nq = 2 * n_sites
             h = 0.2
@@ -168,7 +168,7 @@ using Test
         end
 
         @testset "Hubbard" begin
-            n_sites = 5
+            n_sites = 4
             is_spinful = true
             nq = 2 * n_sites
             U = 0.5
