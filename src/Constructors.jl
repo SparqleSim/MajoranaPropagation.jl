@@ -1,7 +1,7 @@
 function order_sites(site_indices)
     sorted_indices = sort(site_indices)
     if sorted_indices != site_indices
-        #println("Warning: indices were not passed in ascending order")
+        @warn "Indices were not passed in ascending order, which is always assumed by the constructor"
         return sorted_indices
     end
     return site_indices

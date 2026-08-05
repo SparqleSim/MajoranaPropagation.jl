@@ -3,7 +3,7 @@ using Test
 using Random
 
 @testset "MajoranaPropagation.jl" begin
-    # shared dense Jordan-Wigner reference implementation used by several files
+    # dense Jordan-Wigner reference implementation
     include("testutils_dense.jl")
 
     include("test_commutation_relations.jl")

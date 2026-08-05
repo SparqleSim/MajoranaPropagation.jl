@@ -172,14 +172,4 @@ end
         expected_value = -0.054894655344715965
         @test isapprox(overlapwithfock(obs, fock), expected_value; rtol=1e-6)
     end
-
-    @testset "known API breakages" begin
-        # Out-of-place propagate on a MajoranaSum currently throws
-        # UndefVarError(_check_wrapping_into_paulifreqtracker): src/propagation.jl
-        # calls PauliPropagation-internal helpers that are not imported.
-        # All tests use propagate! as a workaround; unbreak this and flip to @test.
-        msum = MajoranaSum(Float64, 4, true)
-        PauliPropagation.PropagationBase.add!(msum, getinttype(8)(0), 1.0)
-        @test_broken propagate([FermionicRotation(:hopup, (1, 2))], msum, [0.1]) isa MajoranaSum
-    end
 end

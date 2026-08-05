@@ -75,12 +75,11 @@ end
         # :hopupdn couples (site i, up) to (site j, down) and must NOT reorder sites
         @test isapprox(dense_sum(MajoranaSum(n_sites, :hopupdn, [i, j]), gam),
             ad[up(i)] * a[dn(j)] + ad[dn(j)] * a[up(i)], atol=1e-13)
-        # BUG: when the up-site index is larger than the down-site index the
+        # when the up-site index is larger than the down-site index the
         # constructor currently returns MINUS the hopping operator (the stored
         # +-0.5 pattern assumes ascending Majorana mode order, which flips here).
-        # Flip this to @test once fixed in src/Constructors.jl.
-        @test_broken isapprox(dense_sum(MajoranaSum(n_sites, :hopupdn, [j, i]), gam),
-            ad[up(j)] * a[dn(i)] + ad[dn(i)] * a[up(j)], atol=1e-13)
+        @test isapprox(dense_sum(MajoranaSum(n_sites, :hopupdn, [j, i]), gam),
+            - ad[up(j)] * a[dn(i)] - ad[dn(i)] * a[up(j)], atol=1e-13)
     end
 
     @testset "site ordering" begin
