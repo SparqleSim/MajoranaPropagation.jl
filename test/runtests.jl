@@ -15,4 +15,5 @@ using Random
     include("test_truncations.jl")
     include("test_sum_algebra.jl")
     include("test_constructors.jl")
+    include("test_jordanwigner.jl")
 end
