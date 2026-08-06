@@ -123,7 +123,7 @@ function xorsortedtailmerge!(prop_cache::VectorMajoranaPropagationCache, gate_in
 
     if !(main_terms isa Vector{<:Unsigned} && gate_int isa eltype(main_terms)) ||
        n_old <= 0 || n_old > n_new || get_weight(gate_int) > 4 
-       @warn "Resorting back to standard merge!"
+       @warn "Resorting back to standard `merge!`, n_old=$n_old, n_new=$n_new, w(gate_int)=$get_weight(gate_int)"
         return merge!(prop_cache; thread, truncfunc, kwargs...)
     end
 
