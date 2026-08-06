@@ -165,9 +165,11 @@ function PropagationBase.applymergetruncate!(gate::FermionicRotation, prop_cache
         applytoall!(gate_ms, prop_cache, rotation_prefactor * theta_ms; kwargs...)
 
         # merge the auxiliary Majorana sum into the original one and empty the auxiliary one
-        merge!(prop_cache; kwargs...)
+        # (for vector caches: the appended tail is merged into the sorted prefix tracked on
+        # the sum; the gate string lets it sort the tail without a comparison sort)
+        _mergeafterapply!(prop_cache, gate_ms.ms_int; kwargs...)
 
-        # truncate after each Majorana rotation 
+        # truncate after each Majorana rotation
         if truncate_after_each_majrot
             truncate!(prop_cache; kwargs...)
         end
@@ -176,6 +178,16 @@ function PropagationBase.applymergetruncate!(gate::FermionicRotation, prop_cache
         truncate!(prop_cache; kwargs...)
     end
 
+    return prop_cache
+end
+
+# bare MajoranaRotation gates take the same gate-aware merge as the rotations inside a
+# FermionicRotation (the upstream generic applymergetruncate! would use the plain merge!,
+# discarding the gate string that lets vector caches skip the comparison sort)
+function PropagationBase.applymergetruncate!(gate::MajoranaRotation, prop_cache::AbstractMajoranaPropagationCache, theta; kwargs...)
+    applytoall!(gate, prop_cache, theta; kwargs...)
+    _mergeafterapply!(prop_cache, gate.ms_int; kwargs...)
+    truncate!(prop_cache; kwargs...)
     return prop_cache
 end
 
@@ -255,9 +267,9 @@ function _applymajoranarotation!(prop_cache::VectorMajoranaPropagationCache, gat
             term = terms[ii]
             coeff = coeffs[ii]
 
-            coeff1 = coeff * cos_val
+            coeff1 = _applycos(coeff, cos_val)
             new_term, sign = _rotationproduct_evengate(term, gate_ms, gate_ms_ps, omega_l_gate)
-            coeff2 = coeff * sin_val * sign
+            coeff2 = _applysin(coeff, sin_val * sign)
 
             coeffs[ii] = coeff1
 

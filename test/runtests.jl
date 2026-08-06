@@ -9,4 +9,6 @@ using Random
     include("compare_jw.jl")
     include("test_vector.jl")
     include("test_vectormerge.jl")
+    include("test_xormerge.jl")
+    include("test_freqtracker.jl")
 end
