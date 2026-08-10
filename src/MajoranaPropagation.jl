@@ -4,6 +4,7 @@ using PauliPropagation
 export bricklayertopology, staircasetopology, rectangletopology, getinttype, terms, coefficients
 using PauliPropagation.PropagationBase
 import PauliPropagation.PropagationBase: propagate, propagate!
+import PauliPropagation: wrapcoefficients, unwrapcoefficients
 
 include("MajoranaDataTypes.jl")
 export
@@ -23,6 +24,7 @@ export
 include("MajoranaAlgebra.jl")
 export
     ms_mult,
+    majoranarotationproduct,
     commutator,
     commutes,
     norm,
@@ -82,10 +84,14 @@ include("MajoranaFrequencyTracker.jl")
 export
     MajoranaFrequencyTracker,
     wrapcoefficients,
+    unwrapcoefficients,
     reset_tracker!
 
 include("Constructors.jl")
 
 include("QuantumChemistry/QuantumChemistry.jl")
 using .QuantumChemistry
+
+include("FermionToQubitMapping/FermionQubitMapping.jl")
+using .FermionToQubitMappings
 end

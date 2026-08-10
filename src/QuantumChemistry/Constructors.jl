@@ -1,3 +1,8 @@
+"""
+    two_body_term(nsites::Integer, indices, coeff::CT) where {CT}
+
+Build the one-body (two fermion-operator) term of a quantum chemistry Hamiltonian for the orbital pair `indices` ``= (p, q)``, scaled by `coeff`: the spin-summed hopping ``\\sum_{\\sigma, \\sigma'} (f_{p\\sigma}^\\dagger f_{q\\sigma'} + f_{q\\sigma'}^\\dagger f_{p\\sigma})`` for ``p \\neq q``, or ``\\sum_{\\sigma, \\sigma'} f_{p\\sigma}^\\dagger f_{p\\sigma'}`` for ``p = q``.
+"""
 function two_body_term(nsites::Integer, indices, coeff::CT) where {CT}
     msum = MajoranaSum(CT, nsites, true)
     if indices[1] == indices[2]
@@ -15,17 +20,10 @@ end
 
 
 """
-properties of the 4 body term:
-h_pqrs 
-h_prqs 
-h_sqrp
-h_srqp
-h_qpsr
-h_qspr
-h_rpsq
-h_rspq
+    four_body_term(nsites, p, q, r, s)
 
-are all equal 
+Build the two-body (four fermion-operator) term of a quantum chemistry Hamiltonian for the orbital indices ``(p, q, r, s)``: products ``f_{p}^\\dagger f_{q}^\\dagger f_{r} f_{s}`` with the spin patterns ``\\uparrow\\uparrow\\uparrow\\uparrow``, ``\\downarrow\\downarrow\\downarrow\\downarrow``, and ``\\uparrow\\downarrow\\uparrow\\downarrow``, summed over the 8 index permutations under which a real two-electron integral is invariant: ``h_{pqrs} = h_{prqs} = h_{sqrp} = h_{srqp} = h_{qpsr} = h_{qspr} = h_{rpsq} = h_{rspq}``.
+Returns a `MajoranaSum` with real `Float64` coefficients.
 """
 function four_body_term(nsites, p, q, r, s)
     op = MajoranaSum(ComplexF64, nsites, true)

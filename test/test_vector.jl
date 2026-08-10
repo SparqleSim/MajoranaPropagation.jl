@@ -5,11 +5,11 @@ using Test
 using Random
 Random.seed!(42)
 
-using ProgressMeter
-
 function random_circuit(nfermions, n_gates, n_steps, maxW_gates, msum_terms, min_abs_coeffs)
     TT = getinttype(nfermions)
-    max_val = MajoranaString(nfermions, [2 * nfermions]).gammas
+    # mask instead of `> max_val` rejection: getinttype may return a type much
+    # wider than 2*nfermions bits (PP >= 0.7.3 rounds up to 64-bit words)
+    mask = typemax(TT) >> (8 * sizeof(TT) - 2 * nfermions)
     circ = MajoranaRotation{TT}[]
     thetas = Float64[]
 
@@ -28,9 +28,9 @@ function random_circuit(nfermions, n_gates, n_steps, maxW_gates, msum_terms, min
 
     msum = MajoranaSum(Float64, nfermions, false)
     for _ = 1:msum_terms
-        ms_int = rand(TT)
-        while get_weight(ms_int) % 2 != 0 || ms_int > max_val
-            ms_int = rand(TT)
+        ms_int = rand(TT) & mask
+        while get_weight(ms_int) % 2 != 0
+            ms_int = rand(TT) & mask
         end
         PauliPropagation.PropagationBase.add!(msum, ms_int, randn())
     end
@@ -40,7 +40,7 @@ function random_circuit(nfermions, n_gates, n_steps, maxW_gates, msum_terms, min
         obs_vec = VectorMajoranaSum(deepcopy(msum))
         truncate!(obs; min_abs_coeff)
         truncate!(obs_vec; min_abs_coeff)
-        @showprogress for _ = 1:n_steps
+        for _ = 1:n_steps
             @time propagate!(circ, obs, thetas; min_abs_coeff)
             @time propagate!(circ, obs_vec, thetas; min_abs_coeff)
             @test length(obs) == length(obs_vec)
@@ -92,4 +92,18 @@ end
             @test abs(overlapwithfock(obs, fock_state) - overlapwithfock(obs_vec, fock_state)) < 1.e-14
         end
     end
+end
+# Round-trips of the cache conversion functions in src/propagationcache.jl
+@testset "cache conversions" begin
+    N_sites = 3
+    msum = MajoranaSum(N_sites, :nupndn, 2)
+    cache = MajoranaPropagation.VectorMajoranaPropagationCache(msum)  # dict -> cache
+
+    @test MajoranaSum(cache) == msum                                  # cache -> dict
+    @test VectorMajoranaSum(cache) == VectorMajoranaSum(msum)         # cache -> vector
+
+    # the extracted vector sum is a copy, not a view into the cache
+    v = VectorMajoranaSum(cache)
+    coefficients(v)[1] += 1.0
+    @test VectorMajoranaSum(cache) != v
 end
