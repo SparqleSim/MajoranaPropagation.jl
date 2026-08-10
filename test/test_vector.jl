@@ -7,7 +7,9 @@ Random.seed!(42)
 
 function random_circuit(nfermions, n_gates, n_steps, maxW_gates, msum_terms, min_abs_coeffs)
     TT = getinttype(nfermions)
-    max_val = MajoranaString(nfermions, [2 * nfermions]).gammas
+    # mask instead of `> max_val` rejection: getinttype may return a type much
+    # wider than 2*nfermions bits (PP >= 0.7.3 rounds up to 64-bit words)
+    mask = typemax(TT) >> (8 * sizeof(TT) - 2 * nfermions)
     circ = MajoranaRotation{TT}[]
     thetas = Float64[]
 
@@ -26,9 +28,9 @@ function random_circuit(nfermions, n_gates, n_steps, maxW_gates, msum_terms, min
 
     msum = MajoranaSum(Float64, nfermions, false)
     for _ = 1:msum_terms
-        ms_int = rand(TT)
-        while get_weight(ms_int) % 2 != 0 || ms_int > max_val
-            ms_int = rand(TT)
+        ms_int = rand(TT) & mask
+        while get_weight(ms_int) % 2 != 0
+            ms_int = rand(TT) & mask
         end
         PauliPropagation.PropagationBase.add!(msum, ms_int, randn())
     end
