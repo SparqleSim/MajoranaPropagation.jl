@@ -98,9 +98,7 @@ println(&quot;Total time false: $total_time_false&quot;)</code></pre><pre><code 
 
 3 4 5 6 7 8 
 
-9 10 
-
-11 12 
+9 10 11 12 
 
 13 14 
 
@@ -147,9 +145,9 @@ println(&quot;Total time false: $total_time_false&quot;)</code></pre><pre><code 
 55 
 
 
-Total time default: 27.670033388
-Total time true: 25.557500107000006
-Total time false: 25.556883226999993</code></pre><pre><code class="language-julia hljs">ev_plot = plot(xlabel=&quot;Layer&quot;, ylabel=&quot;⟨O⟩&quot;, legend=:bottomright)
+Total time default: 23.634197816999993
+Total time true: 21.727482345000006
+Total time false: 23.337937653000004</code></pre><pre><code class="language-julia hljs">ev_plot = plot(xlabel=&quot;Layer&quot;, ylabel=&quot;⟨O⟩&quot;, legend=:bottomright)
 plot!(ev_plot, 0:n_layers, res_default, label=&quot;default&quot;, marker=:circle)
 plot!(ev_plot, 0:n_layers, res_true, label=&quot;truncate each MR&quot;, marker=:circle)
 plot!(ev_plot, 0:n_layers, res_false, label=&quot;truncate after full gate&quot;, marker=:circle)
@@ -209,4 +207,4 @@ length(obs) = 52955</code></pre><p>By default this newly defined fermionic symbo
     return true
 end
 
-MajoranaPropagation.flag_non_number_preserving(:nn_par_hol_symmetric)</code></pre><pre><code class="nohighlight hljs">true</code></pre></article><nav class="docs-footer"><a class="docs-footer-prevpage" href="../1_custom_Majorana_Operators/">« Custom Majorana Operators</a><a class="docs-footer-nextpage" href="../3_trotter_consistent/">Trotterized Time Evolution »</a><div class="flexbox-break"></div><p class="footer-message">Powered by <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> and the <a href="https://julialang.org/">Julia Programming Language</a>.</p></nav></div><div class="modal" id="documenter-settings"><div class="modal-background"></div><div class="modal-card"><header class="modal-card-head"><p class="modal-card-title">Settings</p><button class="delete"></button></header><section class="modal-card-body"><p><label class="label">Theme</label><div class="select"><select id="documenter-themepicker"><option value="auto">Automatic (OS)</option><option value="documenter-light">documenter-light</option><option value="documenter-dark">documenter-dark</option><option value="catppuccin-latte">catppuccin-latte</option><option value="catppuccin-frappe">catppuccin-frappe</option><option value="catppuccin-macchiato">catppuccin-macchiato</option><option value="catppuccin-mocha">catppuccin-mocha</option></select></div></p><hr/><p>This document was generated with <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> version 1.17.0 on <span class="colophon-date" title="Monday 10 August 2026 08:14">Monday 10 August 2026</span>. Using Julia version 1.12.6.</p></section><footer class="modal-card-foot"></footer></div></div></div></body></html>
+MajoranaPropagation.flag_non_number_preserving(:nn_par_hol_symmetric)</code></pre><pre><code class="nohighlight hljs">true</code></pre></article><nav class="docs-footer"><a class="docs-footer-prevpage" href="../1_custom_Majorana_Operators/">« Custom Majorana Operators</a><a class="docs-footer-nextpage" href="../3_trotter_consistent/">Trotterized Time Evolution »</a><div class="flexbox-break"></div><p class="footer-message">Powered by <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> and the <a href="https://julialang.org/">Julia Programming Language</a>.</p></nav></div><div class="modal" id="documenter-settings"><div class="modal-background"></div><div class="modal-card"><header class="modal-card-head"><p class="modal-card-title">Settings</p><button class="delete"></button></header><section class="modal-card-body"><p><label class="label">Theme</label><div class="select"><select id="documenter-themepicker"><option value="auto">Automatic (OS)</option><option value="documenter-light">documenter-light</option><option value="documenter-dark">documenter-dark</option><option value="catppuccin-latte">catppuccin-latte</option><option value="catppuccin-frappe">catppuccin-frappe</option><option value="catppuccin-macchiato">catppuccin-macchiato</option><option value="catppuccin-mocha">catppuccin-mocha</option></select></div></p><hr/><p>This document was generated with <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> version 1.17.0 on <span class="colophon-date" title="Monday 10 August 2026 09:52">Monday 10 August 2026</span>. Using Julia version 1.12.6.</p></section><footer class="modal-card-foot"></footer></div></div></div></body></html>
