@@ -9,11 +9,13 @@ The string can be passed as a `MajoranaString` or directly as its integer repres
 struct MajoranaRotation{TT<:Integer} <: ParametrizedGate
     ms_int::TT
     function MajoranaRotation(ms::MajoranaString{TT}) where {TT<:Integer}
-        @assert get_weight(ms) % 2 == 0 # only even parity operations
+        # only even parity operations; the even weight is also a correctness invariant of the
+        # specialized _commutes_evengate/_rotationproduct_evengate kernels used in applytoall!
+        iseven(get_weight(ms)) || throw(ArgumentError("MajoranaRotation requires an even-weight Majorana string, got weight $(get_weight(ms))"))
         return new{TT}(ms.gammas)
     end
     function MajoranaRotation(ms_int::TT) where {TT<:Integer}
-        @assert get_weight(ms_int) % 2 == 0 # only even parity operations
+        iseven(get_weight(ms_int)) || throw(ArgumentError("MajoranaRotation requires an even-weight Majorana string, got weight $(get_weight(ms_int))"))
         return new{TT}(ms_int)
     end
 end
@@ -74,7 +76,7 @@ end
 """
 For a Majorana string ``ms``, the splitting rule for ``e^{i \\theta G / 2} \\, ms \\, e^{-i \\theta G / 2}`` with gate string ``G`` is
 - ``ms``, if ``[G, ms] = 0``
-- ``\\cos(\\theta) \\, ms + i \\sin(\\theta) \\, G \\, ms``, if ``\\{G, ms\\} = 0``
+- ``\\cos(\\theta) \\, ms - i \\sin(\\theta) \\, ms \\, G``, if ``\\{G, ms\\} = 0``
 """
 function PropagationBase.applytoall!(gate::MajoranaRotation, prop_cache::MajoranaPropagationCache, theta; kwargs...)
     msum = mainsum(prop_cache)
@@ -84,18 +86,20 @@ function PropagationBase.applytoall!(gate::MajoranaRotation, prop_cache::Majoran
     sin_val = sin(theta)
 
     gate_int = gate.ms_int
+    gate_int_ps = compute_parity_bits_and_shift(gate_int, 2 * nfermions(msum))
+    omega_l_gate = omega_L_mult(gate_int)
 
     # loop over all Majorana strings and their coefficients in the Majorana sum
     for (ms_int, coeff) in msum
-        if commutes(gate_int, ms_int)
+        if _commutes_evengate(ms_int, gate_int)
             # if the gate commutes with the Majorana string, do nothing
             continue
         end
 
         # else we know the gate will split the Majorana string into two
         coeff1 = _applycos(coeff, cos_val)
-        sign, new_ms = ms_mult(gate_int, ms_int, nfermions(msum))
-        coeff2 = _applysin(coeff, sin_val * -imag(sign))
+        new_ms, sign = _rotationproduct_evengate(ms_int, gate_int, gate_int_ps, omega_l_gate)
+        coeff2 = _applysin(coeff, sin_val * sign)
 
         # set the coefficient of the original Majorana string
         set!(msum, ms_int, coeff1)
@@ -121,7 +125,9 @@ function PropagationBase.applymergetruncate!(gate::FermionicRotation, prop_cache
         applytoall!(gate_ms, prop_cache, theta * coeff * 2.0; kwargs...)
 
         # merge the auxiliary Majorana sum into the original one and empty the auxiliary one
-        merge!(prop_cache; kwargs...)
+        # (for vector caches: the appended tail is merged into the sorted prefix tracked on
+        # the sum; the gate string lets it sort the tail without a comparison sort)
+        _mergeafterapply!(prop_cache, gate_ms.ms_int; kwargs...)
 
         # truncate after each Majorana rotation 
         if truncate_after_each_majrot
@@ -135,10 +141,20 @@ function PropagationBase.applymergetruncate!(gate::FermionicRotation, prop_cache
     return prop_cache
 end
 
+# bare MajoranaRotation gates take the same gate-aware merge as the rotations inside a
+# FermionicRotation (the upstream generic applymergetruncate! would use the plain merge!,
+# discarding the gate string that lets vector caches skip the comparison sort)
+function PropagationBase.applymergetruncate!(gate::MajoranaRotation, prop_cache::AbstractMajoranaPropagationCache, theta; kwargs...)
+    applytoall!(gate, prop_cache, theta; kwargs...)
+    _mergeafterapply!(prop_cache, gate.ms_int; kwargs...)
+    truncate!(prop_cache; kwargs...)
+    return prop_cache
+end
+
 
 # ========== vector specializations ========== #
 
-function PropagationBase.applytoall!(gate::MajoranaRotation, prop_cache::VectorMajoranaPropagationCache, theta; kwargs...)
+function PropagationBase.applytoall!(gate::MajoranaRotation, prop_cache::VectorMajoranaPropagationCache, theta; thread::Bool=true, kwargs...)
 
     if prop_cache.active_size == 0
         return prop_cache
@@ -148,13 +164,15 @@ function PropagationBase.applytoall!(gate::MajoranaRotation, prop_cache::VectorM
 
     # get the Majorana string integer representation because the gate cannot be in the function when using GPU
     gate_ms = gate.ms_int
+    gate_ms_ps = compute_parity_bits_and_shift(gate_ms, 2 * nfermions(prop_cache))
+    omega_l_gate = omega_L_mult(gate_ms)
 
     # flag terms that anticommute with the gate
-    anticommutesfunc(trm) = !commutes(trm, gate_ms)
-    flagterms!(anticommutesfunc, prop_cache)
+    anticommutesfunc(trm) = !_commutes_evengate(trm, gate_ms)
+    flagterms!(anticommutesfunc, prop_cache; thread)
 
     # this runs a cumsum over the flags to get the indices
-    flagstoindices!(prop_cache)
+    flagstoindices!(prop_cache; thread)
 
     # the final index is the number of new terms
     n_noncommutes = lastactiveindex(prop_cache)
@@ -169,7 +187,7 @@ function PropagationBase.applytoall!(gate::MajoranaRotation, prop_cache::VectorM
     end
 
     # does the branching logic
-    _applymajoranarotation!(prop_cache, gate_ms, theta)
+    _applymajoranarotation!(prop_cache, gate_ms, gate_ms_ps, omega_l_gate, theta; thread)
 
     # we now have n_new possibly duplicate Majorana strings in the array
     setactivesize!(prop_cache, n_new)
@@ -180,9 +198,9 @@ end
 """
 For a Majorana string ``ms``, the splitting rule for ``e^{i \\theta G / 2} \\, ms \\, e^{-i \\theta G / 2}`` with gate string ``G`` is
 - ``ms``, if ``[G, ms] = 0``
-- ``\\cos(\\theta) \\, ms + i \\sin(\\theta) \\, G \\, ms``, if ``\\{G, ms\\} = 0``
+- ``\\cos(\\theta) \\, ms - i \\sin(\\theta) \\, ms \\, G``, if ``\\{G, ms\\} = 0``
 """
-function _applymajoranarotation!(prop_cache::VectorMajoranaPropagationCache, gate_ms::TT, theta) where {TT}
+function _applymajoranarotation!(prop_cache::VectorMajoranaPropagationCache, gate_ms::TT, gate_ms_ps::TT, omega_l_gate::Int, theta; thread::Bool=true) where {TT}
 
     # pre-compute the sine and cosine values because they are used for every Majorana string that does not commute with the gate
     cos_val = cos(theta)
@@ -204,15 +222,15 @@ function _applymajoranarotation!(prop_cache::VectorMajoranaPropagationCache, gat
     indices = activeindices(prop_cache)
 
     # branching pattern for Majorana rotations
-    AK.foreachindex(active_terms) do ii
+    AK.foreachindex(active_terms; max_tasks=maxtasks(thread), min_elems=_MIN_ELEMS_PER_TASK) do ii
         # here it anticommutes
         if flags[ii]
             term = terms[ii]
             coeff = coeffs[ii]
 
             coeff1 = coeff * cos_val
-            sign, new_term = ms_mult(gate_ms, term, n_fermions)
-            coeff2 = coeff * sin_val * -imag(sign)
+            new_term, sign = _rotationproduct_evengate(term, gate_ms, gate_ms_ps, omega_l_gate)
+            coeff2 = coeff * sin_val * sign
 
             coeffs[ii] = coeff1
 

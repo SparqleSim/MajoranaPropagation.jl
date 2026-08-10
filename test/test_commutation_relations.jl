@@ -34,7 +34,7 @@ function gamma_to_dense(ms::MajoranaString)
     n = ms.nfermions
     dense_vec = zeros(Int, 2 * n)
     for i in 1:2*n
-        if (ms.gammas >> (i-1)) & 1 == 1
+        if (ms.gammas >> (i - 1)) & 1 == 1
             dense_vec[i] = 1
         end
     end
@@ -235,7 +235,7 @@ end
         nf = 50
         omega_dense = create_omega(nf)
         omega_L_dense = create_omega_L(nf)
-        
+
         TT = getinttype(nf)
         mask = typemax(TT) >> (8 * sizeof(TT) - 2 * nf)
 

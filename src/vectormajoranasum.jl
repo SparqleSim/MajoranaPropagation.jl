@@ -3,6 +3,7 @@
 using AcceleratedKernels
 const AK = AcceleratedKernels
 
+const _MIN_ELEMS_PER_TASK = PropagationBase._MIN_ELEMS_PER_TASK
 
 """
     VectorMajoranaSum(nsites::Int)
@@ -11,15 +12,18 @@ const AK = AcceleratedKernels
 
 A struct to represent a linear combination of Majorana strings, storing the integer representations and the coefficients in two aligned vectors `terms` and `coeffs`.
 """
-struct VectorMajoranaSum{TV,CV} <: AbstractMajoranaSum
+mutable struct VectorMajoranaSum{TV,CV} <: AbstractMajoranaSum
     nsites::Int
     is_spinful::Bool
     terms::TV
     coeffs::CV
+    # number of leading terms known sorted by integer value and duplicate-free; 0 is always safe
+    _terms_sorted::Int
 
-    function VectorMajoranaSum(nsites::Int, is_spinful::Bool, terms::TV, coeffs::CV) where {TV,CV}
+    function VectorMajoranaSum(nsites::Int, is_spinful::Bool, terms::TV, coeffs::CV, _terms_sorted::Int=0) where {TV,CV}
         @assert length(terms) == length(coeffs) "Length of terms and coeffs must be the same. Got $(length(terms)) and $(length(coeffs))."
-        return new{TV,CV}(nsites, is_spinful, terms, coeffs)
+        @assert 0 <= _terms_sorted <= length(terms) "Sorted prefix length cannot be greater than the number of terms. Got $(length(terms)) and $(_terms_sorted)."
+        return new{TV,CV}(nsites, is_spinful, terms, coeffs, _terms_sorted)
     end
 end
 
@@ -36,6 +40,11 @@ VectorMajoranaSum(::Type{CT}, nsites::Int, is_spinful::Bool) where {CT} = Vector
 Get the tuple `(terms, coeffs)` of the underlying vectors of `vmsum`.
 """
 PropagationBase.storage(vmsum::VectorMajoranaSum) = (vmsum.terms, vmsum.coeffs)
+
+PropagationBase.sortedprefix(vmsum::VectorMajoranaSum) = vmsum._terms_sorted
+PropagationBase.setsortedprefix!(vmsum::VectorMajoranaSum, n::Int) = (vmsum._terms_sorted = n; vmsum)
+
+majoranatype(vmsum::VectorMajoranaSum{TV,CV}) where {TV,CV} = eltype(TV)
 
 
 """
@@ -68,6 +77,7 @@ Resize the terms and coefficients vectors of `vmsum` to length `n_new`.
 function Base.resize!(vmsum::VectorMajoranaSum, n_new::Int)
     resize!(vmsum.terms, n_new)
     resize!(vmsum.coeffs, n_new)
+    setsortedprefix!(vmsum, min(sortedprefix(vmsum), n_new))  # clamp on shrink, no-op on grow
     return vmsum
 end
 
@@ -105,5 +115,6 @@ function Base.sort!(vmsum::VectorMajoranaSum; by=nothing, kwargs...)
     AK.sort!(indices; by=byfunc, kwargs...)
     vmsum.terms .= view(vmsum.terms, indices)
     vmsum.coeffs .= view(vmsum.coeffs, indices)
+    setsortedprefix!(vmsum, 0)  # arbitrary order, no dedup: can't assume sorted+unique after this
     return vmsum
 end
