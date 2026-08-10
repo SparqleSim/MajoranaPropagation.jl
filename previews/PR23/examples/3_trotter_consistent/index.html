@@ -1,0 +1,113 @@
+<!DOCTYPE html>
+<html lang="en"><head><meta charset="UTF-8"/><meta name="viewport" content="width=device-width, initial-scale=1.0"/><title>Trotterized Time Evolution · MajoranaPropagation.jl</title><meta name="title" content="Trotterized Time Evolution · MajoranaPropagation.jl"/><meta property="og:title" content="Trotterized Time Evolution · MajoranaPropagation.jl"/><meta property="twitter:title" content="Trotterized Time Evolution · MajoranaPropagation.jl"/><meta name="description" content="Documentation for MajoranaPropagation.jl."/><meta property="og:description" content="Documentation for MajoranaPropagation.jl."/><meta property="twitter:description" content="Documentation for MajoranaPropagation.jl."/><script data-outdated-warner src="../../assets/warner.js"></script><link href="https://cdnjs.cloudflare.com/ajax/libs/lato-font/3.0.0/css/lato-font.min.css" rel="stylesheet" type="text/css"/><link href="https://cdnjs.cloudflare.com/ajax/libs/juliamono/0.050/juliamono.min.css" rel="stylesheet" type="text/css"/><link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.2/css/fontawesome.min.css" rel="stylesheet" type="text/css"/><link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.2/css/solid.min.css" rel="stylesheet" type="text/css"/><link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.2/css/brands.min.css" rel="stylesheet" type="text/css"/><link href="https://cdnjs.cloudflare.com/ajax/libs/KaTeX/0.16.8/katex.min.css" rel="stylesheet" type="text/css"/><script>documenterBaseURL="../.."</script><script src="https://cdnjs.cloudflare.com/ajax/libs/require.js/2.3.6/require.min.js" data-main="../../assets/documenter.js"></script><script src="../../search_index.js"></script><script src="../../siteinfo.js"></script><script src="../../../versions.js"></script><link class="docs-theme-link" rel="stylesheet" type="text/css" href="../../assets/themes/catppuccin-mocha.css" data-theme-name="catppuccin-mocha"/><link class="docs-theme-link" rel="stylesheet" type="text/css" href="../../assets/themes/catppuccin-macchiato.css" data-theme-name="catppuccin-macchiato"/><link class="docs-theme-link" rel="stylesheet" type="text/css" href="../../assets/themes/catppuccin-frappe.css" data-theme-name="catppuccin-frappe"/><link class="docs-theme-link" rel="stylesheet" type="text/css" href="../../assets/themes/catppuccin-latte.css" data-theme-name="catppuccin-latte"/><link class="docs-theme-link" rel="stylesheet" type="text/css" href="../../assets/themes/documenter-dark.css" data-theme-name="documenter-dark" data-theme-primary-dark/><link class="docs-theme-link" rel="stylesheet" type="text/css" href="../../assets/themes/documenter-light.css" data-theme-name="documenter-light" data-theme-primary/><script src="../../assets/themeswap.js"></script><link href="../../assets/favicon.ico" rel="icon" type="image/x-icon"/><link href="../../assets/custom.css" rel="stylesheet" type="text/css"/></head><body><div id="documenter"><nav class="docs-sidebar"><a class="docs-logo" href="../../"><img src="../../assets/logo.svg" alt="MajoranaPropagation.jl logo"/></a><div class="docs-package-name"><span class="docs-autofit"><a href="../../">MajoranaPropagation.jl</a></span></div><button class="docs-search-query input is-rounded is-small is-clickable my-2 mx-auto py-1 px-2" id="documenter-search-query">Search docs (Ctrl + /)</button><ul class="docs-menu"><li><a class="tocitem" href="../../">Home</a></li><li><span class="tocitem">Examples</span><ul><li><a class="tocitem" href="../0_Majorana-operators/">Majorana Operators</a></li><li><a class="tocitem" href="../1_custom_Majorana_Operators/">Custom Majorana Operators</a></li><li><a class="tocitem" href="../2_fermionic_gates/">Fermionic Gates</a></li><li class="is-active"><a class="tocitem" href>Trotterized Time Evolution</a></li><li><a class="tocitem" href="../Hubbard_1d/">1D Hubbard Model</a></li><li><a class="tocitem" href="../Hubbard_2d/">2D Hubbard Model</a></li><li><a class="tocitem" href="../ad_example/">Automatic Differentiation</a></li><li><a class="tocitem" href="../imaginary-time/">Imaginary-Time Evolution</a></li></ul></li><li><span class="tocitem">API</span><ul><li><a class="tocitem" href="../../api/MajoranaDataTypes/">Data types</a></li><li><a class="tocitem" href="../../api/MajoranaAlgebra/">Majorana Algebra</a></li><li><a class="tocitem" href="../../api/InitialStates/">Initial States</a></li><li><a class="tocitem" href="../../api/Gates/">Gates</a></li><li><a class="tocitem" href="../../api/Propagation/">Propagation</a></li><li><a class="tocitem" href="../../api/Truncations/">Truncations</a></li><li><a class="tocitem" href="../../api/Circuits/">Circuits</a></li><li><a class="tocitem" href="../../api/FrequencyTracker/">Frequency Tracker</a></li><li><a class="tocitem" href="../../api/QuantumChemistry/">Quantum Chemistry</a></li></ul></li></ul><div class="docs-version-selector field has-addons"><div class="control"><span class="docs-label button is-static is-size-7">Version</span></div><div class="docs-selector control is-expanded"><div class="select is-fullwidth is-size-7"><select id="documenter-version-selector"></select></div></div></div></nav><div class="docs-main"><header class="docs-navbar"><a class="docs-sidebar-button docs-navbar-link fa-solid fa-bars is-hidden-desktop" id="documenter-sidebar-button" href="#"></a><nav class="breadcrumb"><ul class="is-hidden-mobile"><li><a class="is-disabled">Examples</a></li><li class="is-active"><a href>Trotterized Time Evolution</a></li></ul><ul class="is-hidden-tablet"><li class="is-active"><a href>Trotterized Time Evolution</a></li></ul></nav><div class="docs-right"><a class="docs-navbar-link" href="https://github.com/SparqleSim/MajoranaPropagation.jl" title="View the repository on GitHub"><span class="docs-icon fa-brands"></span><span class="docs-label is-hidden-touch">GitHub</span></a><a class="docs-navbar-link" href="https://github.com/SparqleSim/MajoranaPropagation.jl/blob/main/docs/src/examples/3_trotter_consistent.md" title="Edit source on GitHub"><span class="docs-icon fa-solid"></span></a><a class="docs-settings-button docs-navbar-link fa-solid fa-gear" id="documenter-settings-button" href="#" title="Settings"></a><a class="docs-article-toggle-button fa-solid fa-chevron-up" id="documenter-article-toggle-button" href="javascript:;" title="Collapse all docstrings"></a></div></header><article class="content" id="documenter-page"><p>In this notebook we want to explore performing &quot;Trotter cosistent&quot; truncations within a Trotter step, while imposing a more stringent truncation after each Trotter step.</p><pre><code class="language-julia hljs">using Revise
+using MajoranaPropagation
+
+using Base.Threads
+
+using Plots
+
+nthreads()</code></pre><pre><code class="nohighlight hljs">1</code></pre><p>We study the dynamics of <span>$5\times 5$</span> Fermi-Hubbard in the strongly interacting regime <span>$U/t=8$</span></p><pre><code class="language-julia hljs">N_x = 5
+N_y = 5
+N_spinful_sites = N_x * N_y
+t = 1.
+U = 8.
+
+n_layers = 25
+dt = 0.07</code></pre><p>For simplicity we restrict ourselves to a 1st order Trotterization of the Hamiltonian </p><pre><code class="language-julia hljs">topo = rectangletopology(N_x, N_y)
+
+circ_single = []
+thetas_single = []
+
+#up hoppings 
+for (i, j) in topo
+    push!(circ_single, FermionicRotation(:hopup, [i, j]))
+    push!(thetas_single, -t * dt)
+end
+
+#down hoppings 
+for (i, j) in topo
+    push!(circ_single, FermionicRotation(:hopdn, [i, j]))
+    push!(thetas_single, -t * dt)
+end
+
+#on-site repulsion 
+for i = 1:N_spinful_sites
+    push!(circ_single, FermionicRotation(:nupndn, i))
+    push!(thetas_single, U * dt)
+end</code></pre><p>We set the truncations: crucially, we want to explore the difference between always truncating strings with more than 4 unpaired Majoranas versus allowing 6 unpaired Majoranas within each Trotter step and truncating with 4 unpaired only after the full step. Notice that by the properties of the Fermi-Hubbard Hamiltonian the process of going from 4 unpaired to 6 and then back to 4 happens at order <span>$(\delta t)^2$</span>, hence happens at the same order of the Trotter error, since we are using a 1st order Trotterization</p><pre><code class="language-julia hljs">min_abs_coeff = 5.e-4
+max_unpaired = 2
+max_unpaired_in_step = 4
+unpaired_mask = create_unpaired_mask(2 * N_spinful_sites)</code></pre><p>As initial state we select a checkerboard state with a hole in the middle</p><pre><code class="language-julia hljs">#initial state 
+initial_state_label = &quot;Hole checkerboard&quot;
+is_spinful = true
+
+hole_pos = 13
+
+fock_state = FockState(N_spinful_sites, :checkerboard, is_spinful; nx=N_x, hole_positions=hole_pos)
+
+fock_state</code></pre><pre><code class="nohighlight hljs">Fock state with 24 fermions at positions
+    ↑: 1, 3, 5, 7, 9, 11, 15, 17, 19, 21, 23, 25
+    ↓: 2, 4, 6, 8, 10, 12, 14, 16, 18, 20, 22, 24</code></pre><p>Here we propagate the same oservable tracking the probability of finding the hole in its original position using the two approaches, while for the case of the &quot;Trotter consistent&quot; approach we truncate using the more stringent cutoff after each step.</p><pre><code class="language-julia hljs">obs = VectorMajoranaSum(MajoranaSum(N_spinful_sites, :hole, hole_pos))
+obs_trotter_consistent = VectorMajoranaSum(MajoranaSum(N_spinful_sites, :hole, hole_pos))
+
+res = zeros(n_layers+1)
+res_trotter_consistent = zeros(n_layers+1)
+
+res[1] = overlapwithfock(obs, fock_state)
+res_trotter_consistent[1] = overlapwithfock(obs_trotter_consistent, fock_state)
+
+for k=1:n_layers
+    print(k, &quot; &quot;)
+    obs = propagate!(circ_single, obs, thetas_single, min_abs_coeff=min_abs_coeff, max_unpaired=max_unpaired, unpaired_mask=unpaired_mask)
+    obs_trotter_consistent = propagate!(circ_single, obs_trotter_consistent, thetas_single, min_abs_coeff=min_abs_coeff, max_unpaired=max_unpaired_in_step, unpaired_mask=unpaired_mask)
+
+    obs_trotter_consistent = truncate!(obs_trotter_consistent, min_abs_coeff=-1, max_unpaired=max_unpaired, unpaired_mask=unpaired_mask)
+
+    res[k+1] = overlapwithfock(obs, fock_state)
+    res_trotter_consistent[k+1] = overlapwithfock(obs_trotter_consistent, fock_state)
+end </code></pre><pre><code class="nohighlight hljs">1 
+
+2 
+
+3 4 5 
+
+6 
+
+7 
+
+8 
+
+9 
+
+10 
+
+11 
+
+12 
+
+13 
+
+14 
+
+15 
+
+16 
+
+17 
+
+18 
+
+19 
+
+20 
+
+21 
+
+22 
+
+23 
+
+24 
+
+25</code></pre><p>Notice that the two expectation values are not that far from each other. However, both coefficient and unpaired truncations are here set quite aggressively (in order for this example to run in a reasonable time), and a much bigger difference is expected for more accurate truncations.</p><pre><code class="language-julia hljs">p = plot((0:n_layers) .* dt, res, label=&quot;Trotter-inconsistent&quot;, marker=:o)
+plot!((0:n_layers) .* dt, res_trotter_consistent, label=&quot;Trotter-consistent&quot;, marker=:o)</code></pre><p><img src="../3_trotter_consistent_files/3_trotter_consistent_13_0.svg" alt="svg"/></p></article><nav class="docs-footer"><a class="docs-footer-prevpage" href="../2_fermionic_gates/">« Fermionic Gates</a><a class="docs-footer-nextpage" href="../Hubbard_1d/">1D Hubbard Model »</a><div class="flexbox-break"></div><p class="footer-message">Powered by <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> and the <a href="https://julialang.org/">Julia Programming Language</a>.</p></nav></div><div class="modal" id="documenter-settings"><div class="modal-background"></div><div class="modal-card"><header class="modal-card-head"><p class="modal-card-title">Settings</p><button class="delete"></button></header><section class="modal-card-body"><p><label class="label">Theme</label><div class="select"><select id="documenter-themepicker"><option value="auto">Automatic (OS)</option><option value="documenter-light">documenter-light</option><option value="documenter-dark">documenter-dark</option><option value="catppuccin-latte">catppuccin-latte</option><option value="catppuccin-frappe">catppuccin-frappe</option><option value="catppuccin-macchiato">catppuccin-macchiato</option><option value="catppuccin-mocha">catppuccin-mocha</option></select></div></p><hr/><p>This document was generated with <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> version 1.17.0 on <span class="colophon-date" title="Monday 10 August 2026 08:08">Monday 10 August 2026</span>. Using Julia version 1.12.6.</p></section><footer class="modal-card-foot"></footer></div></div></div></body></html>
