@@ -69,27 +69,27 @@ res = Optim.optimize(lossfunction, g!, thetas0, optimizer,
      0     4.308816e+00     1.270793e+00
 
 
- * time: 0.08010387420654297
+ * time: 0.039952993392944336
 
 
     10    -1.876954e+01     4.178069e-02
- * time: 6.806650876998901
+ * time: 7.221022129058838
 
 
     20    -1.878864e+01     8.076498e-03
- * time: 11.741535902023315
+ * time: 11.902923107147217
 
 
     30    -1.878942e+01     1.021403e-02
- * time: 17.66232705116272
+ * time: 17.280989170074463
 
 
     40    -1.878986e+01     2.675668e-03
- * time: 21.967299938201904
+ * time: 21.377751111984253
 
 
     50    -1.878993e+01     4.778894e-04
- * time: 26.658618927001953
+ * time: 25.83974599838257
 
 
 
@@ -111,7 +111,7 @@ res = Optim.optimize(lossfunction, g!, thetas0, optimizer,
     |g(x)|                 = 4.78e-04 ≰ 1.0e-06
 
  * Work counters
-    Seconds run:   27  (vs limit Inf)
+    Seconds run:   26  (vs limit Inf)
     Iterations:    50
     f(x) calls:    54
     ∇f(x) calls:   54
@@ -121,4 +121,4 @@ g_norm_history = [t.g_norm for t in trace]
 
 energy_plot = plot(f_history, xlabel=&quot;iter&quot;, ylabel=&quot;⟨H⟩&quot;, label=&quot;f(θ⁺)=$(round(Optim.minimum(res), digits=2))&quot;)
 grad_plot = plot(g_norm_history, xlabel=&quot;iter&quot;, ylabel=&quot;||∇f||&quot;, label=false, yscale=:log10)
-combined_plot = plot(energy_plot, grad_plot, layout=(1,2))#, plot_title=&quot;$(n_spinful) sites, t=$t, U=$U,min_abs_coeff = $min_abs_coeff&quot;)</code></pre><p><img src="../ad_example_files/ad_example_3_0.svg" alt="svg"/></p></article><nav class="docs-footer"><a class="docs-footer-prevpage" href="../Hubbard_2d/">« 2D Hubbard Model</a><a class="docs-footer-nextpage" href="../imaginary-time/">Imaginary-Time Evolution »</a><div class="flexbox-break"></div><p class="footer-message">Powered by <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> and the <a href="https://julialang.org/">Julia Programming Language</a>.</p></nav></div><div class="modal" id="documenter-settings"><div class="modal-background"></div><div class="modal-card"><header class="modal-card-head"><p class="modal-card-title">Settings</p><button class="delete"></button></header><section class="modal-card-body"><p><label class="label">Theme</label><div class="select"><select id="documenter-themepicker"><option value="auto">Automatic (OS)</option><option value="documenter-light">documenter-light</option><option value="documenter-dark">documenter-dark</option><option value="catppuccin-latte">catppuccin-latte</option><option value="catppuccin-frappe">catppuccin-frappe</option><option value="catppuccin-macchiato">catppuccin-macchiato</option><option value="catppuccin-mocha">catppuccin-mocha</option></select></div></p><hr/><p>This document was generated with <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> version 1.17.0 on <span class="colophon-date" title="Monday 10 August 2026 10:14">Monday 10 August 2026</span>. Using Julia version 1.12.6.</p></section><footer class="modal-card-foot"></footer></div></div></div></body></html>
+combined_plot = plot(energy_plot, grad_plot, layout=(1,2))#, plot_title=&quot;$(n_spinful) sites, t=$t, U=$U,min_abs_coeff = $min_abs_coeff&quot;)</code></pre><p><img src="../ad_example_files/ad_example_3_0.svg" alt="svg"/></p></article><nav class="docs-footer"><a class="docs-footer-prevpage" href="../Hubbard_2d/">« 2D Hubbard Model</a><a class="docs-footer-nextpage" href="../imaginary-time/">Imaginary-Time Evolution »</a><div class="flexbox-break"></div><p class="footer-message">Powered by <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> and the <a href="https://julialang.org/">Julia Programming Language</a>.</p></nav></div><div class="modal" id="documenter-settings"><div class="modal-background"></div><div class="modal-card"><header class="modal-card-head"><p class="modal-card-title">Settings</p><button class="delete"></button></header><section class="modal-card-body"><p><label class="label">Theme</label><div class="select"><select id="documenter-themepicker"><option value="auto">Automatic (OS)</option><option value="documenter-light">documenter-light</option><option value="documenter-dark">documenter-dark</option><option value="catppuccin-latte">catppuccin-latte</option><option value="catppuccin-frappe">catppuccin-frappe</option><option value="catppuccin-macchiato">catppuccin-macchiato</option><option value="catppuccin-mocha">catppuccin-mocha</option></select></div></p><hr/><p>This document was generated with <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> version 1.17.0 on <span class="colophon-date" title="Monday 10 August 2026 10:18">Monday 10 August 2026</span>. Using Julia version 1.12.6.</p></section><footer class="modal-card-foot"></footer></div></div></div></body></html>
