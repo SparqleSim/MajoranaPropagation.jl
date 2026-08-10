@@ -34,7 +34,7 @@ function gamma_to_dense(ms::MajoranaString)
     n = ms.nfermions
     dense_vec = zeros(Int, 2 * n)
     for i in 1:2*n
-        if (ms.gammas >> (i-1)) & 1 == 1
+        if (ms.gammas >> (i - 1)) & 1 == 1
             dense_vec[i] = 1
         end
     end
@@ -126,19 +126,23 @@ end
 
         omega_dense = create_omega(nf)
         omega_L_dense = create_omega_L(nf)
-        
+
         TT = getinttype(nf)
-        max_val = MajoranaString(nf, [2 * nf]).gammas
+        # getinttype can return a type much wider than 2nf bits (PP >= 0.7.3
+        # rounds up to whole 64-bit words), so draw with a mask instead of
+        # rejection-sampling on `> max_val`, whose acceptance rate collapses
+        # with every extra bit of the integer type
+        mask = typemax(TT) >> (8 * sizeof(TT) - 2 * nf)
 
         n_tests = 2000
         for _ = 1:n_tests
-            ms1 = rand(TT)
-            while get_weight(ms1) % 2 != 0 || ms1 > max_val
-                ms1 = rand(TT)
+            ms1 = rand(TT) & mask
+            while get_weight(ms1) % 2 != 0
+                ms1 = rand(TT) & mask
             end
-            ms2 = rand(TT)
-            while get_weight(ms2) % 2 != 0 || ms2 > max_val
-                ms2 = rand(TT)
+            ms2 = rand(TT) & mask
+            while get_weight(ms2) % 2 != 0
+                ms2 = rand(TT) & mask
             end
 
             ms1 = MajoranaString(nf, ms1)
@@ -166,17 +170,17 @@ end
         omega_L_dense = create_omega_L(nf)
 
         TT = getinttype(nf)
-        max_val = MajoranaString(nf, [2 * nf]).gammas
+        mask = typemax(TT) >> (8 * sizeof(TT) - 2 * nf)
 
         n_tests = 2000
         for _ = 1:n_tests
-            ms1 = rand(TT)
-            while get_weight(ms1) % 2 != 0 || ms1 > max_val
-                ms1 = rand(TT)
+            ms1 = rand(TT) & mask
+            while get_weight(ms1) % 2 != 0
+                ms1 = rand(TT) & mask
             end
-            ms2 = rand(TT)
-            while get_weight(ms2) % 2 != 0 || ms2 > max_val
-                ms2 = rand(TT)
+            ms2 = rand(TT) & mask
+            while get_weight(ms2) % 2 != 0
+                ms2 = rand(TT) & mask
             end
 
             ms1 = MajoranaString(nf, ms1)
@@ -231,19 +235,19 @@ end
         nf = 50
         omega_dense = create_omega(nf)
         omega_L_dense = create_omega_L(nf)
-        
+
         TT = getinttype(nf)
-        max_val = MajoranaString(nf, [2 * nf]).gammas
+        mask = typemax(TT) >> (8 * sizeof(TT) - 2 * nf)
 
         n_tests = 2000
         for _ = 1:n_tests
-            ms_v = rand(TT)
-            while get_weight(ms_v) % 2 != 0 || ms_v > max_val
-                ms_v = rand(TT)
+            ms_v = rand(TT) & mask
+            while get_weight(ms_v) % 2 != 0
+                ms_v = rand(TT) & mask
             end
-            ms_gate = rand(TT)
-            while get_weight(ms_gate) % 2 != 0 || ms_gate > max_val || MajoranaPropagation.commutes(ms_gate, ms_v)
-                ms_gate = rand(TT)
+            ms_gate = rand(TT) & mask
+            while get_weight(ms_gate) % 2 != 0 || MajoranaPropagation.commutes(ms_gate, ms_v)
+                ms_gate = rand(TT) & mask
             end
 
             ms_v = MajoranaString(nf, ms_v)
