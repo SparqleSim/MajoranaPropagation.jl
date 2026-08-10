@@ -1,0 +1,72 @@
+<!DOCTYPE html>
+<html lang="en"><head><meta charset="UTF-8"/><meta name="viewport" content="width=device-width, initial-scale=1.0"/><title>Home · MajoranaPropagation.jl</title><meta name="title" content="Home · MajoranaPropagation.jl"/><meta property="og:title" content="Home · MajoranaPropagation.jl"/><meta property="twitter:title" content="Home · MajoranaPropagation.jl"/><meta name="description" content="Documentation for MajoranaPropagation.jl."/><meta property="og:description" content="Documentation for MajoranaPropagation.jl."/><meta property="twitter:description" content="Documentation for MajoranaPropagation.jl."/><script data-outdated-warner src="assets/warner.js"></script><link href="https://cdnjs.cloudflare.com/ajax/libs/lato-font/3.0.0/css/lato-font.min.css" rel="stylesheet" type="text/css"/><link href="https://cdnjs.cloudflare.com/ajax/libs/juliamono/0.050/juliamono.min.css" rel="stylesheet" type="text/css"/><link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.2/css/fontawesome.min.css" rel="stylesheet" type="text/css"/><link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.2/css/solid.min.css" rel="stylesheet" type="text/css"/><link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.2/css/brands.min.css" rel="stylesheet" type="text/css"/><link href="https://cdnjs.cloudflare.com/ajax/libs/KaTeX/0.16.8/katex.min.css" rel="stylesheet" type="text/css"/><script>documenterBaseURL="."</script><script src="https://cdnjs.cloudflare.com/ajax/libs/require.js/2.3.6/require.min.js" data-main="assets/documenter.js"></script><script src="search_index.js"></script><script src="siteinfo.js"></script><script src="../versions.js"></script><link class="docs-theme-link" rel="stylesheet" type="text/css" href="assets/themes/catppuccin-mocha.css" data-theme-name="catppuccin-mocha"/><link class="docs-theme-link" rel="stylesheet" type="text/css" href="assets/themes/catppuccin-macchiato.css" data-theme-name="catppuccin-macchiato"/><link class="docs-theme-link" rel="stylesheet" type="text/css" href="assets/themes/catppuccin-frappe.css" data-theme-name="catppuccin-frappe"/><link class="docs-theme-link" rel="stylesheet" type="text/css" href="assets/themes/catppuccin-latte.css" data-theme-name="catppuccin-latte"/><link class="docs-theme-link" rel="stylesheet" type="text/css" href="assets/themes/documenter-dark.css" data-theme-name="documenter-dark" data-theme-primary-dark/><link class="docs-theme-link" rel="stylesheet" type="text/css" href="assets/themes/documenter-light.css" data-theme-name="documenter-light" data-theme-primary/><script src="assets/themeswap.js"></script><link href="assets/favicon.ico" rel="icon" type="image/x-icon"/><link href="assets/custom.css" rel="stylesheet" type="text/css"/></head><body><div id="documenter"><nav class="docs-sidebar"><a class="docs-logo" href><img src="assets/logo.svg" alt="MajoranaPropagation.jl logo"/></a><div class="docs-package-name"><span class="docs-autofit"><a href>MajoranaPropagation.jl</a></span></div><button class="docs-search-query input is-rounded is-small is-clickable my-2 mx-auto py-1 px-2" id="documenter-search-query">Search docs (Ctrl + /)</button><ul class="docs-menu"><li class="is-active"><a class="tocitem" href>Home</a><ul class="internal"><li><a class="tocitem" href="#Usage"><span>Usage</span></a></li><li><a class="tocitem" href="#Quick-start"><span>Quick start</span></a></li><li><a class="tocitem" href="#Citation"><span>Citation</span></a></li></ul></li><li><span class="tocitem">Examples</span><ul><li><a class="tocitem" href="examples/0_Majorana-operators/">Majorana Operators</a></li><li><a class="tocitem" href="examples/1_custom_Majorana_Operators/">Custom Majorana Operators</a></li><li><a class="tocitem" href="examples/2_fermionic_gates/">Fermionic Gates</a></li><li><a class="tocitem" href="examples/3_trotter_consistent/">Trotterized Time Evolution</a></li><li><a class="tocitem" href="examples/Hubbard_1d/">1D Hubbard Model</a></li><li><a class="tocitem" href="examples/Hubbard_2d/">2D Hubbard Model</a></li><li><a class="tocitem" href="examples/ad_example/">Automatic Differentiation</a></li><li><a class="tocitem" href="examples/imaginary-time/">Imaginary-Time Evolution</a></li></ul></li><li><span class="tocitem">API</span><ul><li><a class="tocitem" href="api/MajoranaDataTypes/">Data types</a></li><li><a class="tocitem" href="api/MajoranaAlgebra/">Majorana Algebra</a></li><li><a class="tocitem" href="api/InitialStates/">Initial States</a></li><li><a class="tocitem" href="api/Gates/">Gates</a></li><li><a class="tocitem" href="api/Propagation/">Propagation</a></li><li><a class="tocitem" href="api/Truncations/">Truncations</a></li><li><a class="tocitem" href="api/Circuits/">Circuits</a></li><li><a class="tocitem" href="api/FrequencyTracker/">Frequency Tracker</a></li><li><a class="tocitem" href="api/QuantumChemistry/">Quantum Chemistry</a></li></ul></li></ul><div class="docs-version-selector field has-addons"><div class="control"><span class="docs-label button is-static is-size-7">Version</span></div><div class="docs-selector control is-expanded"><div class="select is-fullwidth is-size-7"><select id="documenter-version-selector"></select></div></div></div></nav><div class="docs-main"><header class="docs-navbar"><a class="docs-sidebar-button docs-navbar-link fa-solid fa-bars is-hidden-desktop" id="documenter-sidebar-button" href="#"></a><nav class="breadcrumb"><ul class="is-hidden-mobile"><li class="is-active"><a href>Home</a></li></ul><ul class="is-hidden-tablet"><li class="is-active"><a href>Home</a></li></ul></nav><div class="docs-right"><a class="docs-navbar-link" href="https://github.com/SparqleSim/MajoranaPropagation.jl" title="View the repository on GitHub"><span class="docs-icon fa-brands"></span><span class="docs-label is-hidden-touch">GitHub</span></a><a class="docs-navbar-link" href="https://github.com/SparqleSim/MajoranaPropagation.jl/blob/main/README.md" title="Edit source on GitHub"><span class="docs-icon fa-solid"></span></a><a class="docs-settings-button docs-navbar-link fa-solid fa-gear" id="documenter-settings-button" href="#" title="Settings"></a><a class="docs-article-toggle-button fa-solid fa-chevron-up" id="documenter-article-toggle-button" href="javascript:;" title="Collapse all docstrings"></a></div></header><article class="content" id="documenter-page"><h1 id="MajoranaPropagation.jl"><a class="docs-heading-anchor" href="#MajoranaPropagation.jl">MajoranaPropagation.jl</a><a id="MajoranaPropagation.jl-1"></a><a class="docs-heading-anchor-permalink" href="#MajoranaPropagation.jl" title="Permalink"></a></h1><p><a href="https://SparqleSim.github.io/MajoranaPropagation.jl/dev/"><img src="https://img.shields.io/badge/docs-dev-blue.svg" alt="Dev Docs"/></a></p><p>A Julia library for Majorana propagation simulation of fermionic quantum circuits and quantum systems. Majorana propagation works in the Heisenberg picture, backpropagating fermionic observables <span>$\hat O$</span> through the fermionic circuit <span>$\mathcal C$</span>. It is then possible to compute expectation values with initial states <span>$\rho$</span> as <span>$\mathrm{Tr}(\rho~\mathcal C^\dagger \hat O \mathcal C)$</span>, or to evaluate inner products between observables, <span>$\mathrm{Tr}(\hat O_1~\mathcal C^\dagger \hat O_2 \mathcal C)$</span>.</p><p>The code relies on expanding the initial observable into a basis for fermionic observables, namely the set of Majorana strings <span>$\mu(v)$</span> <span>$\hat O =\sum_v \alpha_v \mu(v)$</span> To maintain the computation classically feasible, it is essential that the initial observable is sparse in this basis.</p><p>The code provides constructors to initialize the most common fermionic observables and operations in the Majorana basis, without the need for the user to perform this mapping manually.</p><h2 id="Usage"><a class="docs-heading-anchor" href="#Usage">Usage</a><a id="Usage-1"></a><a class="docs-heading-anchor-permalink" href="#Usage" title="Permalink"></a></h2><p>To install MajoranaPropagation.jl, you can install the registered package using the following commands in Julia&#39;s REPL:</p><pre><code class="language-julia hljs">using Pkg
+Pkg.activate(&quot;path/to/project&quot;)
+Pkg.add(&quot;MajoranaPropagation&quot;)</code></pre><p>Afterward, include</p><pre><code class="language-julia hljs">using Pkg
+Pkg.activate(&quot;path/to/project&quot;)
+
+using MajoranaPropagation</code></pre><p>in the script where you want to use Majorana Propagation&#39;s functionalities.</p><h3 id="Installing-from-GitHub"><a class="docs-heading-anchor" href="#Installing-from-GitHub">Installing from GitHub</a><a id="Installing-from-GitHub-1"></a><a class="docs-heading-anchor-permalink" href="#Installing-from-GitHub" title="Permalink"></a></h3><p>Alternatively, you can install the latest code or some experimental branch using</p><pre><code class="language-julia hljs">Pkg.add(url=&quot;https://github.com/SparqleSim/MajoranaPropagation.jl&quot;, rev=&quot;branch_name&quot;)</code></pre><p>to install a specific branch <code>branch_name</code>.</p><h2 id="Quick-start"><a class="docs-heading-anchor" href="#Quick-start">Quick start</a><a id="Quick-start-1"></a><a class="docs-heading-anchor-permalink" href="#Quick-start" title="Permalink"></a></h2><p>You can find example scripts in the <code>examples/</code> directory of the repository. We currently illustrate the usage for simulating the evolution of observables under the unitary dynamics generated by the Fermi-Hubbard Hamiltonian in 1D and 2D lattices.</p><p>Simulating the expectation value of <span>$\langle n_3 n_5\rangle(\tau)$</span> for a 1D chain of spinless fermions under the dynamics of the t-V Hamiltonian  <span>$H=-t\sum_{\langle i,j\rangle}\left(f^\dagger_if_j+f^\dagger_jf_i\right) + V\sum_{\langle i,j\rangle} n_in_j$</span> is done as</p><pre><code class="language-julia hljs">using Pkg
+Pkg.activate(&quot;path/to/project&quot;)
+
+using MajoranaPropagation
+
+# Set parameters
+L_sites = 10
+t_hop = 1.0
+V = 2.0
+dtau = 0.1
+n_steps = 6
+
+# Create Hamiltonian
+topo = bricklayertopology(L_sites)
+
+circ_single_step = []
+thetas_single_step = []
+for (i, j) in topo
+    push!(circ_single_step, FermionicGate(:hop, [i, j]))
+    push!(thetas_single_step, -t_hop * dtau)
+end
+for (i, j) in topo
+    push!(circ_single_step, FermionicGate(:nn, [i, j]))
+    push!(thetas_single_step, V * dtau)
+end
+
+
+# Set initial Fock state
+# specify the sites where fermions are created
+fock_state = FockState(L_sites, 1:2:L_sites)
+
+# Set observable 
+obs = MajoranaSum(L_sites, :n, 1) * MajoranaSum(L_sites, :n, 5)
+@show obs 
+
+# Propagate 
+for step = 1:n_steps
+    propagate!(circ_single_step, obs, thetas_single_step; min_abs_coeff=1.e-8)
+    @show overlapwithfock(obs, fock_state)
+end</code></pre><p>It&#39;s also posssible to consider superpositions of Fock states as initial states </p><pre><code class="language-julia hljs"># Consider a second Fock state that only differs by the position of one fermion
+fock_state = fockstate(1:2:L_sites)
+
+sites2 = collect(1:2:L_sites)
+sites2[1] = 2
+fock_state_2 = FockState(L_sites, sites2)
+
+# Set observable 
+obs = MajoranaSum(L_sites, :n, 1) * MajoranaSum(L_sites, :n, 5)
+
+# Propagate
+for step = 1:n_steps
+    propagate!(circ_single_step, obs, thetas_single_step; min_abs_coeff=1.e-8)
+    o1 = overlapwithfock(obs, fock_state)
+    o2 = overlapwithfock(obs, fock_state_2)
+
+    # compute the overlap with the equal superposition of the two Fock states
+    osuper = overlapwithfock(obs, [fock_state, fock_state_2], [1 / sqrt(2), 1 / sqrt(2)])
+    @show osuper
+end</code></pre><h2 id="Citation"><a class="docs-heading-anchor" href="#Citation">Citation</a><a id="Citation-1"></a><a class="docs-heading-anchor-permalink" href="#Citation" title="Permalink"></a></h2><p>If you use <code>MajoranaPropagation.jl</code> in your research and find it useful, please consider citing our work</p><pre><code class="language-bibtex hljs">@misc{danna2025majorana,
+      title={Majorana string simulation of nonequilibrium dynamics in two-dimensional lattice fermion systems}, 
+      author={Matteo D&#39;Anna and Jannes Nys and Juan Carrasquilla},
+      year={2025},
+      eprint={2511.02809},
+      archivePrefix={arXiv},
+      url={https://arxiv.org/abs/2511.02809}, 
+}</code></pre></article><nav class="docs-footer"><a class="docs-footer-nextpage" href="examples/0_Majorana-operators/">Majorana Operators »</a><div class="flexbox-break"></div><p class="footer-message">Powered by <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> and the <a href="https://julialang.org/">Julia Programming Language</a>.</p></nav></div><div class="modal" id="documenter-settings"><div class="modal-background"></div><div class="modal-card"><header class="modal-card-head"><p class="modal-card-title">Settings</p><button class="delete"></button></header><section class="modal-card-body"><p><label class="label">Theme</label><div class="select"><select id="documenter-themepicker"><option value="auto">Automatic (OS)</option><option value="documenter-light">documenter-light</option><option value="documenter-dark">documenter-dark</option><option value="catppuccin-latte">catppuccin-latte</option><option value="catppuccin-frappe">catppuccin-frappe</option><option value="catppuccin-macchiato">catppuccin-macchiato</option><option value="catppuccin-mocha">catppuccin-mocha</option></select></div></p><hr/><p>This document was generated with <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> version 1.17.0 on <span class="colophon-date" title="Monday 10 August 2026 10:14">Monday 10 August 2026</span>. Using Julia version 1.12.6.</p></section><footer class="modal-card-foot"></footer></div></div></div></body></html>
