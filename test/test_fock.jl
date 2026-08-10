@@ -5,7 +5,6 @@ using ITensorMPS
 
 using Random
 Random.seed!(42)
-using ProgressMeter
 
 function string_to_mpo_spinless(ms::TT, n_fermions, sites) where {TT<:Integer}
     ms_mpo = MPO(sites)
@@ -192,7 +191,6 @@ function spinless()
 
     non_zero_overlaps = 0
 
-    p = Progress(n_tests * 2 * n_strings_per_test, desc="Running tests...")
     for l in 1:n_tests
         n_focks = rand(1:max_elements_in_superposition)
         n_particles = rand(1:max_particles)
@@ -237,7 +235,6 @@ function spinless()
                 non_zero_overlaps += 1
             end
             k += 1
-            next!(p)
         end
 
         #println("-----")
@@ -263,10 +260,8 @@ function spinless()
                 non_zero_overlaps += 1
             end
             k += 1
-            next!(p)
         end
     end
-    finish!(p)
     println("All tests passed! Non-zero overlaps computed: ", non_zero_overlaps)
 end
 
@@ -285,7 +280,6 @@ function spinful()
 
     non_zero_overlaps = 0
 
-    p = Progress(n_tests * 2 * n_strings_per_test, desc="Running tests...")
     for l in 1:n_tests
         n_focks = rand(1:max_elements_in_superposition)
         n_particles_up = rand(1:max_particles)
@@ -347,7 +341,6 @@ function spinful()
                 non_zero_overlaps += 1
             end
             k += 1
-            next!(p)
         end
 
         continue
@@ -375,10 +368,8 @@ function spinful()
                 non_zero_overlaps += 1
             end
             k += 1
-            next!(p)
         end
     end
-    finish!(p)
     println("All tests passed! Non-zero overlaps computed: ", non_zero_overlaps)
 
 end
