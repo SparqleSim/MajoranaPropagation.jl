@@ -1,0 +1,105 @@
+<!DOCTYPE html>
+<html lang="en"><head><meta charset="UTF-8"/><meta name="viewport" content="width=device-width, initial-scale=1.0"/><title>1D Hubbard Model · MajoranaPropagation.jl</title><meta name="title" content="1D Hubbard Model · MajoranaPropagation.jl"/><meta property="og:title" content="1D Hubbard Model · MajoranaPropagation.jl"/><meta property="twitter:title" content="1D Hubbard Model · MajoranaPropagation.jl"/><meta name="description" content="Documentation for MajoranaPropagation.jl."/><meta property="og:description" content="Documentation for MajoranaPropagation.jl."/><meta property="twitter:description" content="Documentation for MajoranaPropagation.jl."/><script data-outdated-warner src="../../assets/warner.js"></script><link href="https://cdnjs.cloudflare.com/ajax/libs/lato-font/3.0.0/css/lato-font.min.css" rel="stylesheet" type="text/css"/><link href="https://cdnjs.cloudflare.com/ajax/libs/juliamono/0.050/juliamono.min.css" rel="stylesheet" type="text/css"/><link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.2/css/fontawesome.min.css" rel="stylesheet" type="text/css"/><link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.2/css/solid.min.css" rel="stylesheet" type="text/css"/><link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.2/css/brands.min.css" rel="stylesheet" type="text/css"/><link href="https://cdnjs.cloudflare.com/ajax/libs/KaTeX/0.16.8/katex.min.css" rel="stylesheet" type="text/css"/><script>documenterBaseURL="../.."</script><script src="https://cdnjs.cloudflare.com/ajax/libs/require.js/2.3.6/require.min.js" data-main="../../assets/documenter.js"></script><script src="../../search_index.js"></script><script src="../../siteinfo.js"></script><script src="../../../versions.js"></script><link class="docs-theme-link" rel="stylesheet" type="text/css" href="../../assets/themes/catppuccin-mocha.css" data-theme-name="catppuccin-mocha"/><link class="docs-theme-link" rel="stylesheet" type="text/css" href="../../assets/themes/catppuccin-macchiato.css" data-theme-name="catppuccin-macchiato"/><link class="docs-theme-link" rel="stylesheet" type="text/css" href="../../assets/themes/catppuccin-frappe.css" data-theme-name="catppuccin-frappe"/><link class="docs-theme-link" rel="stylesheet" type="text/css" href="../../assets/themes/catppuccin-latte.css" data-theme-name="catppuccin-latte"/><link class="docs-theme-link" rel="stylesheet" type="text/css" href="../../assets/themes/documenter-dark.css" data-theme-name="documenter-dark" data-theme-primary-dark/><link class="docs-theme-link" rel="stylesheet" type="text/css" href="../../assets/themes/documenter-light.css" data-theme-name="documenter-light" data-theme-primary/><script src="../../assets/themeswap.js"></script><link href="../../assets/favicon.ico" rel="icon" type="image/x-icon"/><link href="../../assets/custom.css" rel="stylesheet" type="text/css"/></head><body><div id="documenter"><nav class="docs-sidebar"><a class="docs-logo" href="../../"><img src="../../assets/logo.svg" alt="MajoranaPropagation.jl logo"/></a><div class="docs-package-name"><span class="docs-autofit"><a href="../../">MajoranaPropagation.jl</a></span></div><button class="docs-search-query input is-rounded is-small is-clickable my-2 mx-auto py-1 px-2" id="documenter-search-query">Search docs (Ctrl + /)</button><ul class="docs-menu"><li><a class="tocitem" href="../../">Home</a></li><li><span class="tocitem">Examples</span><ul><li><a class="tocitem" href="../0_Majorana-operators/">Majorana Operators</a></li><li><a class="tocitem" href="../1_custom_Majorana_Operators/">Custom Majorana Operators</a></li><li><a class="tocitem" href="../2_fermionic_gates/">Fermionic Gates</a></li><li><a class="tocitem" href="../3_trotter_consistent/">Trotterized Time Evolution</a></li><li class="is-active"><a class="tocitem" href>1D Hubbard Model</a></li><li><a class="tocitem" href="../Hubbard_2d/">2D Hubbard Model</a></li><li><a class="tocitem" href="../ad_example/">Automatic Differentiation</a></li><li><a class="tocitem" href="../imaginary-time/">Imaginary-Time Evolution</a></li></ul></li><li><span class="tocitem">API</span><ul><li><a class="tocitem" href="../../api/MajoranaDataTypes/">Data types</a></li><li><a class="tocitem" href="../../api/MajoranaAlgebra/">Majorana Algebra</a></li><li><a class="tocitem" href="../../api/InitialStates/">Initial States</a></li><li><a class="tocitem" href="../../api/Gates/">Gates</a></li><li><a class="tocitem" href="../../api/Propagation/">Propagation</a></li><li><a class="tocitem" href="../../api/Truncations/">Truncations</a></li><li><a class="tocitem" href="../../api/Circuits/">Circuits</a></li><li><a class="tocitem" href="../../api/FrequencyTracker/">Frequency Tracker</a></li><li><a class="tocitem" href="../../api/QuantumChemistry/">Quantum Chemistry</a></li></ul></li></ul><div class="docs-version-selector field has-addons"><div class="control"><span class="docs-label button is-static is-size-7">Version</span></div><div class="docs-selector control is-expanded"><div class="select is-fullwidth is-size-7"><select id="documenter-version-selector"></select></div></div></div></nav><div class="docs-main"><header class="docs-navbar"><a class="docs-sidebar-button docs-navbar-link fa-solid fa-bars is-hidden-desktop" id="documenter-sidebar-button" href="#"></a><nav class="breadcrumb"><ul class="is-hidden-mobile"><li><a class="is-disabled">Examples</a></li><li class="is-active"><a href>1D Hubbard Model</a></li></ul><ul class="is-hidden-tablet"><li class="is-active"><a href>1D Hubbard Model</a></li></ul></nav><div class="docs-right"><a class="docs-navbar-link" href="https://github.com/SparqleSim/MajoranaPropagation.jl" title="View the repository on GitHub"><span class="docs-icon fa-brands"></span><span class="docs-label is-hidden-touch">GitHub</span></a><a class="docs-navbar-link" href="https://github.com/SparqleSim/MajoranaPropagation.jl/blob/main/docs/src/examples/Hubbard_1d.md" title="Edit source on GitHub"><span class="docs-icon fa-solid"></span></a><a class="docs-settings-button docs-navbar-link fa-solid fa-gear" id="documenter-settings-button" href="#" title="Settings"></a><a class="docs-article-toggle-button fa-solid fa-chevron-up" id="documenter-article-toggle-button" href="javascript:;" title="Collapse all docstrings"></a></div></header><article class="content" id="documenter-page"><pre><code class="language-julia hljs">using Revise
+using MajoranaPropagation
+
+using Plots </code></pre><p>Simulate the dynamics of the spinful Hubbard model on a 1D chain of <span>$N$</span> spinful sites. The Hamiltonian is</p><p class="math-container">\[\hat{H}=-t \sum_{i, \sigma=\{\uparrow, \downarrow\}}\left(\hat{c}_{i, \sigma}^{\dagger} \hat{c}_{i+1, \sigma}+\hat{c}_{i+1, \sigma}^{\dagger} \hat{c}_{i, \sigma}\right)+U \sum_i \hat{n}_{i \uparrow} \hat{n}_{i \downarrow}\]</p><pre><code class="language-julia hljs">N_spinful_sites = 20
+t = 1.
+U = 1.5
+
+n_layers = 10
+dt = 0.07</code></pre><pre><code class="nohighlight hljs">0.07</code></pre><p>Get 1D connectivity, and create the circtuit for implementing a single layer of first order Trotterization.</p><pre><code class="language-julia hljs">topo = bricklayertopology(N_spinful_sites)
+
+circ_single = []
+thetas_single = []
+
+#up hoppings 
+for (i, j) in topo
+    push!(circ_single, FermionicRotation(:hopup, [i, j]))
+    push!(thetas_single, -t * dt)
+end
+
+#down hoppings 
+for (i, j) in topo
+    push!(circ_single, FermionicRotation(:hopdn, [i, j]))
+    push!(thetas_single, -t * dt)
+end
+
+#on-site repulsion 
+for i = 1:N_spinful_sites
+    push!(circ_single, FermionicRotation(:nupndn, i))
+    push!(thetas_single, U * dt)
+end</code></pre><h4 id="Set-the-truncations"><a class="docs-heading-anchor" href="#Set-the-truncations">Set the truncations</a><a id="Set-the-truncations-1"></a><a class="docs-heading-anchor-permalink" href="#Set-the-truncations" title="Permalink"></a></h4><ol><li><code>min_abs_coeff</code>: PP coefficient truncation</li><li><code>max_unpaired</code>: number of unpaired Majoranas, namely the number of indices <span>$i$</span> where only one of <span>$\gamma_i$</span>, <span>$\gamma&#39;_i$</span> are non-zero</li></ol><pre><code class="language-julia hljs">min_abs_coeff = 1.e-8
+max_unpaired = 10</code></pre><pre><code class="nohighlight hljs">10</code></pre><p>Set the inital state as the checkerboard state <span>$\ket{\uparrow\downarrow\cdots\uparrow\downarrow}$</span></p><pre><code class="language-julia hljs">#initial state 
+initial_state_label = &quot;Checkerboard&quot;
+fock_state = FockState(N_spinful_sites, :checkerboard, true)
+
+fock_state</code></pre><pre><code class="nohighlight hljs">Fock state with 20 fermions at positions
+    ↑: 1, 3, 5, 7, 9, 11, 13, 15, 17, 19
+    ↓: 2, 4, 6, 8, 10, 12, 14, 16, 18, 20</code></pre><p>Backpropagate <span>$n_{2,\uparrow}$</span>, the up density on site 2</p><pre><code class="language-julia hljs"># to = TimerOutput()
+
+site_index = 3
+obs = MajoranaSum(N_spinful_sites, :nup, site_index)
+
+@show obs 
+
+res = zeros(n_layers+1)
+res[1] = overlapwithfock(obs, fock_state)
+
+for k=1:n_layers
+    propagate!(circ_single, obs, thetas_single, min_abs_coeff=min_abs_coeff, max_unpaired=max_unpaired)
+    res[k+1] = overlapwithfock(obs, fock_state)
+end 
+</code></pre><pre><code class="nohighlight hljs">obs = MajoranaSum with 2 terms:
+    0.5 * 00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
+    0.5 * 00000000110000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000</code></pre><pre><code class="language-julia hljs">p = plot(dt*(0:n_layers)./ t, res, label=&quot;MP&quot;, xlabel=&quot;τ/t&quot;, ylabel=&quot;⟨ n $site_index,↑⟩&quot;, title = &quot;Initial state: &quot; * initial_state_label)
+
+display(p)</code></pre><p><img src="../Hubbard_1d_files/Hubbard_1d_11_0.svg" alt="svg"/></p><p>Let&#39;s now consider the more complex observable <span>$O = n_{2, \uparrow}n_{6,\downarrow}n_{10,\uparrow}$</span></p><pre><code class="language-julia hljs">min_abs_coeff = 1.e-5
+max_unpaired = 8
+
+site_index = 2
+obs = MajoranaSum(N_spinful_sites, :nup, site_index) * MajoranaSum(N_spinful_sites, :ndn, site_index + 4) * MajoranaSum(N_spinful_sites, :nup, site_index + 8)
+
+@show obs 
+
+res = zeros(n_layers+1)
+res[1] = overlapwithfock(obs, fock_state)
+
+for k=1:n_layers
+    propagate!(circ_single, obs, thetas_single, min_abs_coeff=min_abs_coeff, max_unpaired=max_unpaired)
+    res[k+1] = overlapwithfock(obs, fock_state)
+    @show k, length(obs)
+end </code></pre><pre><code class="nohighlight hljs">obs = MajoranaSum with 8 terms:
+    0.125 * 00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
+    0.125 * 00000000000000000000000000000000000011000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
+    0.125 * 00000000000000000000001100000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
+    -0.125 * 00001100000000000000001100000000000011000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
+    -0.125 * 00001100000000000000000000000000000011000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
+    -0.125 * 00000000000000000000001100000000000011000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
+    -0.125 * 00001100000000000000001100000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
+    0.125 * 00001100000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
+
+
+(k, length(obs)) = (1, 624)
+(k, length(obs)) = (2, 2468)
+(k, length(obs)) = 
+
+(3, 6994)
+(k, length(obs)) = (4, 13745)
+
+
+(k, length(obs)) = 
+
+(5, 28716)
+(k, length(obs)) = (6, 53056)
+
+
+(k, length(obs)) = 
+
+(7, 94068)
+(k, length(obs)) = (8, 161209)
+
+
+(k, length(obs)) = 
+
+(9, 255356)
+(k, length(obs)) = (10, 386450)</code></pre></article><nav class="docs-footer"><a class="docs-footer-prevpage" href="../3_trotter_consistent/">« Trotterized Time Evolution</a><a class="docs-footer-nextpage" href="../Hubbard_2d/">2D Hubbard Model »</a><div class="flexbox-break"></div><p class="footer-message">Powered by <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> and the <a href="https://julialang.org/">Julia Programming Language</a>.</p></nav></div><div class="modal" id="documenter-settings"><div class="modal-background"></div><div class="modal-card"><header class="modal-card-head"><p class="modal-card-title">Settings</p><button class="delete"></button></header><section class="modal-card-body"><p><label class="label">Theme</label><div class="select"><select id="documenter-themepicker"><option value="auto">Automatic (OS)</option><option value="documenter-light">documenter-light</option><option value="documenter-dark">documenter-dark</option><option value="catppuccin-latte">catppuccin-latte</option><option value="catppuccin-frappe">catppuccin-frappe</option><option value="catppuccin-macchiato">catppuccin-macchiato</option><option value="catppuccin-mocha">catppuccin-mocha</option></select></div></p><hr/><p>This document was generated with <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> version 1.17.0 on <span class="colophon-date" title="Monday 10 August 2026 10:03">Monday 10 August 2026</span>. Using Julia version 1.12.6.</p></section><footer class="modal-card-foot"></footer></div></div></div></body></html>
