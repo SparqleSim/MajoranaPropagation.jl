@@ -55,6 +55,28 @@ end
         @test !truncatemajoranaweight(idstr, 0)
     end
 
+    @testset "unpaired mask across integer widths" begin
+        # getinttype spans UInt8 .. UInt128 and BitIntegers types beyond;
+        # the mask must be exactly the odd bit positions at every width
+        for nf in (1, 2, 3, 4, 8, 16, 31, 32, 33, 64, 65)
+            TT = getinttype(nf)
+            mask = create_unpaired_mask(nf)
+            @test mask isa TT
+            @test mask == create_unpaired_mask(TT, nf)
+            @test mask == reduce(|, (TT(1) << (2k + 1) for k in 0:nf-1))
+
+            # compute_unpaired agrees with a per-mode bit count on random strings
+            for _ in 1:5
+                ms = TT(0)
+                for i in 0:2nf-1
+                    ms |= TT(rand(Bool)) << i
+                end
+                expected = count(k -> count_ones((ms >>> (2k)) & TT(3)) == 1, 0:nf-1)
+                @test compute_unpaired(ms, mask) == expected
+            end
+        end
+    end
+
     @testset "doublon counters (spinful)" begin
         n_sites = 3
         filters = create_doublons_filters(n_sites)
@@ -171,5 +193,34 @@ end
         end
         expected_value = -0.054894655344715965
         @test isapprox(overlapwithfock(obs, fock), expected_value; rtol=1e-6)
+    end
+
+    # Out-of-place `propagate` vs in-place `propagate!` (TESTING_GUIDE.md §4):
+    # equal results with ==, no mutation of the input, on both backends.
+    # Regression test for the UndefVarError in `propagate` introduced in the
+    # performance-updates PR (#22), whose @test_broken marker was removed there.
+    @testset "propagate vs propagate! ($label)" for (label, make) in
+        (("dict", identity), ("vector", VectorMajoranaSum))
+
+        N_sites = 3
+        circ, thetas = _hubbard_circ(N_sites)
+        msum0 = make(MajoranaSum(N_sites, :nupndn, 2))
+        msum_in = deepcopy(msum0)
+        res = propagate(circ, msum_in, thetas; min_abs_coeff=1e-12)
+        @test msum_in == msum0
+        @test res == propagate!(circ, deepcopy(msum0), thetas; min_abs_coeff=1e-12)
+
+        # max_freq/max_sins on plain-number coefficients: propagate must auto-wrap into
+        # MajoranaFrequencyTracker, truncate, and hand back unwrapped plain numbers
+        res = propagate(circ, msum_in, thetas; min_abs_coeff=-1.0, max_freq=3)
+        @test msum_in == msum0
+        @test MajoranaPropagation.coefftype(res) == Float64
+
+        ref = propagate!(circ, wrapcoefficients(deepcopy(msum0), MajoranaFrequencyTracker),
+            thetas; min_abs_coeff=-1.0, max_freq=3)
+        @test res == MajoranaPropagation.unwrapcoefficients(ref)
+
+        # the truncation must actually bite compared to the untruncated run
+        @test length(res) < length(propagate(circ, msum0, thetas; min_abs_coeff=-1.0))
     end
 end

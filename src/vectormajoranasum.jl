@@ -46,6 +46,13 @@ PropagationBase.setsortedprefix!(vmsum::VectorMajoranaSum, n::Int) = (vmsum._ter
 
 majoranatype(vmsum::VectorMajoranaSum{TV,CV}) where {TV,CV} = eltype(TV)
 
+"""
+    coefftype(vmsum::VectorMajoranaSum)
+
+Get the coefficient type of the `VectorMajoranaSum`.
+"""
+coefftype(vmsum::VectorMajoranaSum{TV,CV}) where {TV,CV} = eltype(CV)
+
 
 """
     nsites(vmsum::VectorMajoranaSum)

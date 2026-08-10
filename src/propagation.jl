@@ -17,17 +17,22 @@ Further `kwargs` are passed to the lower-level functions `applymergetruncate!`, 
 function PropagationBase.propagate(circuit, msum::AbstractMajoranaSum, thetas=nothing; max_weight=Inf, min_abs_coeff=1e-10, max_freq=Inf, max_sins=Inf, customtruncfunc=nothing, heisenberg=true, thread::Bool=true, kwargs...)
     CT = coefftype(msum)
 
-    # if max_freq and max_sins are used, and no PathProperties used, automatically wrap the coefficients in `PauliFreqTracker`
-    msum = _check_wrapping_into_paulifreqtracker(msum, max_freq, max_sins)
+    # if max_freq or max_sins are used and the coefficients are plain numbers,
+    # automatically wrap them in `MajoranaFrequencyTracker`
+    if ((max_freq != Inf) || (max_sins != Inf)) && !(CT <: PathProperties)
+        msum = wrapcoefficients(msum, MajoranaFrequencyTracker)
+    end
 
-    # check that max_freq and max_sins are only used a PathProperties type tracking them
-    _checkfreqandsinfields(msum, max_freq, max_sins)
+    # check that max_freq and max_sins are only used with a PathProperties type tracking them
+    PauliPropagation._checkfreqandsinfields(msum, max_freq, max_sins)
 
-    # run the in-place propagation function on a deepcopy of the input psum
+    # run the in-place propagation function on a deepcopy of the input msum
     msum = propagate!(circuit, deepcopy(msum), thetas; max_weight, min_abs_coeff, max_freq, max_sins, customtruncfunc, heisenberg, thread, kwargs...)
 
-    # if the input psum was not a `PauliFreqTracker`, and the corresponding truncations were set,we need to unwrap the coefficients
-    msum = _check_unwrap_from_paulifreqtracker(CT, msum)
+    # if the coefficients were wrapped above, unwrap them back to plain numbers
+    if !(CT <: PathProperties) && coefftype(msum) <: MajoranaFrequencyTracker
+        msum = unwrapcoefficients(msum)
+    end
 
     return msum
 end

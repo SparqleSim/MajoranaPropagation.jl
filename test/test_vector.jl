@@ -93,3 +93,17 @@ end
         end
     end
 end
+# Round-trips of the cache conversion functions in src/propagationcache.jl
+@testset "cache conversions" begin
+    N_sites = 3
+    msum = MajoranaSum(N_sites, :nupndn, 2)
+    cache = MajoranaPropagation.VectorMajoranaPropagationCache(msum)  # dict -> cache
+
+    @test MajoranaSum(cache) == msum                                  # cache -> dict
+    @test VectorMajoranaSum(cache) == VectorMajoranaSum(msum)         # cache -> vector
+
+    # the extracted vector sum is a copy, not a view into the cache
+    v = VectorMajoranaSum(cache)
+    coefficients(v)[1] += 1.0
+    @test VectorMajoranaSum(cache) != v
+end

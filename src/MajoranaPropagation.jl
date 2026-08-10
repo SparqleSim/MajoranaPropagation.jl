@@ -4,6 +4,7 @@ using PauliPropagation
 export bricklayertopology, staircasetopology, rectangletopology, getinttype, terms, coefficients
 using PauliPropagation.PropagationBase
 import PauliPropagation.PropagationBase: propagate, propagate!
+import PauliPropagation: wrapcoefficients, unwrapcoefficients
 
 include("MajoranaDataTypes.jl")
 export
@@ -83,6 +84,7 @@ include("MajoranaFrequencyTracker.jl")
 export
     MajoranaFrequencyTracker,
     wrapcoefficients,
+    unwrapcoefficients,
     reset_tracker!
 
 include("Constructors.jl")

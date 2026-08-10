@@ -183,6 +183,15 @@ end
         cache = xorm_buildcache(head_terms, head_coeffs, tail_terms, tail_coeffs)
         MajoranaPropagation.xorsortedtailmerge!(cache, UInt64(g))        # eltype mismatch
         @test xorm_checkmerge(cache, ref_t, ref_c)
+
+        # gate weight > 4: XOR preconditions hold but the weight cutoff forces the fallback
+        g6 = (one(TT) << 11) | (one(TT) << 9) | (one(TT) << 7) | (one(TT) << 5) | (one(TT) << 2) | one(TT)
+        @test get_weight(g6) == 6
+        tail6 = sources .⊻ g6
+        ref_t6, ref_c6 = xorm_refmerge(head_terms, head_coeffs, tail6, tail_coeffs)
+        cache = xorm_buildcache(head_terms, head_coeffs, tail6, tail_coeffs)
+        MajoranaPropagation.xorsortedtailmerge!(cache, g6)
+        @test xorm_checkmerge(cache, ref_t6, ref_c6)
     end
 end
 

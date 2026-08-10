@@ -87,7 +87,8 @@ Merge the propagation cache and convert its main sum into a dictionary-based `Ma
 """
 function MajoranaSum(prop_cache::VectorMajoranaPropagationCache)
     merge!(prop_cache)
-    return MajoranaSum(nqubits(prop_cache), Dict(zip(activeterms(prop_cache), activecoeffs(prop_cache))))
+    vmsum = mainsum(prop_cache)
+    return MajoranaSum(vmsum.nsites, vmsum.is_spinful, Dict(zip(activeterms(prop_cache), activecoeffs(prop_cache))))
 end
 
 PropagationBase.activesize(prop_cache::VectorMajoranaPropagationCache) = prop_cache.active_size

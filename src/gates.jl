@@ -228,9 +228,9 @@ function _applymajoranarotation!(prop_cache::VectorMajoranaPropagationCache, gat
             term = terms[ii]
             coeff = coeffs[ii]
 
-            coeff1 = coeff * cos_val
+            coeff1 = _applycos(coeff, cos_val)
             new_term, sign = _rotationproduct_evengate(term, gate_ms, gate_ms_ps, omega_l_gate)
-            coeff2 = coeff * sin_val * sign
+            coeff2 = _applysin(coeff, sin_val * sign)
 
             coeffs[ii] = coeff1
 
