@@ -23,6 +23,7 @@ export
 include("MajoranaAlgebra.jl")
 export
     ms_mult,
+    majoranarotationproduct,
     commutator,
     commutes,
     norm,

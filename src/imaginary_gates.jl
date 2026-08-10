@@ -10,11 +10,11 @@ Only defined in the Schrödinger picture, i.e. `propagate` must be called with `
 struct ImaginaryMajoranaRotation{TT<:Integer} <: ParametrizedGate
     ms_int::TT
     function ImaginaryMajoranaRotation(ms::MajoranaString{TT}) where {TT<:Integer}
-        @assert get_weight(ms) % 2 == 0 # only even parity operations
+        iseven(get_weight(ms)) || throw(ArgumentError("ImaginaryMajoranaRotation requires an even-weight Majorana string, got weight $(get_weight(ms))"))
         return new{TT}(ms.gammas)
     end
     function ImaginaryMajoranaRotation(ms_int::TT) where {TT<:Integer}
-        @assert get_weight(ms_int) % 2 == 0 # only even parity operations
+        iseven(get_weight(ms_int)) || throw(ArgumentError("ImaginaryMajoranaRotation requires an even-weight Majorana string, got weight $(get_weight(ms_int))"))
         return new{TT}(ms_int)
     end
 end
@@ -87,7 +87,9 @@ function PropagationBase.applymergetruncate!(gate::ImaginaryFermionicRotation, p
         applytoall!(gate_ms, prop_cache, beta * coeff; kwargs...)
 
         # merge the auxiliary Majorana sum into the original one and empty the auxiliary one
-        merge!(prop_cache; kwargs...)
+        # (for vector caches: the appended tail is gate ⊻ (ascending commuting terms), so the
+        # same XOR-sorted tail merge as in the real-time path applies)
+        _mergeafterapply!(prop_cache, gate_ms.ms_int; kwargs...)
 
         # normalize coefficients to preserve state normalization
         if normalize_coeffs
@@ -120,15 +122,17 @@ function PropagationBase.applytoall!(gate::ImaginaryMajoranaRotation, prop_cache
     sinh_val = -sinh(beta)
 
     gate_int = gate.ms_int
+    gate_int_ps = compute_parity_bits_and_shift(gate_int, 2 * nfermions(msum))
+    omega_l_gate = omega_L_mult(gate_int)
 
     # loop over all Majorana strings and their coefficients in the Majorana sum
     for (ms_int, coeff) in msum
-        if commutes(gate_int, ms_int)
+        if _commutes_evengate(ms_int, gate_int)
 
             # the imaginary gate will split the Majorana string into two
             coeff1 = coeff * cosh_val
-            sign, new_ms = ms_mult(gate_int, ms_int, nfermions(msum))
-            coeff2 = coeff * sinh_val * real(sign)
+            new_ms, sign = _rotationproduct_evengate_commuting(ms_int, gate_int, gate_int_ps, omega_l_gate)
+            coeff2 = coeff * sinh_val * sign
 
             # set the coefficient of the original Majorana string
             set!(msum, ms_int, coeff1)
@@ -148,7 +152,7 @@ end
 """
 Implement ``e^{-\\beta \\, G / 2} \\, msum \\, e^{-\\beta \\, G / 2}`` for imaginary time evolution with a Majorana rotation string ``G``.
 """
-function PropagationBase.applytoall!(gate::ImaginaryMajoranaRotation, prop_cache::VectorMajoranaPropagationCache, beta; kwargs...)
+function PropagationBase.applytoall!(gate::ImaginaryMajoranaRotation, prop_cache::VectorMajoranaPropagationCache, beta; thread::Bool=true, kwargs...)
 
     if prop_cache.active_size == 0
         return prop_cache
@@ -158,13 +162,16 @@ function PropagationBase.applytoall!(gate::ImaginaryMajoranaRotation, prop_cache
 
     # get the Majorana string integer representation because the gate cannot be in the function when using GPU
     gate_ms = gate.ms_int
+    # gate invariants hoisted once per gate; gate_ms has even weight by construction
+    gate_ms_ps = compute_parity_bits_and_shift(gate_ms, 2 * nfermions(prop_cache))
+    omega_l_gate = omega_L_mult(gate_ms)
 
     # in imaginary time we split upon commutation
-    commutesfunc(trm) = MajoranaPropagation.commutes(trm, gate_ms)
-    PropagationBase.flagterms!(commutesfunc, prop_cache)
+    commutesfunc(trm) = _commutes_evengate(trm, gate_ms)
+    PropagationBase.flagterms!(commutesfunc, prop_cache; thread)
 
     # this runs a cumsum over the flags to get the indices
-    PropagationBase.flagstoindices!(prop_cache)
+    PropagationBase.flagstoindices!(prop_cache; thread)
 
     # the final index is the number of new terms
     n_commutes = PropagationBase.lastactiveindex(prop_cache)
@@ -179,7 +186,7 @@ function PropagationBase.applytoall!(gate::ImaginaryMajoranaRotation, prop_cache
     end
 
     # does the branching logic
-    _applyimaginarymajoranarotation!(prop_cache, gate_ms, beta)
+    _applyimaginarymajoranarotation!(prop_cache, gate_ms, gate_ms_ps, omega_l_gate, beta; thread)
 
     # we now have n_new possibly duplicate Majorana strings in the array
     PropagationBase.setactivesize!(prop_cache, n_new)
@@ -192,7 +199,7 @@ For a Majorana string ``ms``, the splitting rule for ``e^{-\\beta \\, G / 2} \\,
 - ``ms``, if ``\\{G, ms\\} = 0``
 - ``\\cosh(\\beta) \\, ms - \\sinh(\\beta) \\, G \\, ms``, if ``[G, ms] = 0``
 """
-function _applyimaginarymajoranarotation!(prop_cache::VectorMajoranaPropagationCache, gate_ms::TT, beta) where {TT}
+function _applyimaginarymajoranarotation!(prop_cache::VectorMajoranaPropagationCache, gate_ms::TT, gate_ms_ps::TT, omega_l_gate::Int, beta; thread::Bool=true) where {TT}
 
     # pre-compute the sine and cosine values because they are used for every Majorana string that does not commute with the gate
     cosh_val = cosh(beta)
@@ -213,15 +220,15 @@ function _applyimaginarymajoranarotation!(prop_cache::VectorMajoranaPropagationC
     indices = PropagationBase.activeindices(prop_cache)
 
     # branching pattern for Majorana rotations
-    AK.foreachindex(active_terms) do ii
-        # here it anticommutes
+    AK.foreachindex(active_terms; max_tasks=maxtasks(thread), min_elems=_MIN_ELEMS_PER_TASK) do ii
+        # here it commutes
         if flags[ii]
             term = terms[ii]
             coeff = coeffs[ii]
 
             coeff1 = coeff * cosh_val
-            sign, new_term = ms_mult(gate_ms, term, nfermions(prop_cache))
-            coeff2 = coeff * sinh_val * real(sign)
+            new_term, sign = _rotationproduct_evengate_commuting(term, gate_ms, gate_ms_ps, omega_l_gate)
+            coeff2 = coeff * sinh_val * sign
 
             coeffs[ii] = coeff1
 
