@@ -133,7 +133,7 @@ end
         @test_throws ErrorException propagate!([ImaginaryFermionicRotation(:n, [1])], deepcopy(rho), [0.5])
 
         # only even-weight strings can be rotation generators
-        @test_throws AssertionError ImaginaryMajoranaRotation(MajoranaString(nf, [1]))
-        @test_throws AssertionError ImaginaryMajoranaRotation(MajoranaString(nf, [1, 2, 3]))
+        @test_throws ArgumentError ImaginaryMajoranaRotation(MajoranaString(nf, [1]))
+        @test_throws ArgumentError ImaginaryMajoranaRotation(MajoranaString(nf, [1, 2, 3]))
     end
 end
