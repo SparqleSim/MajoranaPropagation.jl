@@ -94,6 +94,7 @@ makedocs(
             "api/Circuits.md",
             "api/FrequencyTracker.md",
             "api/QuantumChemistry.md",
+            "api/JordanWigner.md",
         ]
     ]
 )
