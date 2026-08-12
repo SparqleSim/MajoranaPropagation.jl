@@ -93,23 +93,24 @@ Truncate a Majorana sum (or propagation cache) in-place, removing every Majorana
 - `customtruncfunc`: a custom function with signature `customtruncfunc(mstr, coeff)::Bool`, returning `true` if the string should be truncated
 """
 function PropagationBase.truncate!(
-    prop_cache::AbstractMajoranaPropagationCache;
+    mobj::Union{AbstractMajoranaSum,AbstractMajoranaPropagationCache};
     max_weight::Real=Inf, min_abs_coeff=1e-10, max_unpaired::Real=Inf,
     max_freq::Real=Inf, max_sins::Real=Inf,
     unpaired_mask=nothing,
     customtruncfunc=nothing,
     kwargs...
 )
-    if isnothing(unpaired_mask) && max_unpaired < Inf
-        unpaired_mask = create_unpaired_mask(majoranatype(prop_cache), nfermions(prop_cache))
-    end
+    # single assignment to a fresh variable: reassigning the captured kwarg would box it
+    mask = (isnothing(unpaired_mask) && max_unpaired < Inf) ?
+        create_unpaired_mask(majoranatype(mobj), nfermions(mobj)) : unpaired_mask
+
     function truncfunc(mstr, coeff)
-        # slight customization of the truncation function 
+        # slight customization of the truncation function
         # to truncate majorana weight and single
         is_truncated = false
         if PauliPropagation.truncatemincoeff(coeff, min_abs_coeff)
             is_truncated = true
-        elseif max_unpaired < Inf && truncateunpaired(mstr, max_unpaired, unpaired_mask)
+        elseif max_unpaired < Inf && truncateunpaired(mstr, max_unpaired, mask)
             is_truncated = true
         elseif max_weight < Inf && truncatemajoranaweight(mstr, max_weight)
             is_truncated = true
@@ -123,43 +124,6 @@ function PropagationBase.truncate!(
 
         return is_truncated
     end
-    truncate!(truncfunc, prop_cache; kwargs...)
 
-    return
-end
-
-function PropagationBase.truncate!(
-    msum::AbstractMajoranaSum;
-    max_weight::Real=Inf, min_abs_coeff=1e-10, max_unpaired::Real=Inf,
-    max_freq::Real=Inf, max_sins::Real=Inf,
-    unpaired_mask=nothing,
-    customtruncfunc=nothing,
-    kwargs...
-)
-    if isnothing(unpaired_mask) && max_unpaired < Inf
-        unpaired_mask = create_unpaired_mask(majoranatype(msum), nfermions(msum))
-    end
-    function truncfunc(mstr, coeff)
-        # slight customization of the truncation function 
-        # to truncate majorana weight and single
-        is_truncated = false
-        if PauliPropagation.truncatemincoeff(coeff, min_abs_coeff)
-            is_truncated = true
-        elseif max_unpaired < Inf && truncateunpaired(mstr, max_unpaired, unpaired_mask)
-            is_truncated = true
-        elseif max_weight < Inf && truncatemajoranaweight(mstr, max_weight)
-            is_truncated = true
-        elseif max_freq < Inf && PauliPropagation.truncatefrequency(coeff, max_freq)
-            is_truncated = true
-        elseif max_sins < Inf && PauliPropagation.truncatesins(coeff, max_sins)
-            is_truncated = true
-        elseif !isnothing(customtruncfunc) && customtruncfunc(mstr, coeff)
-            is_truncated = true
-        end
-
-        return is_truncated
-    end
-    msum = truncate!(truncfunc, msum; kwargs...)
-
-    return msum
+    return truncate!(truncfunc, mobj; kwargs...)
 end
