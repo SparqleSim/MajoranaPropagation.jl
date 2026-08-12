@@ -1,4 +1,3 @@
-
 using MajoranaPropagation
 using PauliPropagation
 
