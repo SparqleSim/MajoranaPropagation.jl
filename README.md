@@ -109,12 +109,18 @@ end
 ## Citation
 If you use `MajoranaPropagation.jl` in your research and find it useful, please consider citing our work
 ```bibtex
-@misc{danna2025majorana,
-      title={Majorana string simulation of nonequilibrium dynamics in two-dimensional lattice fermion systems}, 
-      author={Matteo D'Anna and Jannes Nys and Juan Carrasquilla},
-      year={2025},
-      eprint={2511.02809},
-      archivePrefix={arXiv},
-      url={https://arxiv.org/abs/2511.02809}, 
+@article{danna2025majorana,
+  title = {Majorana string simulation of nonequilibrium dynamics in two-dimensional lattice fermion systems},
+  author = {D'Anna, Matteo and Nys, Jannes and Carrasquilla, Juan},
+  journal = {Phys. Rev. B},
+  volume = {114},
+  issue = {3},
+  pages = {034305},
+  numpages = {16},
+  year = {2026},
+  month = {Jul},
+  publisher = {American Physical Society},
+  doi = {10.1103/f6mn-jc3r},
+  url = {https://link.aps.org/doi/10.1103/f6mn-jc3r}
 }
 ```
