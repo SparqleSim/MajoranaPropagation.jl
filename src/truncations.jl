@@ -100,30 +100,37 @@ function PropagationBase.truncate!(
     customtruncfunc=nothing,
     kwargs...
 )
-    # single assignment to a fresh variable: reassigning the captured kwarg would box it
-    mask = (isnothing(unpaired_mask) && max_unpaired < Inf) ?
-        create_unpaired_mask(majoranatype(mobj), nfermions(mobj)) : unpaired_mask
-
-    function truncfunc(mstr, coeff)
-        # slight customization of the truncation function
-        # to truncate majorana weight and single
-        is_truncated = false
-        if PauliPropagation.truncatemincoeff(coeff, min_abs_coeff)
-            is_truncated = true
-        elseif max_unpaired < Inf && truncateunpaired(mstr, max_unpaired, mask)
-            is_truncated = true
-        elseif max_weight < Inf && truncatemajoranaweight(mstr, max_weight)
-            is_truncated = true
-        elseif max_freq < Inf && PauliPropagation.truncatefrequency(coeff, max_freq)
-            is_truncated = true
-        elseif max_sins < Inf && PauliPropagation.truncatesins(coeff, max_sins)
-            is_truncated = true
-        elseif !isnothing(customtruncfunc) && customtruncfunc(mstr, coeff)
-            is_truncated = true
-        end
-
-        return is_truncated
-    end
-
+    mask = _unpairedmask(mobj, unpaired_mask, max_unpaired)
+    truncfunc = _truncationfunc(mask; min_abs_coeff, max_weight, max_unpaired, max_freq, max_sins, customtruncfunc)
     return truncate!(truncfunc, mobj; kwargs...)
+end
+
+# the `compute_unpaired` mask for `mobj`: the one passed by the user, else a fresh one when
+# `max_unpaired` is finite, else an all-zero mask so that the predicates below stay type-stable
+function _unpairedmask(mobj, unpaired_mask, max_unpaired::Real)
+    isnothing(unpaired_mask) || return unpaired_mask
+    TT = majoranatype(mobj)
+    return max_unpaired < Inf ? create_unpaired_mask(TT, nfermions(mobj)) : zero(TT)
+end
+
+# the predicate `(mstr, coeff) -> Bool` behind `truncate!`, shared with the fused kernels of the
+# `Performance` module; `mask` is the bit mask for `compute_unpaired` (see `_unpairedmask`)
+function _truncationfunc(mask; min_abs_coeff, max_weight::Real, max_unpaired::Real, max_freq::Real, max_sins::Real, customtruncfunc)
+    # every captured variable is assigned exactly once, so none of them gets boxed
+    function truncfunc(mstr, coeff)
+        PauliPropagation.truncatemincoeff(coeff, min_abs_coeff) && return true
+        _truncateterm(mstr, max_weight, max_unpaired, mask) && return true
+        max_freq < Inf && PauliPropagation.truncatefrequency(coeff, max_freq) && return true
+        max_sins < Inf && PauliPropagation.truncatesins(coeff, max_sins) && return true
+        !isnothing(customtruncfunc) && customtruncfunc(mstr, coeff) && return true
+        return false
+    end
+    return truncfunc
+end
+
+# the truncations that read only the Majorana string, which no merge can change
+@inline function _truncateterm(mstr, max_weight::Real, max_unpaired::Real, mask)
+    max_unpaired < Inf && truncateunpaired(mstr, max_unpaired, mask) && return true
+    max_weight < Inf && truncatemajoranaweight(mstr, max_weight) && return true
+    return false
 end

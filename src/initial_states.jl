@@ -136,10 +136,15 @@ end
 
 """
     overlapwithfock(msum::AbstractMajoranaSum, fock_state::FockState)
+    overlapwithfock(prop_cache::AbstractMajoranaPropagationCache, fock_state::FockState)
 
 Compute the expectation value ``\\langle F | msum | F \\rangle`` of the Majorana sum in the Fock basis state ``|F\\rangle`` given by `fock_state`.
+A propagation cache is read in place, without extracting its Majorana sum.
 """
-function overlapwithfock(msum::AbstractMajoranaSum, fock_state::FockState)
+overlapwithfock(msum::AbstractMajoranaSum, fock_state::FockState) = _overlapwithfock(msum, fock_state)
+
+# shared with the propagation caches, whose `majoranas`/`coefficients` are their active views
+function _overlapwithfock(msum, fock_state::FockState)
     @assert is_spinful(msum) == fock_state.is_spinful "The MajoranaSum and the fock_state must both be spinful or both spinless."
     res = 0.
     unpaired_mask = create_unpaired_mask(majoranatype(msum), nfermions(msum))

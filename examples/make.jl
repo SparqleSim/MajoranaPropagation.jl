@@ -30,6 +30,7 @@ included_notebooks = [
     "Hubbard_2d.ipynb",
     "ad_example.ipynb",
     "imaginary-time.ipynb",
+    "advanced_performance.ipynb",
 ]
 
 notebooks = [joinpath(examples_dir, name) for name in included_notebooks]

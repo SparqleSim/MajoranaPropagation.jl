@@ -40,6 +40,7 @@ fock_mask,
 
 include("propagationcache.jl")
 export
+    PropagationCache,
     MajoranaPropagationCache,
     nfermions
 
@@ -94,4 +95,7 @@ using .QuantumChemistry
 
 include("FermionToQubitMapping/FermionQubitMapping.jl")
 using .FermionToQubitMappings
+
+# opt-in fused truncations, see `MajoranaPropagation.Performance`
+include("Performance/Performance.jl")
 end

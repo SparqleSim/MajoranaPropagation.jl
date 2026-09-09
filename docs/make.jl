@@ -80,6 +80,7 @@ makedocs(
             "2D Hubbard Model" => "examples/Hubbard_2d.md",
             "Automatic Differentiation" => "examples/ad_example.md",
             "Imaginary-Time Evolution" => "examples/imaginary-time.md",
+            "Advanced Performance" => "examples/advanced_performance.md",
         ],
 
         # these 'lower-level' files also exist, and will
@@ -93,6 +94,7 @@ makedocs(
             "api/Truncations.md",
             "api/Circuits.md",
             "api/FrequencyTracker.md",
+            "api/Performance.md",
             "api/QuantumChemistry.md",
             "api/JordanWigner.md",
         ]

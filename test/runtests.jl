@@ -18,4 +18,5 @@ using Random
     include("test_constructors.jl")
     include("test_jordanwigner.jl")
     include("test_xormerge.jl")
+    include("test_performance.jl")
 end

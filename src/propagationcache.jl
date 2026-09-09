@@ -39,6 +39,8 @@ function PropagationBase.setauxsum!(prop_cache::AbstractMajoranaPropagationCache
 end
 
 majoranatype(propcache::AbstractMajoranaPropagationCache) = majoranatype(mainsum(propcache))
+is_spinful(prop_cache::AbstractMajoranaPropagationCache) = is_spinful(mainsum(prop_cache))
+overlapwithfock(prop_cache::AbstractMajoranaPropagationCache, fock_state::FockState) = _overlapwithfock(prop_cache, fock_state)
 
 # VectorMajoranaPropagationCache
 mutable struct VectorMajoranaPropagationCache{VMS<:VectorMajoranaSum,VB,VI} <: AbstractMajoranaPropagationCache

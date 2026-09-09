@@ -39,6 +39,10 @@ function ImaginaryFermionicRotation(symbol::Symbol, site::Integer)
     return ImaginaryFermionicRotation(symbol, [site])
 end
 
+function ImaginaryFermionicRotation(symbol::Symbol, sites::Tuple)
+    return ImaginaryFermionicRotation(symbol, collect(sites))
+end
+
 function PauliPropagation._toheisenberg(gate::Union{ImaginaryFermionicRotation,ImaginaryMajoranaRotation}, τ)
     throw(error("$(typeof(gate)) gates are currently not defined in the Heisenberg picture."))
 end
