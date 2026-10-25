@@ -110,7 +110,8 @@ function PauliPropagation.buildtruncfunc(mobj::Union{AbstractMajoranaSum,Abstrac
     termtrunc = _termtruncfunc(mobj; max_weight, max_unpaired, unpaired_mask)
 
     function coefftruncfunc(mstr, coeff)
-        PauliPropagation.truncatemincoeff(coeff, min_abs_coeff) && return true
+        # a threshold of zero or below truncates nothing; PauliPropagation squares it for complex coefficients
+        min_abs_coeff > 0 && PauliPropagation.truncatemincoeff(coeff, min_abs_coeff) && return true
         PauliPropagation.truncatefrequency(coeff, max_freq) && return true
         PauliPropagation.truncatesins(coeff, max_sins) && return true
         return !isnothing(customtruncfunc) && customtruncfunc(mstr, coeff)
