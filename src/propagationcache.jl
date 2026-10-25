@@ -45,6 +45,22 @@ mutable struct VectorMajoranaPropagationCache{VMS<:VectorMajoranaSum,VB,VI} <: A
     flags::VB
     indices::VI
     active_size::Int
+
+    # the array kernels index all four arrays up to the active size without bounds checks, and
+    # write at positions they accumulate in `indices`, which must not wrap
+    function VectorMajoranaPropagationCache(main_msum::VMS, aux_msum::VMS, flags::VB, indices::VI, active_size::Int) where {VMS<:VectorMajoranaSum,VB,VI}
+        n = length(main_msum)
+        if !(length(aux_msum) == length(flags) == length(indices) == n)
+            throw(ArgumentError("main_msum, aux_msum, flags and indices must have the same length."))
+        end
+        if eltype(indices) !== Int
+            throw(ArgumentError("indices must hold Int, got $(eltype(indices))."))
+        end
+        if !(0 <= active_size <= n)
+            throw(ArgumentError("active_size must be between 0 and the length of main_msum, got $active_size for $n."))
+        end
+        return new{VMS,VB,VI}(main_msum, aux_msum, flags, indices, active_size)
+    end
 end
 
 # Overload for generality
@@ -79,18 +95,24 @@ function VectorMajoranaSum(prop_cache::VectorMajoranaPropagationCache)
 end
 
 """
-    MajoranaSum(prop_cache::VectorMajoranaPropagationCache)
+    MajoranaSum(prop_cache::VectorMajoranaPropagationCache; thread=true)
 
 Merge the propagation cache and convert its main sum into a dictionary-based `MajoranaSum`.
 """
-function MajoranaSum(prop_cache::VectorMajoranaPropagationCache)
-    merge!(prop_cache)
+function MajoranaSum(prop_cache::VectorMajoranaPropagationCache; thread::Bool=true)
+    merge!(prop_cache; thread)
     vmsum = mainsum(prop_cache)
     return MajoranaSum(vmsum.nsites, vmsum.is_spinful, Dict(zip(activeterms(prop_cache), activecoeffs(prop_cache))))
 end
 
 PropagationBase.activesize(prop_cache::VectorMajoranaPropagationCache) = prop_cache.active_size
-PropagationBase.setactivesize!(prop_cache::VectorMajoranaPropagationCache, new_size::Int) = (prop_cache.active_size = new_size; prop_cache)
+function PropagationBase.setactivesize!(prop_cache::VectorMajoranaPropagationCache, new_size::Int)
+    if !(0 <= new_size <= capacity(prop_cache))
+        throw(ArgumentError("active size must be between 0 and the capacity, got $new_size for $(capacity(prop_cache))."))
+    end
+    prop_cache.active_size = new_size
+    return prop_cache
+end
 
 PropagationBase.indices(prop_cache::VectorMajoranaPropagationCache) = prop_cache.indices
 PropagationBase.flags(prop_cache::VectorMajoranaPropagationCache) = prop_cache.flags
@@ -111,12 +133,14 @@ PropagationBase.coefficients(prop_cache::VectorMajoranaPropagationCache) = activ
 """
     resize!(prop_cache::VectorMajoranaPropagationCache, n_new::Int)
 
-Resize all internal arrays of the propagation cache to length `n_new`.
+Resize all internal arrays of the propagation cache to length `n_new`, keeping at most `n_new` terms active.
 """
 function Base.resize!(prop_cache::VectorMajoranaPropagationCache, n_new::Int)
+    # the sums grow their own arrays, and the cache its flags and indices
     resize!(prop_cache.main_msum, n_new)
     resize!(prop_cache.aux_msum, n_new)
-    resize!(prop_cache.flags, n_new)
-    resize!(prop_cache.indices, n_new)
+    prop_cache.flags = PropagationBase._resizearray(prop_cache.flags, n_new)
+    prop_cache.indices = PropagationBase._resizearray(prop_cache.indices, n_new)
+    setactivesize!(prop_cache, min(activesize(prop_cache), n_new))
     return prop_cache
 end

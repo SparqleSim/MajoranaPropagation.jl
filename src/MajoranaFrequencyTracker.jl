@@ -23,9 +23,8 @@ PropagationBase.numcoefftype(::Type{MajoranaFrequencyTracker{CT}}) where {CT} = 
 Wrap the coefficients of a `MajoranaSum` or `VectorMajoranaSum` into the `PathProperties`
 type `MProp` via its one-argument constructor `MProp(coeff)`.
 
-For `VectorMajoranaSum` the sorted prefix is preserved. Note that path counters are only
-exact on the vector backend while merges take the sorted-tail path: the generic fallback
-merge (unsorted prefix, gate weight > 4) resets the counters of merged terms.
+For `VectorMajoranaSum` the sorted prefix is preserved. When two paths merge, their
+coefficients are added and their counters take the minimum, on every backend and merge.
 """
 function wrapcoefficients(msum::MajoranaSum, ::Type{MProp}) where {MProp<:PathProperties}
     return MajoranaSum(msum.nsites, msum.is_spinful, Dict(mstr => MProp(coeff) for (mstr, coeff) in msum.Majoranas))

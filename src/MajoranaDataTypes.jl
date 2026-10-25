@@ -77,6 +77,9 @@ PropagationBase.storage(msum::MajoranaSum) = msum.Majoranas
 PropagationBase.nsites(msum::MajoranaSum) = msum.nsites
 is_spinful(msum::MajoranaSum) = msum.is_spinful
 
+# an empty sum of the same type; PropagationBase's default would drop `is_spinful`
+PropagationBase.emptylike(msum::MajoranaSum) = MajoranaSum(msum.nsites, msum.is_spinful, empty(msum.Majoranas))
+
 """
     MajoranaSum(nfermions::Integer)
 
