@@ -3,8 +3,6 @@
 using AcceleratedKernels
 const AK = AcceleratedKernels
 
-const _MIN_ELEMS_PER_TASK = PropagationBase._MIN_ELEMS_PER_TASK
-
 """
     VectorMajoranaSum(nsites::Int)
     VectorMajoranaSum(nsites::Int, is_spinful::Bool)
