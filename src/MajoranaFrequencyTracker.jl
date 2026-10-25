@@ -31,7 +31,9 @@ function wrapcoefficients(msum::MajoranaSum, ::Type{MProp}) where {MProp<:PathPr
 end
 
 function wrapcoefficients(vmsum::VectorMajoranaSum, ::Type{MProp}) where {MProp<:PathProperties}
-    return VectorMajoranaSum(vmsum.nsites, vmsum.is_spinful, copy(vmsum.terms), map(MProp, vmsum.coeffs), vmsum._terms_sorted)
+    # typed, since `map` infers no element type for an empty sum, as a zone of a multi sum may be
+    PT = typeof(MProp(zero(eltype(vmsum.coeffs))))
+    return VectorMajoranaSum(vmsum.nsites, vmsum.is_spinful, copy(vmsum.terms), PT[MProp(coeff) for coeff in vmsum.coeffs], vmsum._terms_sorted)
 end
 
 """

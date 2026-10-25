@@ -35,7 +35,7 @@ end
 
     # the specialized kernels assume an even-weight GATE but must be exact for terms of ANY
     # parity; checked against the general algebra for native and NTupleInteger key widths
-    @testset "kernels match general algebra (nfermions=$nf)" for nf in (4, 16, 28)
+    @testset "kernels match general algebra (nfermions=$nf)" for nf in (4, 16, 28, 70)
         nbits = 2 * nf
         for trial in 1:500
             gate = random_even_gate(nf)

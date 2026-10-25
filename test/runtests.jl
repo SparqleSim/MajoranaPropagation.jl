@@ -17,5 +17,5 @@ using Random
     include("test_sum_algebra.jl")
     include("test_constructors.jl")
     include("test_jordanwigner.jl")
-    include("test_xormerge.jl")
+    include("test_backends.jl")
 end
