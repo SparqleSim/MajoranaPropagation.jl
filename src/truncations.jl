@@ -26,7 +26,7 @@ Compute the number of unpaired Majorana operators of the Majorana string `res`, 
 `mask` is the bit mask created by `create_unpaired_mask`.
 """
 function compute_unpaired(res::TT, mask::TT) where {TT<:Integer}
-    number_unpaired = res ⊻ (TT(2) * res)
+    number_unpaired = res ⊻ (res << 1)
     return Bits.weight(number_unpaired & mask)
 end
 

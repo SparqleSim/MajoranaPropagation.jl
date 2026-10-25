@@ -262,7 +262,7 @@ function _bitonesat(::Type{TT}, index::Integer) where {TT<:Integer}
     return TT(1) << (index - 1)
 end
 
-function _checknfermions(msum1::MajoranaSum, msum2::MajoranaSum)
+function _checknfermions(msum1::AbstractMajoranaSum, msum2::AbstractMajoranaSum)
     if nfermions(msum1) != nfermions(msum2)
         throw(ArgumentError("MajoranaSums must have the same nfermions, but have $(nfermions(msum1)) and $(nfermions(msum2))"))
     end

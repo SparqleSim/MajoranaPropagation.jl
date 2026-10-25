@@ -34,7 +34,7 @@ end
     end
 
     # the specialized kernels assume an even-weight GATE but must be exact for terms of ANY
-    # parity; checked against the general algebra for native and BitIntegers key widths
+    # parity; checked against the general algebra for native and NTupleInteger key widths
     @testset "kernels match general algebra (nfermions=$nf)" for nf in (4, 16, 28)
         nbits = 2 * nf
         for trial in 1:500

@@ -93,7 +93,7 @@ function PropagationBase.applymergetruncate!(gate::ImaginaryFermionicRotation, p
 
         # normalize coefficients to preserve state normalization
         if normalize_coeffs
-            mult!(prop_cache, 1 / getmergedcoeff(mainsum(prop_cache), 0))
+            mult!(prop_cache, 1 / getcoeff(activesum(prop_cache), 0))
         end
 
         # truncate after each Majorana rotation 

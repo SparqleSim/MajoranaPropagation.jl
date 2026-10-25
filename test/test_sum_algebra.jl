@@ -163,7 +163,7 @@ end
     end
 
     @testset "integer backend sweep" begin
-        # cross the UInt8/UInt16/.../BitIntegers boundaries and check that the
+        # cross the UInt8/UInt16/.../UInt128/NTupleInteger boundaries and check that the
         # string type is preserved through algebra and propagation
         for nf in (4, 16, 32, 33, 64, 65, 100)
             TT = getinttype(nf)

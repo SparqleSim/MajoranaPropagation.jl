@@ -275,16 +275,19 @@ end
     scalarproduct(msum1::AbstractMajoranaSum, msum2::AbstractMajoranaSum)
 
 Compute the Hilbert-Schmidt scalar product ``\\mathrm{Tr}[\\hat{A}\\hat{B}] / 2^n`` of two MajoranaSums ``\\hat{A}, \\hat{B}`` on ``n`` fermions.
+The terms of one sum are looked up in the other, in whichever direction costs less.
 """
 function scalarproduct(msum1::AbstractMajoranaSum, msum2::AbstractMajoranaSum)
-    res = zero(eltype(coefficients(msum1)))
-    if length(msum1) > length(msum2)
-        # if msum1 has more terms than msum2, it's more efficient to loop over msum2 and check for each term if it is in msum1
-        return scalarproduct(msum2, msum1)
+    if length(msum2) * PropagationBase._lookupcost(msum1) <= length(msum1) * PropagationBase._lookupcost(msum2)
+        return _scalarproduct(msum1, msum2)
     end
-    for (ms1, coeff1) in zip(terms(msum1), coefficients(msum1))
-        coeff2 = getmergedcoeff(msum2, ms1)
-        res += coeff1 * coeff2
-    end
-    return res
+    return _scalarproduct(msum2, msum1)
+end
+
+# only the terms of `loop_msum` that `lookup_msum` also holds contribute
+function _scalarproduct(lookup_msum, loop_msum)
+    _checknfermions(lookup_msum, loop_msum)
+    CT = promote_type(numcoefftype(lookup_msum), numcoefftype(loop_msum))
+    coeff_product(ms, coeff) = tonumber(getcoeff(lookup_msum, ms)) * tonumber(coeff)
+    return mapreduce(coeff_product, +, loop_msum; init=float(zero(CT)))
 end

@@ -41,7 +41,9 @@ function xorm_checksort(srcs::Vector{TT}, g::TT; thread::Bool) where {TT}
     b_terms = view(Base.similar(tail), 1:m)
     b_coeffs = view(Base.similar(coeffs), 1:m)
     res_terms, res_coeffs = MajoranaPropagation._xorsorttail!(a_terms, a_coeffs, b_terms, b_coeffs, g; thread)
-    p = sortperm(tail)
+    # Base's sortperm tries a counting sort on integers, which needs arithmetic NTupleInteger lacks;
+    # a custom `lt` takes the comparison path
+    p = sortperm(tail; lt=<)
     return collect(res_terms) == tail[p] &&
            collect(res_coeffs) == coeffs[p] &&
            (iseven(count_ones(g)) ? res_terms === a_terms : res_terms === b_terms)

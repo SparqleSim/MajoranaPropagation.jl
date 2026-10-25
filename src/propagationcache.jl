@@ -97,6 +97,15 @@ PropagationBase.setactivesize!(prop_cache::VectorMajoranaPropagationCache, new_s
 PropagationBase.indices(prop_cache::VectorMajoranaPropagationCache) = prop_cache.indices
 PropagationBase.flags(prop_cache::VectorMajoranaPropagationCache) = prop_cache.flags
 
+# the active terms as a sum of views, without the room past them
+function PropagationBase.activesum(prop_cache::VectorMajoranaPropagationCache)
+    vmsum = mainsum(prop_cache)
+    n_sorted = sortedprefix(vmsum)
+    # a sorted prefix that reaches past the active terms cannot be trusted
+    n_sorted = n_sorted > activesize(prop_cache) ? 0 : n_sorted
+    return VectorMajoranaSum(nsites(vmsum), is_spinful(vmsum), activeterms(prop_cache), activecoeffs(prop_cache), n_sorted)
+end
+
 # Term and coefficient accessors for caches
 majoranas(prop_cache::VectorMajoranaPropagationCache) = activeterms(prop_cache)
 PropagationBase.coefficients(prop_cache::VectorMajoranaPropagationCache) = activecoeffs(prop_cache)
@@ -120,7 +129,7 @@ end
 # vector sum (see `sortedprefix`). Dict caches just merge; vector caches use the gate's
 # Majorana string to sort the tail without a comparison sort where possible, and defer to
 # the generic `merge!` (which picks between `sortedtailmerge!` and a full sort) otherwise.
-_mergeafterapply!(prop_cache::AbstractMajoranaPropagationCache, gate_int; kwargs...) = merge!(prop_cache; kwargs...)
+_mergeafterapply!(prop_cache::AbstractMajoranaPropagationCache, gate_int; thread::Bool=true, kwargs...) = merge!(prop_cache; thread)
 _mergeafterapply!(prop_cache::VectorMajoranaPropagationCache, gate_int; kwargs...) = xorsortedtailmerge!(prop_cache, gate_int; kwargs...)
 
 """
@@ -148,7 +157,7 @@ function xorsortedtailmerge!(prop_cache::VectorMajoranaPropagationCache, gate_in
 
     if !(main_terms isa Vector{<:Unsigned} && gate_int isa eltype(main_terms)) ||
        n_old <= 0 || n_old > n_new || get_weight(gate_int) > 4 
-        return merge!(prop_cache; thread, truncfunc, kwargs...)
+        return mergeandtruncate!(truncfunc, prop_cache; thread)
     end
 
     # ping-pong pair A: the appended tail, in place at the end of the main arrays
