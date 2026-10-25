@@ -43,6 +43,13 @@ export
     MajoranaPropagationCache,
     nfermions
 
+include("multimajoranasum.jl")
+export
+    MultiMajoranaSum,
+    MultiMajoranaPropagationCache,
+    nzones,
+    zonesizes
+
 include("gates.jl")
 export
     MajoranaRotation,

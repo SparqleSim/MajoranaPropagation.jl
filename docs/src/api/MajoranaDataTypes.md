@@ -12,6 +12,12 @@ Modules = [MajoranaPropagation]
 Pages = ["src/vectormajoranasum.jl"]
 ```
 
+## MultiMajoranaSum
+```@autodocs
+Modules = [MajoranaPropagation]
+Pages = ["src/multimajoranasum.jl"]
+```
+
 ## Conversions
 ```@autodocs
 Modules = [MajoranaPropagation]

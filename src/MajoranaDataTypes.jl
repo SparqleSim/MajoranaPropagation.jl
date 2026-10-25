@@ -193,15 +193,6 @@ end
 
 
 """
-    coefftype(::MajoranaSum{TT,CT}) where {TT,CT}
-
-Get the coefficient type `CT` of the `MajoranaSum`.
-"""
-function coefftype(::MajoranaSum{TT,CT}) where {TT,CT}
-    return CT
-end
-
-"""
     similar(msum::MajoranaSum)
 
 Create an empty `MajoranaSum` with the same number of sites, spinfulness, and coefficient type as `msum`.

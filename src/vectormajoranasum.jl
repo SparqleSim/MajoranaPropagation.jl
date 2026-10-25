@@ -51,13 +51,6 @@ end
 # an empty sum of the same type; PropagationBase's default would drop `is_spinful`
 PropagationBase.emptylike(vmsum::VectorMajoranaSum) = VectorMajoranaSum(vmsum.nsites, vmsum.is_spinful, empty(vmsum.terms), empty(vmsum.coeffs))
 
-"""
-    coefftype(vmsum::VectorMajoranaSum)
-
-Get the coefficient type of the `VectorMajoranaSum`.
-"""
-coefftype(vmsum::VectorMajoranaSum{TV,CV}) where {TV,CV} = eltype(CV)
-
 
 """
     nsites(vmsum::VectorMajoranaSum)
