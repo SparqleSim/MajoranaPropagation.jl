@@ -189,10 +189,6 @@ function Base.show(io::IO, ms::MajoranaSum)
 end
 
 
-function majoranatype(::MajoranaSum{TT,CT}) where {TT,CT}
-    return TT
-end
-
 """
     coefftype(::MajoranaSum{TT,CT}) where {TT,CT}
 
