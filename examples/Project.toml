@@ -8,3 +8,7 @@ PauliPropagation = "293282d5-3c99-4fb6-92d0-fd3280a19750"
 Plots = "91a5bcdd-55d7-5caf-9e0b-520d859cae80"
 Random = "9a3f8284-a2c9-5f02-9a11-845980a1fd5c"
 Revise = "295af30f-e4ad-537b-8983-00126c2a3abe"
+
+# PauliPropagation with the layers of commuting gates, as MajoranaPropagation requires until v0.10 (PR #195)
+[sources]
+PauliPropagation = {url = "https://github.com/SparqleSim/PauliPropagation.jl", rev = "rotation-layers"}

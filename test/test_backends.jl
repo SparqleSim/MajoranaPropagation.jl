@@ -314,4 +314,94 @@ agree(results) = all(termdict(r) == termdict(first(results)) for r in results)
         sortterms!(vmsum)
         @test issorted(terms(vmsum)) && termdict(vmsum) == termdict(msum)
     end
+
+    # the results of the gates one by one and of the layers `tolayers` gathers them into, from every backend
+    function flatandlayered(circ, thetas, obs; kwargs...)
+        layered, layered_thetas = tolayers(circ, thetas)
+        return [propagate(c, b, t; kwargs...) for b in backends(obs) for (c, t) in ((circ, thetas), (layered, layered_thetas))]
+    end
+
+    classplan(msum, layer, thetas) = MajoranaPropagation._classplan(layer, PropagationCache(msum), thetas, nothing)
+
+    @testset "layers of commuting rotations propagate like their gates" begin
+        N = 6
+        circ, thetas = hubbard_layer(bricklayertopology(N), N)
+        circ, thetas = repeat(circ, 2), repeat(thetas, 2)
+        obs = MajoranaSum(N, :nupndn, 3)
+
+        for min_abs_coeff in (0.0, 1e-4), max_weight in (Inf, 6), max_unpaired in (Inf, 2)
+            results = flatandlayered(circ, thetas, obs; min_abs_coeff, max_weight, max_unpaired)
+            @test agree(results)
+            @test length(first(results)) > 1
+        end
+
+        # a hopping truncates only after its last rotation, or after each, and its layer does the same
+        default, each = (flatandlayered(circ, thetas, obs; min_abs_coeff=1e-5, max_unpaired=2, truncate_each_mr) for truncate_each_mr in (nothing, true))
+        @test agree(default) && agree(each)
+        @test termdict(first(default)) != termdict(first(each))
+
+        # the layers are applied class by class on every backend, unless the coefficients track frequencies
+        layered, layered_thetas = tolayers(circ, thetas)
+        layers = [(layer, theta) for (layer, theta) in zip(layered, layered_thetas) if layer isa GateLayer]
+        @test length(layers) == 6
+        for b in backends(obs)
+            @test all(!isnothing(classplan(b, layer, theta)) for (layer, theta) in layers)
+            @test all(isnothing(classplan(wrapcoefficients(b, MajoranaFrequencyTracker), layer, theta)) for (layer, theta) in layers)
+        end
+        @test agree(flatandlayered(circ, thetas, obs; min_abs_coeff=1e-4, max_freq=12))
+
+        # random Majorana rotations that commute, some of them on the same Majoranas
+        nf = 8
+        rotations, angles = random_rotation_circuit(nf, 60)
+        kept = Int[]
+        for i in eachindex(rotations)
+            if all(j -> MajoranaPropagation.commutes(rotations[i].ms_int, rotations[j].ms_int), kept)
+                push!(kept, i)
+            end
+        end
+        layer = GateLayer(rotations[kept]; guaranteed_commutes=true)
+        robs = random_even_msum(nf, 5)
+        truncate!(robs; min_abs_coeff=1e-6, max_weight=4)
+        @test length(kept) > 4 && !isnothing(classplan(robs, layer, angles[kept]))
+        for max_weight in (Inf, 4), min_abs_coeff in (0.0, 1e-6)
+            @test agree([propagate(c, b, t; min_abs_coeff, max_weight) for b in backends(robs) for (c, t) in ((rotations[kept], angles[kept]), (layer, angles[kept]))])
+        end
+
+        # rotations that do not commute, forced into a layer, apply one by one
+        forced = GateLayer(circ[1:8]; guaranteed_commutes=true)
+        @test isnothing(classplan(obs, forced, thetas[1:8]))
+        @test termdict(propagate(forced, obs, thetas[1:8]; min_abs_coeff=1e-4)) == termdict(propagate(circ[1:8], obs, thetas[1:8]; min_abs_coeff=1e-4))
+
+        # wide strings, held in NTupleIntegers of three words
+        circ40, thetas40 = hubbard_layer(bricklayertopology(40), 40)
+        @test agree(flatandlayered(repeat(circ40, 2), repeat(thetas40, 2), MajoranaSum(40, :nupndn, 20); min_abs_coeff=1e-4, max_unpaired=2))
+
+        # a vector sum large enough for several tasks
+        circ54, thetas54 = hubbard_layer(rectangletopology(5, 4), 20)
+        circ54, thetas54 = repeat(circ54, 4), repeat(thetas54, 4)
+        layered54, layered_thetas54 = tolayers(circ54, thetas54)
+        obs54 = VectorMajoranaSum(MajoranaSum(20, :nupndn, 10))
+        flat54 = propagate(circ54, obs54, thetas54; min_abs_coeff=1e-6)
+        @test length(flat54) > 16384
+        @test termdict(propagate(layered54, obs54, layered_thetas54; min_abs_coeff=1e-6)) == termdict(flat54)
+
+        # imaginary-time rotations normalize the whole sum, so their layers apply them one by one
+        icirc = [ImaginaryFermionicRotation(:nupndn, [i]) for i in 1:N]
+        ilayered, itaus = tolayers(icirc, fill(0.2, N))
+        rho0 = MajoranaSum(Float64, N, true)
+        add!(rho0, getinttype(2N)(0), 1.0)
+        @test only(ilayered) isa GateLayer
+        @test termdict(propagate(ilayered, rho0, itaus; heisenberg=false)) == termdict(propagate(icirc, rho0, fill(0.2, N); heisenberg=false))
+    end
+
+    @testset "tolayers gathers the rotations that commute" begin
+        qinds = PauliPropagation.PropagationBase.qinds
+        @test qinds(MajoranaRotation(MajoranaString(4, [1, 2, 5, 8]))) == [1, 2, 5, 8]
+        # the Majoranas of the up and the down hopping of a bond differ
+        @test isdisjoint(qinds(FermionicRotation(:hopup, [1, 2])), qinds(FermionicRotation(:hopdn, [1, 2])))
+        @test PauliPropagation.commutes(FermionicRotation(:nn, [1, 2]), FermionicRotation(:nn, [2, 3]))
+        @test !PauliPropagation.commutes(FermionicRotation(:hop, [1, 2]), FermionicRotation(:hop, [2, 3]))
+        @test length(tolayers([FermionicRotation(:nn, pair) for pair in staircasetopology(6)])) == 1
+        @test length(tolayers([FermionicRotation(:hop, pair) for pair in staircasetopology(6)])) == 5
+    end
 end

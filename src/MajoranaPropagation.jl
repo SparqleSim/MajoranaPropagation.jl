@@ -65,6 +65,11 @@ export
     ImaginaryMajoranaRotation,
     ImaginaryFermionicRotation
 
+include("gatelayers.jl")
+export
+    GateLayer,
+    tolayers
+
 include("propagation.jl")
 export
     propagate,

@@ -15,3 +15,11 @@ Modules = [MajoranaPropagation]
 Pages = ["src/imaginary_gates.jl"]
 Order = [:type, :function, :constant]
 ```
+
+## Gate Layers
+
+```@autodocs
+Modules = [MajoranaPropagation]
+Pages = ["src/gatelayers.jl"]
+Order = [:type, :function, :constant]
+```
