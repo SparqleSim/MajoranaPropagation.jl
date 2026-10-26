@@ -163,12 +163,12 @@ end
     end
 
     @testset "integer backend sweep" begin
-        # cross the UInt8/UInt16/.../BitIntegers boundaries and check that the
+        # cross the UInt8/UInt16/.../UInt128/NTupleInteger boundaries and check that the
         # string type is preserved through algebra and propagation
         for nf in (4, 16, 32, 33, 64, 65, 100)
             TT = getinttype(nf)
             msum = random_even_msum(nf, 5)
-            @test MajoranaPropagation.majoranatype(msum) == TT
+            @test MajoranaPropagation.termtype(msum) == TT
 
             g = random_even_string(nf)
             @test typeof(g) == TT
@@ -177,7 +177,7 @@ end
             @test pref in (1, -1, 1im, -1im)
 
             evolved = propagate!([MajoranaRotation(MajoranaString(nf, g))], deepcopy(msum), [0.3]; min_abs_coeff=-1.0)
-            @test MajoranaPropagation.majoranatype(evolved) == TT
+            @test MajoranaPropagation.termtype(evolved) == TT
             @test MajoranaPropagation.coefftype(evolved) == Float64
 
             # dict and vector backends agree at every width

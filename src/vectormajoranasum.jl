@@ -3,8 +3,6 @@
 using AcceleratedKernels
 const AK = AcceleratedKernels
 
-const _MIN_ELEMS_PER_TASK = PropagationBase._MIN_ELEMS_PER_TASK
-
 """
     VectorMajoranaSum(nsites::Int)
     VectorMajoranaSum(nsites::Int, is_spinful::Bool)
@@ -32,7 +30,7 @@ VectorMajoranaSum(nsites::Int) = VectorMajoranaSum(Float64, nsites, false)
 
 # empty initializers for both spinless and spinful cases
 VectorMajoranaSum(nsites::Int, is_spinful::Bool) = VectorMajoranaSum(Float64, nsites, is_spinful)
-VectorMajoranaSum(::Type{CT}, nsites::Int, is_spinful::Bool) where {CT} = VectorMajoranaSum(nsites, is_spinful, getinttype(nsites)[], CT[])
+VectorMajoranaSum(::Type{CT}, nsites::Int, is_spinful::Bool) where {CT} = VectorMajoranaSum(nsites, is_spinful, getinttype(is_spinful ? 2 * nsites : nsites)[], CT[])
 
 """
     storage(vmsum::VectorMajoranaSum)
@@ -42,16 +40,16 @@ Get the tuple `(terms, coeffs)` of the underlying vectors of `vmsum`.
 PropagationBase.storage(vmsum::VectorMajoranaSum) = (vmsum.terms, vmsum.coeffs)
 
 PropagationBase.sortedprefix(vmsum::VectorMajoranaSum) = vmsum._terms_sorted
-PropagationBase.setsortedprefix!(vmsum::VectorMajoranaSum, n::Int) = (vmsum._terms_sorted = n; vmsum)
+function PropagationBase.setsortedprefix!(vmsum::VectorMajoranaSum, n::Int)
+    if !(0 <= n <= length(vmsum.terms))
+        throw(ArgumentError("sorted prefix must be between 0 and the number of terms, got $n for $(length(vmsum.terms))."))
+    end
+    vmsum._terms_sorted = n
+    return vmsum
+end
 
-majoranatype(vmsum::VectorMajoranaSum{TV,CV}) where {TV,CV} = eltype(TV)
-
-"""
-    coefftype(vmsum::VectorMajoranaSum)
-
-Get the coefficient type of the `VectorMajoranaSum`.
-"""
-coefftype(vmsum::VectorMajoranaSum{TV,CV}) where {TV,CV} = eltype(CV)
+# an empty sum of the same type; PropagationBase's default would drop `is_spinful`
+PropagationBase.emptylike(vmsum::VectorMajoranaSum) = VectorMajoranaSum(vmsum.nsites, vmsum.is_spinful, empty(vmsum.terms), empty(vmsum.coeffs))
 
 
 """
@@ -82,8 +80,9 @@ Base.similar(vmsum::VectorMajoranaSum) = VectorMajoranaSum(nsites(vmsum), is_spi
 Resize the terms and coefficients vectors of `vmsum` to length `n_new`.
 """
 function Base.resize!(vmsum::VectorMajoranaSum, n_new::Int)
-    resize!(vmsum.terms, n_new)
-    resize!(vmsum.coeffs, n_new)
+    # during a propagation, a growing array is copied in parallel by the workers, each copying its own stripe
+    vmsum.terms = PropagationBase._resizearray(vmsum.terms, n_new)
+    vmsum.coeffs = PropagationBase._resizearray(vmsum.coeffs, n_new)
     setsortedprefix!(vmsum, min(sortedprefix(vmsum), n_new))  # clamp on shrink, no-op on grow
     return vmsum
 end

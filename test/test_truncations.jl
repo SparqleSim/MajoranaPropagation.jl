@@ -56,7 +56,7 @@ end
     end
 
     @testset "unpaired mask across integer widths" begin
-        # getinttype spans UInt8 .. UInt128 and BitIntegers types beyond;
+        # getinttype spans UInt8 .. UInt128 and NTupleInteger types beyond;
         # the mask must be exactly the odd bit positions at every width
         for nf in (1, 2, 3, 4, 8, 16, 31, 32, 33, 64, 65)
             TT = getinttype(nf)

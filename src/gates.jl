@@ -78,166 +78,87 @@ For a Majorana string ``ms``, the splitting rule for ``e^{i \\theta G / 2} \\, m
 - ``ms``, if ``[G, ms] = 0``
 - ``\\cos(\\theta) \\, ms - i \\sin(\\theta) \\, ms \\, G``, if ``\\{G, ms\\} = 0``
 """
-function PropagationBase.applytoall!(gate::MajoranaRotation, prop_cache::MajoranaPropagationCache, theta; kwargs...)
-    msum = mainsum(prop_cache)
-    aux_msum = auxsum(prop_cache)
-
-    cos_val = cos(theta)
-    sin_val = sin(theta)
-
-    gate_int = gate.ms_int
-    gate_int_ps = compute_parity_bits_and_shift(gate_int, 2 * nfermions(msum))
-    omega_l_gate = omega_L_mult(gate_int)
-
-    # loop over all Majorana strings and their coefficients in the Majorana sum
-    for (ms_int, coeff) in msum
-        if _commutes_evengate(ms_int, gate_int)
-            # if the gate commutes with the Majorana string, do nothing
-            continue
-        end
-
-        # else we know the gate will split the Majorana string into two
-        coeff1 = _applycos(coeff, cos_val)
-        new_ms, sign = _rotationproduct_evengate(ms_int, gate_int, gate_int_ps, omega_l_gate)
-        coeff2 = _applysin(coeff, sin_val * sign)
-
-        # set the coefficient of the original Majorana string
-        set!(msum, ms_int, coeff1)
-
-        # set the coefficient of the new Majorana string in the aux_psum
-        # we can set the coefficient because MajoranaRotations create non-overlapping new Majorana strings
-        set!(aux_msum, new_ms, coeff2)
-    end
-
-    return
+function PropagationBase.applytoall!(gate::MajoranaRotation, prop_cache::AbstractMajoranaPropagationCache, theta; thread::Bool=true, kwargs...)
+    return xorbranch!(_branchrule(gate, prop_cache, theta), prop_cache, _branchmask(gate, prop_cache); thread)
 end
 
-function PropagationBase.applymergetruncate!(gate::FermionicRotation, prop_cache::AbstractMajoranaPropagationCache, theta; truncate_each_mr=nothing, kwargs...)
+# The Majorana string a rotation branches by, as the mask of its `xorbranch!`, in the string type of the cache:
+# the merge sorts the strings the rotation creates in without comparing them only if the mask has that type.
+_branchmask(gate, prop_cache) = convert(termtype(prop_cache), gate.ms_int)
+
+# the rule of a Majorana rotation for `xorbranch!`
+function _branchrule(gate::MajoranaRotation, prop_cache, theta)
+    gate_ms = _branchmask(gate, prop_cache)
+    gate_ms_ps = compute_parity_bits_and_shift(gate_ms, 2 * nfermions(prop_cache))
+    return _rotationrule(gate_ms, gate_ms_ps, omega_L_mult(gate_ms), cos(theta), sin(theta))
+end
+
+# A string that anticommutes with the gate keeps cos(θ) of its coefficient and branches into its product with
+# the gate, which gets ±sin(θ). Built in a function of its own so that the closure only captures arguments.
+function _rotationrule(gate_ms, gate_ms_ps, omega_l_gate, cos_val, sin_val)
+    function rotate(term, coeff)
+        if _commutes_evengate(term, gate_ms)
+            return Unchanged()
+        end
+        _, sign = _rotationproduct_evengate(term, gate_ms, gate_ms_ps, omega_l_gate)
+        return Branch(_applycos(coeff, cos_val), _applysin(coeff, sin_val * sign))
+    end
+    return rotate
+end
+
+# `rule` without making the strings that `termdrop` rejects, whose parents only keep their own coefficient.
+# A string that the truncation would drop for its weight or its unpaired Majoranas is never written, sorted or merged;
+# since that depends on the string alone, any copy of it already in the sum is dropped by the same truncation.
+_dropproducts(rule, mask, ::Nothing) = rule
+
+function _dropproducts(rule::R, mask, termdrop::D) where {R,D}
+    function dropping(term, coeff)
+        branched = rule(term, coeff)
+        if branched isa Branch && termdrop(term ⊻ mask)
+            return Kept(branched.kept)
+        end
+        return branched
+    end
+    return dropping
+end
+
+# One rotation `gate` by `theta`: branch, merge and truncate by `truncfunc` in one call, without making the new
+# strings that `termdrop` rejects. A `truncfunc` of `nothing` merges without truncating. On an array the fused call
+# leaves the strings alone when the rule touches none of them; `force_truncate` truncates them all regardless.
+function _xorbranchstep!(gate, prop_cache, theta, truncfunc, termdrop; force_truncate::Bool=false, thread::Bool=true)
+    mask = _branchmask(gate, prop_cache)
+    rule = _dropproducts(_branchrule(gate, prop_cache, theta), mask, termdrop)
+    if force_truncate
+        xorbranch!(rule, prop_cache, mask; thread)
+        return xormergeandtruncate!(truncfunc, prop_cache, mask; thread)
+    end
+    return xorbranchmergeandtruncate!(rule, truncfunc, prop_cache, mask; thread)
+end
+
+function PropagationBase.applymergetruncate!(gate::FermionicRotation, prop_cache::AbstractMajoranaPropagationCache, theta; truncate_each_mr=nothing, thread::Bool=true, kwargs...)
     # get the Majorana strings and coefficients corresponding to the fermionic gate
     ms_rotations, coeffs, truncate_after_each_majrot = getmajoranarotations(gate, nsites(prop_cache))
     if !isnothing(truncate_each_mr)
         truncate_after_each_majrot = truncate_each_mr
     end
+    truncfunc, termdrop = _truncfuncs(prop_cache; thread, kwargs...)
 
-    # iterate over individual Majorana rotations and apply them to the Majorana sum
-    for (gate_ms, coeff) in zip(ms_rotations, coeffs)
+    # each Majorana rotation branches, merges and truncates in one call, unless the rotations are only
+    # truncated together: then all but the last merge without truncating, and the last truncates every string
+    for (k, (gate_ms, coeff)) in enumerate(zip(ms_rotations, coeffs))
+        is_last = k == length(ms_rotations)
+        truncates = truncate_after_each_majrot || is_last
         # multiply coefficient by 2 since `::MajoranaRotation` implements exp(-i * theta/2 * mstring)
-        applytoall!(gate_ms, prop_cache, theta * coeff * 2.0; kwargs...)
-
-        # merge the auxiliary Majorana sum into the original one and empty the auxiliary one
-        # (for vector caches: the appended tail is merged into the sorted prefix tracked on
-        # the sum; the gate string lets it sort the tail without a comparison sort)
-        _mergeafterapply!(prop_cache, gate_ms.ms_int; kwargs...)
-
-        # truncate after each Majorana rotation 
-        if truncate_after_each_majrot
-            truncate!(prop_cache; kwargs...)
-        end
-    end
-    if !truncate_after_each_majrot
-        truncate!(prop_cache; kwargs...)
+        _xorbranchstep!(gate_ms, prop_cache, theta * coeff * 2.0, truncates ? truncfunc : nothing, truncates ? termdrop : nothing;
+            force_truncate=is_last && !truncate_after_each_majrot, thread)
     end
 
     return prop_cache
 end
 
-# bare MajoranaRotation gates take the same gate-aware merge as the rotations inside a
-# FermionicRotation (the upstream generic applymergetruncate! would use the plain merge!,
-# discarding the gate string that lets vector caches skip the comparison sort)
-function PropagationBase.applymergetruncate!(gate::MajoranaRotation, prop_cache::AbstractMajoranaPropagationCache, theta; kwargs...)
-    applytoall!(gate, prop_cache, theta; kwargs...)
-    _mergeafterapply!(prop_cache, gate.ms_int; kwargs...)
-    truncate!(prop_cache; kwargs...)
+# bare MajoranaRotation gates branch, merge and truncate in one call as well
+function PropagationBase.applymergetruncate!(gate::MajoranaRotation, prop_cache::AbstractMajoranaPropagationCache, theta; thread::Bool=true, kwargs...)
+    truncfunc, termdrop = _truncfuncs(prop_cache; thread, kwargs...)
+    _xorbranchstep!(gate, prop_cache, theta, truncfunc, termdrop; thread)
     return prop_cache
-end
-
-
-# ========== vector specializations ========== #
-
-function PropagationBase.applytoall!(gate::MajoranaRotation, prop_cache::VectorMajoranaPropagationCache, theta; thread::Bool=true, kwargs...)
-
-    if prop_cache.active_size == 0
-        return prop_cache
-    end
-
-    n_old = prop_cache.active_size
-
-    # get the Majorana string integer representation because the gate cannot be in the function when using GPU
-    gate_ms = gate.ms_int
-    gate_ms_ps = compute_parity_bits_and_shift(gate_ms, 2 * nfermions(prop_cache))
-    omega_l_gate = omega_L_mult(gate_ms)
-
-    # flag terms that anticommute with the gate
-    anticommutesfunc(trm) = !_commutes_evengate(trm, gate_ms)
-    flagterms!(anticommutesfunc, prop_cache; thread)
-
-    # this runs a cumsum over the flags to get the indices
-    flagstoindices!(prop_cache; thread)
-
-    # the final index is the number of new terms
-    n_noncommutes = lastactiveindex(prop_cache)
-
-    # split off into the same array
-    n_new = n_old + n_noncommutes
-
-    # potential resize factor
-    resize_factor = 2
-    if capacity(prop_cache) < n_new
-        resize!(prop_cache, n_new * resize_factor)
-    end
-
-    # does the branching logic
-    _applymajoranarotation!(prop_cache, gate_ms, gate_ms_ps, omega_l_gate, theta; thread)
-
-    # we now have n_new possibly duplicate Majorana strings in the array
-    setactivesize!(prop_cache, n_new)
-
-    return prop_cache
-end
-
-"""
-For a Majorana string ``ms``, the splitting rule for ``e^{i \\theta G / 2} \\, ms \\, e^{-i \\theta G / 2}`` with gate string ``G`` is
-- ``ms``, if ``[G, ms] = 0``
-- ``\\cos(\\theta) \\, ms - i \\sin(\\theta) \\, ms \\, G``, if ``\\{G, ms\\} = 0``
-"""
-function _applymajoranarotation!(prop_cache::VectorMajoranaPropagationCache, gate_ms::TT, gate_ms_ps::TT, omega_l_gate::Int, theta; thread::Bool=true) where {TT}
-
-    # pre-compute the sine and cosine values because they are used for every Majorana string that does not commute with the gate
-    cos_val = cos(theta)
-    sin_val = sin(theta)
-    n_fermions = nfermions(prop_cache)
-
-    n = activesize(prop_cache)
-    n_max = n + lastactiveindex(prop_cache)
-
-    active_terms = activeterms(prop_cache)
-
-    # full-length terms so we can write new terms at the end
-    terms = majoranas(mainsum(prop_cache))
-    coeffs = coefficients(mainsum(prop_cache))
-    @assert length(terms) >= n_max "VectorMajoranaPropagationCache terms array is not large enough to hold new terms."
-    @assert length(coeffs) >= n_max "VectorMajoranaPropagationCache coeffs array is not large enough to hold new coeffs."
-
-    flags = activeflags(prop_cache)
-    indices = activeindices(prop_cache)
-
-    # branching pattern for Majorana rotations
-    AK.foreachindex(active_terms; max_tasks=maxtasks(thread), min_elems=_MIN_ELEMS_PER_TASK) do ii
-        # here it anticommutes
-        if flags[ii]
-            term = terms[ii]
-            coeff = coeffs[ii]
-
-            coeff1 = _applycos(coeff, cos_val)
-            new_term, sign = _rotationproduct_evengate(term, gate_ms, gate_ms_ps, omega_l_gate)
-            coeff2 = _applysin(coeff, sin_val * sign)
-
-            coeffs[ii] = coeff1
-
-            terms[n+indices[ii]] = new_term
-            coeffs[n+indices[ii]] = coeff2
-        end
-    end
-
-    return
 end

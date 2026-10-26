@@ -77,6 +77,9 @@ PropagationBase.storage(msum::MajoranaSum) = msum.Majoranas
 PropagationBase.nsites(msum::MajoranaSum) = msum.nsites
 is_spinful(msum::MajoranaSum) = msum.is_spinful
 
+# an empty sum of the same type; PropagationBase's default would drop `is_spinful`
+PropagationBase.emptylike(msum::MajoranaSum) = MajoranaSum(msum.nsites, msum.is_spinful, empty(msum.Majoranas))
+
 """
     MajoranaSum(nfermions::Integer)
 
@@ -189,19 +192,6 @@ function Base.show(io::IO, ms::MajoranaSum)
 end
 
 
-function majoranatype(::MajoranaSum{TT,CT}) where {TT,CT}
-    return TT
-end
-
-"""
-    coefftype(::MajoranaSum{TT,CT}) where {TT,CT}
-
-Get the coefficient type `CT` of the `MajoranaSum`.
-"""
-function coefftype(::MajoranaSum{TT,CT}) where {TT,CT}
-    return CT
-end
-
 """
     similar(msum::MajoranaSum)
 
@@ -262,7 +252,7 @@ function _bitonesat(::Type{TT}, index::Integer) where {TT<:Integer}
     return TT(1) << (index - 1)
 end
 
-function _checknfermions(msum1::MajoranaSum, msum2::MajoranaSum)
+function _checknfermions(msum1::AbstractMajoranaSum, msum2::AbstractMajoranaSum)
     if nfermions(msum1) != nfermions(msum2)
         throw(ArgumentError("MajoranaSums must have the same nfermions, but have $(nfermions(msum1)) and $(nfermions(msum2))"))
     end
