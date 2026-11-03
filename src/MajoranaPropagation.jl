@@ -70,6 +70,16 @@ export
     propagate,
     propagate!
 
+include("montecarlo.jl")
+export
+    mcpropagate,
+    mcpropagate!,
+    mcsample,
+    mcsample!,
+    mcapplytoall!,
+    resample,
+    resample!
+
 include("truncations.jl")
 export
     create_unpaired_mask,

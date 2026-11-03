@@ -44,7 +44,17 @@ end
 In-place propagation of an `AbstractMajoranaPropagationCache` through the circuit `circuit`, by default in the Heisenberg picture.
 """
 function PropagationBase.propagate!(circuit, prop_cache::AbstractMajoranaPropagationCache, thetas=nothing; max_weight=Inf, min_abs_coeff=1e-10, max_freq=Inf, max_sins=Inf, customtruncfunc=nothing, heisenberg=true, thread::Bool=true, kwargs...)
+    circuit, thetas = _preparecircuit(circuit, thetas, heisenberg)
 
+    # no upfront sort is needed for vector caches: the sorted prefix is tracked on the sum
+    # itself (see `sortedprefix`) and the first merge establishes it
+
+    return PropagationBase._propagate!(circuit, prop_cache, thetas; max_weight, min_abs_coeff, max_freq, max_sins, customtruncfunc, thread, kwargs...)
+end
+
+# Shared prelude of `propagate!`, `mcpropagate!` and `mcsample!`: promote a single gate and parameter
+# to lists, check the parameter count, then convert the circuit to the requested picture.
+function _preparecircuit(circuit, thetas, heisenberg::Bool)
     # if circuit is actually a single gate, promote it to a list [gate]
     # similarly the thetas if it is a single number
     circuit, thetas = PropagationBase._promotecircandparams(circuit, thetas)
@@ -55,14 +65,8 @@ function PropagationBase.propagate!(circuit, prop_cache::AbstractMajoranaPropaga
 
     if heisenberg
         # this usually just reverses circuit and parameter order
-        circuit, thetas = toheisenberg(circuit, thetas)
-    else
-        # this usually entails a conversion of how gates act
-        circuit, thetas = toschrodinger(circuit, thetas)
+        return toheisenberg(circuit, thetas)
     end
-
-    # no upfront sort is needed for vector caches: the sorted prefix is tracked on the sum
-    # itself (see `sortedprefix`) and the first merge establishes it
-
-    return PropagationBase._propagate!(circuit, prop_cache, thetas; max_weight, min_abs_coeff, max_freq, max_sins, customtruncfunc, thread, kwargs...)
+    # this usually entails a conversion of how gates act
+    return toschrodinger(circuit, thetas)
 end
