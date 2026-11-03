@@ -106,6 +106,25 @@ for step = 1:n_steps
 end
 ```
 
+## Monte Carlo propagation
+Two Monte Carlo variants of `propagate` trade a bounded number of Majorana strings for a statistical error, as in PauliPropagation.jl.
+`mcpropagate` propagates exactly and, whenever the sum grows past `max_size` strings, resamples it down to about half that without bias:
+```julia
+obs = MajoranaSum(L_sites, :n, 1) * MajoranaSum(L_sites, :n, 5)
+for step = 1:n_steps
+    mcpropagate!(circ_single_step, obs, thetas_single_step; max_size=10_000, min_abs_coeff=1.e-8)
+    @show overlapwithfock(obs, fock_state)   # one noisy run, average several
+end
+```
+`mcsample` instead keeps one random branch per Majorana string and rotation, so the number of strings never changes.
+Run many copies of the observable at once and average them:
+```julia
+reps = 10_000
+walkers = VectorMajoranaSum(L_sites, false, repeat(collect(terms(obs)), reps), repeat(collect(coefficients(obs)), reps))
+mcsample!(circ_single_step, walkers, thetas_single_step)
+@show overlapwithfock(walkers, fock_state) / reps
+```
+
 ## Citation
 If you use `MajoranaPropagation.jl` in your research and find it useful, please consider citing our work
 ```bibtex

@@ -90,6 +90,7 @@ makedocs(
             "api/InitialStates.md",
             "api/Gates.md",
             "api/Propagation.md",
+            "api/MonteCarlo.md",
             "api/Truncations.md",
             "api/Circuits.md",
             "api/FrequencyTracker.md",
