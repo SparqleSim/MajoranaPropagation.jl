@@ -141,16 +141,18 @@ function PropagationBase.applymergetruncate!(gate::FermionicRotation, prop_cache
     if !isnothing(truncate_each_mr)
         truncate_after_each_majrot = truncate_each_mr
     end
-    truncfunc, termdrop = _truncfuncs(prop_cache; thread, kwargs...)
+    truncfunc, termdrop, topk = _truncfuncs(prop_cache; thread, kwargs...)
 
     # each Majorana rotation branches, merges and truncates in one call, unless the rotations are only
-    # truncated together: then all but the last merge without truncating, and the last truncates every string
+    # truncated together: then all but the last merge without truncating, and the last truncates every string;
+    # a term budget needs the merged coefficients, so it follows as a pass of its own
     for (k, (gate_ms, coeff)) in enumerate(zip(ms_rotations, coeffs))
         is_last = k == length(ms_rotations)
         truncates = truncate_after_each_majrot || is_last
         # multiply coefficient by 2 since `::MajoranaRotation` implements exp(-i * theta/2 * mstring)
         _xorbranchstep!(gate_ms, prop_cache, theta * coeff * 2.0, truncates ? truncfunc : nothing, truncates ? termdrop : nothing;
             force_truncate=is_last && !truncate_after_each_majrot, thread)
+        truncates && _truncatetopk!(prop_cache, topk; thread)
     end
 
     return prop_cache
@@ -158,7 +160,8 @@ end
 
 # bare MajoranaRotation gates branch, merge and truncate in one call as well
 function PropagationBase.applymergetruncate!(gate::MajoranaRotation, prop_cache::AbstractMajoranaPropagationCache, theta; thread::Bool=true, kwargs...)
-    truncfunc, termdrop = _truncfuncs(prop_cache; thread, kwargs...)
+    truncfunc, termdrop, topk = _truncfuncs(prop_cache; thread, kwargs...)
     _xorbranchstep!(gate, prop_cache, theta, truncfunc, termdrop; thread)
+    _truncatetopk!(prop_cache, topk; thread)
     return prop_cache
 end

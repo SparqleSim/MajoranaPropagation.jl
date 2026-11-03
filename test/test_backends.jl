@@ -77,6 +77,13 @@ agree(results) = all(termdict(r) == termdict(first(results)) for r in results)
             @test length(first(results)) > 1
         end
 
+        # a term budget: its threshold comes from the merged coefficients of the whole sum, on every backend
+        for max_terms in (50, 500), truncate_each_mr in (nothing, true)
+            results = propagateall(circ, obs, thetas; min_abs_coeff=0.0, max_terms, truncate_each_mr)
+            @test agree(results)
+            @test 1 < length(first(results)) <= 1.05 * max_terms + 1
+        end
+
         # both ways of truncating a fermionic gate's rotations
         for truncate_each_mr in (true, false)
             @test agree(propagateall(circ, obs, thetas; min_abs_coeff=1e-4, max_unpaired=4, truncate_each_mr))
@@ -308,6 +315,10 @@ agree(results) = all(termdict(r) == termdict(first(results)) for r in results)
             @test termdict(mapcoeffs(c -> 2c, b)) == Dict(k => 2v for (k, v) in msum)
             @test termdict(filterterms(t -> get_weight(t) <= 2, b)) == Dict(k => v for (k, v) in msum if get_weight(k) <= 2)
             @test maxabscoeff(b) == maximum(abs, coefficients(msum))
+            # a term budget counts the strings of every zone together
+            @test topkabscoeff(b, 10) == topkabscoeff(msum, 10)
+            @test termdict(truncate!(deepcopy(b); min_abs_coeff=0.0, max_terms=10, max_terms_rtol=0.0)) ==
+                  termdict(truncate!(deepcopy(msum); min_abs_coeff=0.0, max_terms=10, max_terms_rtol=0.0))
         end
 
         vmsum = VectorMajoranaSum(msum)
@@ -339,6 +350,15 @@ agree(results) = all(termdict(r) == termdict(first(results)) for r in results)
         default, each = (flatandlayered(circ, thetas, obs; min_abs_coeff=1e-5, max_unpaired=2, truncate_each_mr) for truncate_each_mr in (nothing, true))
         @test agree(default) && agree(each)
         @test termdict(first(default)) != termdict(first(each))
+
+        # a term budget is applied once after a layer, so the layered route differs from the flat one, but
+        # every backend agrees on each route
+        for max_terms in (50, 500)
+            results = flatandlayered(circ, thetas, obs; min_abs_coeff=0.0, max_terms)
+            flat, layered = results[1:2:end], results[2:2:end]
+            @test agree(flat) && agree(layered)
+            @test 1 < length(first(layered)) <= 1.05 * max_terms + 1
+        end
 
         # the layers are applied class by class on every backend, unless the coefficients track frequencies
         layered, layered_thetas = tolayers(circ, thetas)

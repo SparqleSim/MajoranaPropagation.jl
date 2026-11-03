@@ -1,6 +1,6 @@
 """
-    propagate(circuit, msum::AbstractMajoranaSum, thetas=nothing; min_abs_coeff=1e-10, max_weight=Inf, max_unpaired=Inf,  unpaired_mask=nothing, max_freq=Inf, max_sins=Inf, customtruncfunc=nothing, heisenberg=true, thread=true, kwargs...)
-    propagate!(circuit, msum::AbstractMajoranaSum, thetas=nothing; min_abs_coeff=1e-10, max_weight=Inf, max_unpaired=Inf,  unpaired_mask=nothing, max_freq=Inf, max_sins=Inf, customtruncfunc=nothing, heisenberg=true, thread=true, kwargs...)
+    propagate(circuit, msum::AbstractMajoranaSum, thetas=nothing; min_abs_coeff=1e-10, max_weight=Inf, max_unpaired=Inf,  unpaired_mask=nothing, max_freq=Inf, max_sins=Inf, max_terms=nothing, max_terms_rtol=0.05, customtruncfunc=nothing, heisenberg=true, thread=true, kwargs...)
+    propagate!(circuit, msum::AbstractMajoranaSum, thetas=nothing; min_abs_coeff=1e-10, max_weight=Inf, max_unpaired=Inf,  unpaired_mask=nothing, max_freq=Inf, max_sins=Inf, max_terms=nothing, max_terms_rtol=0.05, customtruncfunc=nothing, heisenberg=true, thread=true, kwargs...)
 
 Propagate a Majorana sum `msum` through the circuit `circuit`.
 By default this is done in the Heisenberg picture, as indicated by `heisenberg=true`.
@@ -9,6 +9,7 @@ In `propagate()` the Majorana sum `msum` is deepcopied and passed into the in-pl
 Parameters for the parametrized gates in `circuit` are given by `thetas`, and need to be passed as if the circuit was applied as written in the Schrödinger picture.
 If thetas are not passed, the circuit must contain only non-parametrized `StaticGates`.
 Default truncations are `min_abs_coeff`, `max_weight`, `max_freq`, and `max_sins`.
+`max_terms` keeps about this many Majorana strings after the other truncations, those with the largest absolute coefficients, within `max_terms_rtol * max_terms` of it; see `truncate!` and `topkabscoeff`.
 `max_freq`, and `max_sins` will lead to automatic conversion if the coefficients are not already wrapped in suitable `PathProperties` objects.
 A custom truncation function can be passed as `customtruncfunc` with the signature `customtruncfunc(mstr, coefficient)::Bool`, where `mstr` is the integer representation of a Majorana string.
 `thread=false` disables multithreading in every function on the `VectorMajoranaSum` backend that can multithread, so it is safe to call from inside an outer threaded loop.
@@ -39,7 +40,7 @@ end
 
 
 """
-    propagate!(circuit, prop_cache::AbstractMajoranaPropagationCache, thetas=nothing; min_abs_coeff=1e-10, max_weight=Inf, max_freq=Inf, max_sins=Inf, customtruncfunc=nothing, heisenberg=true, thread=true, kwargs...)
+    propagate!(circuit, prop_cache::AbstractMajoranaPropagationCache, thetas=nothing; min_abs_coeff=1e-10, max_weight=Inf, max_freq=Inf, max_sins=Inf, max_terms=nothing, max_terms_rtol=0.05, customtruncfunc=nothing, heisenberg=true, thread=true, kwargs...)
 
 In-place propagation of an `AbstractMajoranaPropagationCache` through the circuit `circuit`, by default in the Heisenberg picture.
 """

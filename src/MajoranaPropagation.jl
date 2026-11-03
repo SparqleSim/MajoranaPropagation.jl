@@ -82,6 +82,7 @@ export
     compute_unpaired,
     compute_doublons,
     truncatemajoranaweight,
+    topkabscoeff,
     truncate!
 
 include("circuits.jl")

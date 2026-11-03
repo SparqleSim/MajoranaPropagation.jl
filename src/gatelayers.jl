@@ -32,7 +32,7 @@ PauliPropagation.commutes(gate_a::Union{MajoranaRotation,FermionicRotation}, gat
 
 Apply a layer of commuting `MajoranaRotation`s and `FermionicRotation`s in one pass over the Majorana sum, class by class, instead of one rotation after the other.
 A class is a set of Majorana strings that the rotations of the layer map into each other; it is gathered into a small sum of its own, to which the rotations acting on it are applied in the order of the layer.
-Every fermionic rotation truncates as it does on its own (see `truncate_each_mr`), so the result is that of the gates one after the other, except that strings no rotation acts on are truncated too.
+Every fermionic rotation truncates as it does on its own (see `truncate_each_mr`), so the result is that of the gates one after the other, except that strings no rotation acts on are truncated too, and that a term budget `max_terms` is applied once, after the layer.
 Layers are built with `GateLayer` or gathered from a circuit by `tolayers`, which does not reorder gates: a layer pays off when it holds many rotations, so list commuting gates next to each other, such as the hoppings of disjoint bonds.
 Layers of other gates, layers whose Majorana rotations do not all commute, and coefficients that are not numbers, such as `MajoranaFrequencyTracker`, apply their gates one after the other.
 """
@@ -42,8 +42,10 @@ function PropagationBase.applymergetruncate!(layer::GateLayer, prop_cache::Abstr
         PropagationBase._applygatesonebyone!(layer, prop_cache, thetas; truncate_each_mr, thread, kwargs...)
         return prop_cache
     end
-    truncfunc, _ = _truncfuncs(prop_cache; thread, kwargs...)
+    truncfunc, _, topk = _truncfuncs(prop_cache; thread, kwargs...)
     _applylayerpass!(prop_cache, plan..., truncfunc; thread)
+    # a term budget counts the strings of the whole sum, so it follows the pass over the classes
+    _truncatetopk!(prop_cache, topk; thread)
     return prop_cache
 end
 
