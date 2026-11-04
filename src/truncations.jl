@@ -147,26 +147,38 @@ end
 
 # The truncation of `mobj` by the truncation keyword arguments among `kwargs`, as `(truncfunc, termdrop, topk)`:
 # the predicate, the part of it that only reads the Majorana string (or `nothing`), and the term budget
-# `(max_terms, max_terms_rtol)` of `_truncatetopk!` (or `nothing`), which a gate applies after the predicate,
-# once the merged coefficients are known. Every other keyword argument is ignored, since the gates pass on all of theirs.
+# `(max_terms, max_terms_rtol, topk_floor)` of `_truncatetopk!` (or `nothing`), which a gate applies after the predicate,
+# once the merged coefficients are known. `topk_floor` is the `Ref` that `propagate!` shares between its gates (or
+# `nothing`): it holds the cutoff of the last cut, below which no string can make the next one, so the predicate drops
+# such strings as the gate makes them. Every other keyword argument is ignored, since the gates pass on all of theirs.
 function _truncfuncs(mobj; min_abs_coeff::Real=1e-10, max_weight::Real=Inf, max_unpaired::Real=Inf, unpaired_mask=nothing,
-    max_freq::Real=Inf, max_sins::Real=Inf, max_terms=nothing, max_terms_rtol::Real=0.05, customtruncfunc=nothing,
-    thread::Bool=true, kwargs...)
+    max_freq::Real=Inf, max_sins::Real=Inf, max_terms=nothing, max_terms_rtol::Real=0.05, topk_floor=nothing,
+    customtruncfunc=nothing, thread::Bool=true, kwargs...)
 
+    if !isnothing(topk_floor)
+        min_abs_coeff = max(min_abs_coeff, topk_floor[])
+    end
     truncfunc = buildtruncfunc(mobj; min_abs_coeff, max_weight, max_unpaired, unpaired_mask, max_freq, max_sins, customtruncfunc, thread)
     termdrop = _termtruncfunc(mobj; max_weight, max_unpaired, unpaired_mask)
-    topk = isnothing(max_terms) ? nothing : (max_terms, max_terms_rtol)
+    topk = isnothing(max_terms) ? nothing : (max_terms, max_terms_rtol, topk_floor)
     return truncfunc, termdrop, topk
 end
 
-# Keeps about `k` of the strings of `mobj`, those with the largest absolute coefficients, within `rtol * k` of `k`.
+# Keeps about `k` of the strings of `mobj`, those with the largest absolute coefficients, within `rtol * k` of `k`,
+# and leaves the cutoff in `floor` for the next gate (see `_truncfuncs`).
 _truncatetopk!(mobj, ::Nothing; thread::Bool=true) = mobj
 
-function _truncatetopk!(mobj, (k, rtol)::Tuple; thread::Bool=true)
+function _truncatetopk!(mobj, (k, rtol, floor)::Tuple; thread::Bool=true)
     cutoff = topkabscoeff(mobj, k; rtol, thread)
     # zero when `k` is at least the number of strings, so there is nothing to drop
     if cutoff > 0
         truncate!((_, coeff) -> PauliPropagation.truncatemincoeff(coeff, cutoff), mobj; thread)
+    end
+    if !isnothing(floor)
+        # A cut that did not bind leaves fewer than `k` strings: the floor may have dropped strings the cut would have
+        # kept, so it is halved until the budget binds again, instead of being lifted at once, which would let a gate
+        # grow the sum without a floor.
+        floor[] = cutoff > 0 ? cutoff : floor[] / 2
     end
     return mobj
 end

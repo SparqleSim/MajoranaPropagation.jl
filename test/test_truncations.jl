@@ -271,6 +271,17 @@ end
         @test length(truncate!(deepcopy(tied); min_abs_coeff=0.0, max_terms=150, max_terms_rtol=0.0)) == 200
         @test length(truncate!(deepcopy(tied); min_abs_coeff=0.0, max_terms=120, max_terms_rtol=0.0)) == 100
 
+        # the floor of a budget: a cut leaves its cutoff for the next gate, whose predicate drops the strings below it
+        # as they are made, and a cut that does not bind halves the floor
+        floor = Ref(0.0)
+        MajoranaPropagation._truncatetopk!(deepcopy(msum), (5, 0.0, floor))
+        @test floor[] == 2.0^-4
+        truncfunc, _, topk = MajoranaPropagation._truncfuncs(msum; min_abs_coeff=0.0, max_terms=5, topk_floor=floor)
+        @test topk === (5, 0.05, floor)
+        @test truncfunc(TT(1), 2.0^-5) && !truncfunc(TT(1), 2.0^-4)
+        MajoranaPropagation._truncatetopk!(deepcopy(msum), (nf, 0.0, floor))
+        @test floor[] == 2.0^-5
+
         # during propagation, the dict and vector backends must agree, and the budget must bite
         N_sites = 4
         circ, thetas = _hubbard_circ(N_sites)
@@ -278,12 +289,19 @@ end
         obs0 = MajoranaSum(N_sites, :nupndn, 2)
         MajoranaPropagation.pop_id!(obs0)
         n_untruncated = length(propagate(circ, obs0, thetas; min_abs_coeff=0.0))
-        for max_terms in (50, 200)
-            dnum = propagate(circ, obs0, thetas; min_abs_coeff=0.0, max_terms)
-            dvec = propagate(circ, VectorMajoranaSum(obs0), thetas; min_abs_coeff=0.0, max_terms)
+        differs = Bool[]
+        for max_terms in (50, 200), max_terms_floor in (true, false)
+            dnum = propagate(circ, obs0, thetas; min_abs_coeff=0.0, max_terms, max_terms_floor)
+            dvec = propagate(circ, VectorMajoranaSum(obs0), thetas; min_abs_coeff=0.0, max_terms, max_terms_floor)
             @test termdict(dnum) == termdict(dvec)
             @test length(dnum) <= 1.05 * max_terms + 1
             @test length(dnum) < n_untruncated
+            # the floor (the default) drops strings inside the gates, so the result is not that of the cuts alone
+            push!(differs, termdict(dnum) != termdict(propagate(circ, obs0, thetas; min_abs_coeff=0.0, max_terms, max_terms_floor=!max_terms_floor)))
         end
+        @test all(differs)
+        # a budget that never binds leaves the floor at zero and changes nothing
+        @test termdict(propagate(circ, obs0, thetas; min_abs_coeff=0.0, max_terms=n_untruncated)) ==
+              termdict(propagate(circ, obs0, thetas; min_abs_coeff=0.0))
     end
 end
