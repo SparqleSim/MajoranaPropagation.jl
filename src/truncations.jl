@@ -149,8 +149,8 @@ end
 # the predicate, the part of it that only reads the Majorana string (or `nothing`), and the term budget
 # `(max_terms, max_terms_rtol, topk_floor)` of `_truncatetopk!` (or `nothing`), which a gate applies after the predicate,
 # once the merged coefficients are known. `topk_floor` is the `Ref` that `propagate!` shares between its gates (or
-# `nothing`): it holds the cutoff of the last cut, below which no string can make the next one, so the predicate drops
-# such strings as the gate makes them. Every other keyword argument is ignored, since the gates pass on all of theirs.
+# `nothing`): it holds half the cutoff of the last cut, below which no string can make the next one, so the predicate
+# drops such strings as the gate makes them. Every other keyword argument is ignored, since the gates pass on all of theirs.
 function _truncfuncs(mobj; min_abs_coeff::Real=1e-10, max_weight::Real=Inf, max_unpaired::Real=Inf, unpaired_mask=nothing,
     max_freq::Real=Inf, max_sins::Real=Inf, max_terms=nothing, max_terms_rtol::Real=0.05, topk_floor=nothing,
     customtruncfunc=nothing, thread::Bool=true, kwargs...)
@@ -175,10 +175,11 @@ function _truncatetopk!(mobj, (k, rtol, floor)::Tuple; thread::Bool=true)
         truncate!((_, coeff) -> PauliPropagation.truncatemincoeff(coeff, cutoff), mobj; thread)
     end
     if !isnothing(floor)
-        # A cut that did not bind leaves fewer than `k` strings: the floor may have dropped strings the cut would have
-        # kept, so it is halved until the budget binds again, instead of being lifted at once, which would let a gate
-        # grow the sum without a floor.
-        floor[] = cutoff > 0 ? cutoff : floor[] / 2
+        # Half the cutoff: a floor at the cutoff itself prunes a little too much (the next gate shrinks the strings just
+        # above it, and the cut then cannot bind), half of it keeps the strings between a gate and its cut at about 1.1
+        # to 1.5 k and the cut binding. A cut that did not bind halves the floor again instead of lifting it, which would
+        # let a gate grow the sum without a floor.
+        floor[] = (cutoff > 0 ? cutoff : floor[]) / 2
     end
     return mobj
 end

@@ -43,10 +43,27 @@ function PropagationBase.applymergetruncate!(layer::GateLayer, prop_cache::Abstr
         return prop_cache
     end
     truncfunc, _, topk = _truncfuncs(prop_cache; thread, kwargs...)
+    log = !isnothing(topk) && haskey(ENV, "MP_TOPK_LOG")
+    floor_before = log && !isnothing(topk[3]) ? topk[3][] : 0.0
     _applylayerpass!(prop_cache, plan..., truncfunc; thread)
+    log && (pre = _topkzonestats(prop_cache))
     # a term budget counts the strings of the whole sum, so it follows the pass over the classes
     _truncatetopk!(prop_cache, topk; thread)
+    if log
+        floor_after = isnothing(topk[3]) ? NaN : topk[3][]
+        println(stderr, "topk layer: pre-cut $(pre.n) (zones: active max $(pre.act_max) mean $(pre.act_mean), capacity max $(pre.cap_max) mean $(pre.cap_mean))  floor $(floor_before) -> $(floor_after)  post-cut $(length(prop_cache))")
+    end
     return prop_cache
+end
+
+# With MP_TOPK_LOG set in the environment, every layer reports what its term budget saw: the strings between the pass
+# and the cut, the largest and the mean zone (active strings and capacity), the floor that pruned inside the pass and
+# the floor the cut left for the next layer (half its cutoff).
+function _topkzonestats(prop_cache)
+    zones = prop_cache isa MultiMajoranaPropagationCache ? zonecaches(prop_cache) : [prop_cache]
+    act = map(activesize, zones)
+    cap = map(capacity, zones)
+    return (; n=length(prop_cache), act_max=maximum(act), act_mean=sum(act) ÷ length(act), cap_max=maximum(cap), cap_mean=sum(cap) ÷ length(cap))
 end
 
 # The plan of a layer applied class by class, as `(plan, gate_of, truncates_each)`, or `nothing` for a layer applied gate
