@@ -86,7 +86,7 @@ function PropagationBase.applymergetruncate!(gate::ImaginaryFermionicRotation, p
     if !isnothing(truncate_each_mr)
         truncate_after_each_majrot = truncate_each_mr
     end
-    truncfunc, termdrop = _truncfuncs(prop_cache; thread, kwargs...)
+    truncfunc, termdrop, topk = _truncfuncs(prop_cache; thread, kwargs...)
 
     # iterate over individual Majorana rotations and apply them to the Majorana sum
     for (k, (gate_ms, coeff)) in enumerate(zip(ms_rotations, coeffs))
@@ -107,6 +107,7 @@ function PropagationBase.applymergetruncate!(gate::ImaginaryFermionicRotation, p
         # truncate after each Majorana rotation, or after the last one
         if truncates
             truncate!(truncfunc, prop_cache; thread)
+            _truncatetopk!(prop_cache, topk; thread)
         end
     end
 
@@ -125,8 +126,9 @@ end
 
 # bare imaginary rotations branch, merge and truncate in one call, without normalizing
 function PropagationBase.applymergetruncate!(gate::ImaginaryMajoranaRotation, prop_cache::AbstractMajoranaPropagationCache, beta; thread::Bool=true, kwargs...)
-    truncfunc, termdrop = _truncfuncs(prop_cache; thread, kwargs...)
+    truncfunc, termdrop, topk = _truncfuncs(prop_cache; thread, kwargs...)
     _xorbranchstep!(gate, prop_cache, beta, truncfunc, termdrop; thread)
+    _truncatetopk!(prop_cache, topk; thread)
     return prop_cache
 end
 

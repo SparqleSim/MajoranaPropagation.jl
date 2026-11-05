@@ -131,6 +131,26 @@ majoranas(prop_cache::VectorMajoranaPropagationCache) = activeterms(prop_cache)
 PropagationBase.coefficients(prop_cache::VectorMajoranaPropagationCache) = activecoeffs(prop_cache)
 
 """
+    _reserveterms!(prop_cache::AbstractMajoranaPropagationCache, n::Int)
+
+Room for `n` terms in the arrays of a vector cache, or for `n` terms split evenly over the zones of a multi sum, before the gates of a propagation run; other caches are left alone.
+A cache that holds a term budget then never grows during the propagation: a growth copies whole arrays, and the zones of a multi sum grow together with their old and new arrays alive, which took several times the memory of the kept terms.
+Room that is never written costs no memory.
+The main sum keeps its terms; the auxiliary sum, the flags and the indices hold nothing before the first gate and are replaced rather than copied.
+"""
+_reserveterms!(prop_cache::AbstractMajoranaPropagationCache, n::Int) = prop_cache
+
+function _reserveterms!(prop_cache::VectorMajoranaPropagationCache, n::Int)
+    capacity(prop_cache) < n || return prop_cache
+    main = mainsum(prop_cache)
+    resize!(main, n)
+    setauxsum!(prop_cache, Base.similar(main))
+    prop_cache.flags = Base.similar(prop_cache.flags, n)
+    prop_cache.indices = Base.similar(prop_cache.indices, n)
+    return prop_cache
+end
+
+"""
     resize!(prop_cache::VectorMajoranaPropagationCache, n_new::Int)
 
 Resize all internal arrays of the propagation cache to length `n_new`, keeping at most `n_new` terms active.

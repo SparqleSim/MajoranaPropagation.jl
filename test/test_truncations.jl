@@ -223,4 +223,96 @@ end
         # the truncation must actually bite compared to the untruncated run
         @test length(res) < length(propagate(circ, msum0, thetas; min_abs_coeff=-1.0))
     end
+
+    @testset "max_terms (top-K)" begin
+        # the threshold is found by radix select on the coefficient magnitudes, never by sorting
+        nf = 20
+        TT = getinttype(nf)
+        termdict(msum) = Dict(k => v for (k, v) in msum)
+
+        # well-separated magnitudes land in buckets of their own, so every tolerance is exact
+        msum = MajoranaSum(Float64, nf)
+        for i in 1:nf
+            add!(msum, TT(1) << (i - 1), 2.0^(1 - i))
+        end
+        @test topkabscoeff(msum, 5) == 2.0^-4
+        @test topkabscoeff(VectorMajoranaSum(msum), 5) == 2.0^-4
+        @test topkabscoeff(MultiMajoranaSum(msum, 4), 5) == 2.0^-4
+        @test topkabscoeff(msum, nf) == 0.0
+        @test_throws ArgumentError topkabscoeff(msum, 0)
+        @test_throws ArgumentError topkabscoeff(msum, 5; rtol=-0.1)
+        for b in (msum, VectorMajoranaSum(msum), MultiMajoranaSum(msum, 4))
+            truncated = truncate!(deepcopy(b); min_abs_coeff=0.0, max_terms=5)
+            @test length(truncated) == 5
+            @test sort(collect(values(termdict(truncated))); rev=true) == 2.0 .^ (0:-1:-4)
+            @test length(truncate!(deepcopy(b); min_abs_coeff=0.0, max_terms=nf)) == nf
+            # the budget applies to the strings that the other truncations keep
+            @test length(truncate!(deepcopy(b); min_abs_coeff=2.0^-2, max_terms=5)) == 3
+        end
+
+        # a smooth spectrum: the kept count lands within rtol of K, and the kept terms are the largest ones
+        rng = MersenneTwister(1)
+        n = 20_000
+        K = 2000
+        magnitudes = exp.(randn(rng, n))
+        vmsum = VectorMajoranaSum(nf, false, TT.(1:n), magnitudes .* rand(rng, (-1.0, 1.0), n))
+        @test topkabscoeff(vmsum, K; thread=true) == topkabscoeff(vmsum, K; thread=false)
+        @test topkabscoeff(MultiMajoranaSum(vmsum, 8), K) == topkabscoeff(vmsum, K)
+        @test topkabscoeff(PropagationCache(vmsum), K) == topkabscoeff(vmsum, K)
+        for rtol in (0.05, 0.01, 0.001, 0.0)
+            truncated = truncate!(deepcopy(vmsum); min_abs_coeff=0.0, max_terms=K, max_terms_rtol=rtol)
+            n_kept = length(truncated)
+            @test abs(n_kept - K) <= rtol * K
+            @test minimum(abs, coefficients(truncated)) >= partialsort(magnitudes, n_kept; rev=true)
+        end
+
+        # tied magnitudes are kept or dropped together, whichever count is closer to K
+        tied = VectorMajoranaSum(nf, false, TT.(1:200), [fill(1.0, 100); fill(-0.5, 100)])
+        @test length(truncate!(deepcopy(tied); min_abs_coeff=0.0, max_terms=150, max_terms_rtol=0.0)) == 200
+        @test length(truncate!(deepcopy(tied); min_abs_coeff=0.0, max_terms=120, max_terms_rtol=0.0)) == 100
+
+        # the floor of a budget: a cut leaves half its cutoff for the next gate, whose predicate drops the strings below
+        # it as they are made, and a cut that does not bind halves the floor again
+        floor = Ref(0.0)
+        MajoranaPropagation._truncatetopk!(deepcopy(msum), (5, 0.0, floor))
+        @test floor[] == 2.0^-5
+        truncfunc, _, topk = MajoranaPropagation._truncfuncs(msum; min_abs_coeff=0.0, max_terms=5, topk_floor=floor)
+        @test topk === (5, 0.05, floor)
+        @test truncfunc(TT(1), 2.0^-6) && !truncfunc(TT(1), 2.0^-5)
+        MajoranaPropagation._truncatetopk!(deepcopy(msum), (nf, 0.0, floor))
+        @test floor[] == 2.0^-6
+
+        # during propagation, the dict and vector backends must agree, and the budget must bite
+        N_sites = 4
+        circ, thetas = _hubbard_circ(N_sites)
+        circ, thetas = repeat(circ, 2), repeat(thetas, 2)
+        obs0 = MajoranaSum(N_sites, :nupndn, 2)
+        MajoranaPropagation.pop_id!(obs0)
+        n_untruncated = length(propagate(circ, obs0, thetas; min_abs_coeff=0.0))
+        # with the floor (the default) and without it
+        for max_terms in (50, 200), max_terms_floor in (true, false)
+            dnum = propagate(circ, obs0, thetas; min_abs_coeff=0.0, max_terms, max_terms_floor)
+            dvec = propagate(circ, VectorMajoranaSum(obs0), thetas; min_abs_coeff=0.0, max_terms, max_terms_floor)
+            @test termdict(dnum) == termdict(dvec)
+            @test length(dnum) <= 1.05 * max_terms + 1
+            @test length(dnum) < n_untruncated
+        end
+        # the room reserved for a budget: every zone gets its share before the gates run, and nothing in the result changes
+        for (vmsum, nzones) in ((VectorMajoranaSum(obs0), 1), (MultiMajoranaSum(VectorMajoranaSum(obs0), 4), 4))
+            pc = PropagationCache(vmsum)
+            propagate!(circ, pc, thetas; min_abs_coeff=0.0, max_terms=50)
+            caches = nzones == 1 ? [pc] : MajoranaPropagation.PropagationBase.zonecaches(pc)
+            @test all(MajoranaPropagation.PropagationBase.capacity(c) >= cld(100, nzones) for c in caches)
+            @test termdict(propagate(circ, vmsum, thetas; min_abs_coeff=0.0, max_terms=50, max_terms_room=0)) ==
+                  termdict(propagate(circ, vmsum, thetas; min_abs_coeff=0.0, max_terms=50))
+        end
+        # a budget that never binds leaves the floor at zero and changes nothing
+        @test termdict(propagate(circ, obs0, thetas; min_abs_coeff=0.0, max_terms=n_untruncated)) ==
+              termdict(propagate(circ, obs0, thetas; min_abs_coeff=0.0))
+        # a caller's Ref carries the floor out of a call and into the next one
+        floor = Ref(0.0)
+        propagate(circ, obs0, thetas; min_abs_coeff=0.0, max_terms=50, max_terms_floor=floor)
+        @test floor[] > 0
+        @test length(propagate(circ, obs0, thetas; min_abs_coeff=0.0, max_terms=n_untruncated, max_terms_floor=Ref(1.0))) < n_untruncated
+    end
 end

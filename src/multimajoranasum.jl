@@ -96,6 +96,14 @@ end
 
 PropagationBase.PropagationCache(msum::MultiMajoranaSum) = MultiMajoranaPropagationCache(msum)
 
+# the room of a term budget is split evenly over the zones (see `_reserveterms!` of the vector cache)
+function _reserveterms!(prop_cache::MultiMajoranaPropagationCache, n::Int)
+    zones = zonecaches(prop_cache)
+    n_zone = cld(n, length(zones))
+    foreach(zone -> _reserveterms!(zone, n_zone), zones)
+    return prop_cache
+end
+
 PropagationBase.mainsum(prop_cache::MultiMajoranaPropagationCache) = prop_cache.msum
 PropagationBase.auxsum(prop_cache::MultiMajoranaPropagationCache) = throw(ArgumentError("MultiMajoranaPropagationCache does not have an auxiliary sum."))
 
