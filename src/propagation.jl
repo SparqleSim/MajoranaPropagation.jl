@@ -1,6 +1,6 @@
 """
-    propagate(circuit, msum::AbstractMajoranaSum, thetas=nothing; min_abs_coeff=1e-10, max_weight=Inf, max_unpaired=Inf,  unpaired_mask=nothing, max_freq=Inf, max_sins=Inf, max_terms=nothing, max_terms_rtol=0.05, max_terms_floor=true, customtruncfunc=nothing, heisenberg=true, thread=true, kwargs...)
-    propagate!(circuit, msum::AbstractMajoranaSum, thetas=nothing; min_abs_coeff=1e-10, max_weight=Inf, max_unpaired=Inf,  unpaired_mask=nothing, max_freq=Inf, max_sins=Inf, max_terms=nothing, max_terms_rtol=0.05, max_terms_floor=true, customtruncfunc=nothing, heisenberg=true, thread=true, kwargs...)
+    propagate(circuit, msum::AbstractMajoranaSum, thetas=nothing; min_abs_coeff=1e-10, max_weight=Inf, max_unpaired=Inf,  unpaired_mask=nothing, max_freq=Inf, max_sins=Inf, max_terms=nothing, max_terms_rtol=0.05, max_terms_floor=true, max_terms_room=2.0, customtruncfunc=nothing, heisenberg=true, thread=true, kwargs...)
+    propagate!(circuit, msum::AbstractMajoranaSum, thetas=nothing; min_abs_coeff=1e-10, max_weight=Inf, max_unpaired=Inf,  unpaired_mask=nothing, max_freq=Inf, max_sins=Inf, max_terms=nothing, max_terms_rtol=0.05, max_terms_floor=true, max_terms_room=2.0, customtruncfunc=nothing, heisenberg=true, thread=true, kwargs...)
 
 Propagate a Majorana sum `msum` through the circuit `circuit`.
 By default this is done in the Heisenberg picture, as indicated by `heisenberg=true`.
@@ -12,6 +12,7 @@ Default truncations are `min_abs_coeff`, `max_weight`, `max_freq`, and `max_sins
 `max_terms` keeps about this many Majorana strings after the other truncations, those with the largest absolute coefficients, within `max_terms_rtol * max_terms` of it; see `truncate!` and `topkabscoeff`.
 With `max_terms_floor=true`, every gate (or layer) also drops the strings it makes whose coefficients lie below the cutoff of the last cut, since they could not make the next one: the sum never holds many more than `max_terms` strings, while without the floor it holds everything a gate makes until its cut, which can be several times `max_terms`.
 The floor changes the result slightly, because a string dropped early is not there for the later gates of a layer, and after a gate that leaves fewer than `max_terms` strings it is halved until the budget binds again.
+With `max_terms`, the arrays of a vector or multi-zone sum are given room for `max_terms_room * max_terms` strings before the gates run (`max_terms_room=0` leaves them alone), so they never grow during the propagation: a growth copies whole arrays and, in a multi sum, every zone grows at once with its old and new arrays alive, which took several times the memory of the kept strings. Room that is never written costs no memory, so the room may be generous; what a gate makes on top of the budget before its cut must fit in it.
 `max_freq`, and `max_sins` will lead to automatic conversion if the coefficients are not already wrapped in suitable `PathProperties` objects.
 A custom truncation function can be passed as `customtruncfunc` with the signature `customtruncfunc(mstr, coefficient)::Bool`, where `mstr` is the integer representation of a Majorana string.
 `thread=false` disables multithreading in every function on the `VectorMajoranaSum` backend that can multithread, so it is safe to call from inside an outer threaded loop.
@@ -42,11 +43,11 @@ end
 
 
 """
-    propagate!(circuit, prop_cache::AbstractMajoranaPropagationCache, thetas=nothing; min_abs_coeff=1e-10, max_weight=Inf, max_freq=Inf, max_sins=Inf, max_terms=nothing, max_terms_rtol=0.05, max_terms_floor=true, customtruncfunc=nothing, heisenberg=true, thread=true, kwargs...)
+    propagate!(circuit, prop_cache::AbstractMajoranaPropagationCache, thetas=nothing; min_abs_coeff=1e-10, max_weight=Inf, max_freq=Inf, max_sins=Inf, max_terms=nothing, max_terms_rtol=0.05, max_terms_floor=true, max_terms_room=2.0, customtruncfunc=nothing, heisenberg=true, thread=true, kwargs...)
 
 In-place propagation of an `AbstractMajoranaPropagationCache` through the circuit `circuit`, by default in the Heisenberg picture.
 """
-function PropagationBase.propagate!(circuit, prop_cache::AbstractMajoranaPropagationCache, thetas=nothing; max_weight=Inf, min_abs_coeff=1e-10, max_freq=Inf, max_sins=Inf, max_terms=nothing, max_terms_floor::Bool=true, customtruncfunc=nothing, heisenberg=true, thread::Bool=true, kwargs...)
+function PropagationBase.propagate!(circuit, prop_cache::AbstractMajoranaPropagationCache, thetas=nothing; max_weight=Inf, min_abs_coeff=1e-10, max_freq=Inf, max_sins=Inf, max_terms=nothing, max_terms_floor::Bool=true, max_terms_room::Real=2.0, customtruncfunc=nothing, heisenberg=true, thread::Bool=true, kwargs...)
 
     # if circuit is actually a single gate, promote it to a list [gate]
     # similarly the thetas if it is a single number
@@ -69,6 +70,10 @@ function PropagationBase.propagate!(circuit, prop_cache::AbstractMajoranaPropaga
 
     # the floor of the term budget, which the gates of this propagation share: the cutoff of the last cut (see `_truncfuncs`)
     topk_floor = (!isnothing(max_terms) && max_terms_floor) ? Ref(0.0) : nothing
+    # room for the budget and the strings a gate makes on top of it, so that the arrays never grow (see `_reserveterms!`)
+    if !isnothing(max_terms) && max_terms_room > 0
+        _reserveterms!(prop_cache, ceil(Int, max_terms_room * max_terms))
+    end
 
     return PropagationBase._propagate!(circuit, prop_cache, thetas; max_weight, min_abs_coeff, max_freq, max_sins, max_terms, topk_floor, customtruncfunc, thread, kwargs...)
 end

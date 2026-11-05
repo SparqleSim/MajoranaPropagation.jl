@@ -300,6 +300,15 @@ end
             push!(differs, termdict(dnum) != termdict(propagate(circ, obs0, thetas; min_abs_coeff=0.0, max_terms, max_terms_floor=!max_terms_floor)))
         end
         @test all(differs)
+        # the room reserved for a budget: every zone gets its share before the gates run, and nothing in the result changes
+        for (vmsum, nzones) in ((VectorMajoranaSum(obs0), 1), (MultiMajoranaSum(VectorMajoranaSum(obs0), 4), 4))
+            pc = PropagationCache(vmsum)
+            propagate!(circ, pc, thetas; min_abs_coeff=0.0, max_terms=50)
+            caches = nzones == 1 ? [pc] : MajoranaPropagation.PropagationBase.zonecaches(pc)
+            @test all(MajoranaPropagation.PropagationBase.capacity(c) >= cld(100, nzones) for c in caches)
+            @test termdict(propagate(circ, vmsum, thetas; min_abs_coeff=0.0, max_terms=50, max_terms_room=0)) ==
+                  termdict(propagate(circ, vmsum, thetas; min_abs_coeff=0.0, max_terms=50))
+        end
         # a budget that never binds leaves the floor at zero and changes nothing
         @test termdict(propagate(circ, obs0, thetas; min_abs_coeff=0.0, max_terms=n_untruncated)) ==
               termdict(propagate(circ, obs0, thetas; min_abs_coeff=0.0))
