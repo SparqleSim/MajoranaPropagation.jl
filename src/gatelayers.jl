@@ -34,18 +34,18 @@ PauliPropagation.commutes(gate_a::_AnyRotation, gate_b::_AnyRotation) =
     all(iseven(length(intersect(a, b))) for a in _generatorindices(gate_a), b in _generatorindices(gate_b))
 
 """
-    applymergetruncate!(layer::GateLayer, prop_cache::AbstractMajoranaPropagationCache, thetas; truncate_each_mr=nothing, thread=true, kwargs...)
+    applymergetruncate!(layer::GateLayer, prop_cache::AbstractMajoranaPropagationCache, thetas; truncate_each_mr=nothing, min_rel_coeff=nothing, thread=true, kwargs...)
 
 Apply a layer of commuting `MajoranaRotation`s and `FermionicRotation`s in one pass over the Majorana sum, class by class, instead of one rotation after the other.
 A class is a set of Majorana strings that the rotations of the layer map into each other; it is gathered into a small sum of its own, to which the rotations acting on it are applied in the order of the layer.
 Every fermionic rotation truncates as it does on its own (see `truncate_each_mr`), so the result is that of the gates one after the other, except that strings no rotation acts on are truncated too.
 Layers are built with `GateLayer` or gathered from a circuit by `torotationlayers`, which does not reorder gates: a layer pays off when it holds many rotations, so list commuting gates next to each other, such as the hoppings of disjoint bonds.
-Layers of other gates, layers whose Majorana rotations do not all commute, and coefficients that are not numbers, such as `MajoranaFrequencyTracker`, apply their gates one after the other.
+Layers of other gates, layers whose Majorana rotations do not all commute, coefficients that are not numbers, such as `MajoranaFrequencyTracker`, and a truncation by `min_rel_coeff`, which follows the largest coefficient of the whole sum after every gate, apply their gates one after the other.
 """
-function PropagationBase.applymergetruncate!(layer::GateLayer, prop_cache::AbstractMajoranaPropagationCache, thetas; truncate_each_mr=nothing, thread::Bool=true, kwargs...)
-    plan = _classplan(layer, prop_cache, thetas, truncate_each_mr)
+function PropagationBase.applymergetruncate!(layer::GateLayer, prop_cache::AbstractMajoranaPropagationCache, thetas; truncate_each_mr=nothing, min_rel_coeff=nothing, thread::Bool=true, kwargs...)
+    plan = isnothing(min_rel_coeff) ? _classplan(layer, prop_cache, thetas, truncate_each_mr) : nothing
     if isnothing(plan)
-        PropagationBase._applygatesonebyone!(layer, prop_cache, thetas; truncate_each_mr, thread, kwargs...)
+        PropagationBase._applygatesonebyone!(layer, prop_cache, thetas; truncate_each_mr, min_rel_coeff, thread, kwargs...)
         return prop_cache
     end
     truncfunc, _ = _truncfuncs(prop_cache; thread, kwargs...)

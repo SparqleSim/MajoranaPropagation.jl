@@ -125,9 +125,15 @@ end
 # One rotation `gate` by `theta`: branch, merge and truncate by `truncfunc` in one call, without making the new
 # strings that `termdrop` rejects. A `truncfunc` of `nothing` merges without truncating. On an array the fused call
 # leaves the strings alone when the rule touches none of them; `force_truncate` truncates them all regardless.
+# A truncation by `min_rel_coeff` follows the largest merged coefficient, so it truncates in a pass of its own.
 function _xorbranchstep!(gate, prop_cache, theta, truncfunc, termdrop; force_truncate::Bool=false, thread::Bool=true)
     mask = _branchmask(gate, prop_cache)
     rule = _dropproducts(_branchrule(gate, prop_cache, theta), mask, termdrop)
+    if truncfunc isa _RelativeTruncation
+        xorbranch!(rule, prop_cache, mask; thread)
+        xormerge!(prop_cache, mask; thread)
+        return truncate!(_resolvetruncfunc(truncfunc, prop_cache; thread), prop_cache; thread)
+    end
     if force_truncate
         xorbranch!(rule, prop_cache, mask; thread)
         return xormergeandtruncate!(truncfunc, prop_cache, mask; thread)

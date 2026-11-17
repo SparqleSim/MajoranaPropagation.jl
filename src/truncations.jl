@@ -82,11 +82,12 @@ function compute_doublons(res::TT, filters::Vector{TT}) where {TT<:Integer}
 end
 
 """
-    truncate!(prop_cache::AbstractMajoranaPropagationCache; max_weight=Inf, min_abs_coeff=1e-10, max_unpaired=Inf, max_freq=Inf, max_sins=Inf, unpaired_mask=nothing, customtruncfunc=nothing, thread=true, kwargs...)
-    truncate!(msum::AbstractMajoranaSum; max_weight=Inf, min_abs_coeff=1e-10, max_unpaired=Inf, max_freq=Inf, max_sins=Inf, unpaired_mask=nothing, customtruncfunc=nothing, thread=true, kwargs...)
+    truncate!(prop_cache::AbstractMajoranaPropagationCache; max_weight=Inf, min_abs_coeff=1e-10, min_rel_coeff=nothing, max_unpaired=Inf, max_freq=Inf, max_sins=Inf, unpaired_mask=nothing, customtruncfunc=nothing, thread=true, kwargs...)
+    truncate!(msum::AbstractMajoranaSum; max_weight=Inf, min_abs_coeff=1e-10, min_rel_coeff=nothing, max_unpaired=Inf, max_freq=Inf, max_sins=Inf, unpaired_mask=nothing, customtruncfunc=nothing, thread=true, kwargs...)
 
 Truncate a Majorana sum (or propagation cache) in-place, removing every Majorana string for which one of the following truncations applies:
 - `min_abs_coeff`: the absolute value of the coefficient is smaller than `min_abs_coeff`
+- `min_rel_coeff`: the absolute value of the coefficient is smaller than `min_rel_coeff` times the largest absolute value of a coefficient in the sum
 - `max_weight`: the weight of the string exceeds `max_weight`
 - `max_unpaired`: the number of unpaired Majorana operators (see `compute_unpaired`) exceeds `max_unpaired`; a precomputed mask can be passed as `unpaired_mask`
 - `max_freq` / `max_sins`: the frequency / number of sine applications tracked by a `PathProperties` coefficient exceeds the given value
@@ -95,23 +96,27 @@ Other keyword arguments are ignored.
 """
 function PropagationBase.truncate!(mobj::Union{AbstractMajoranaSum,AbstractMajoranaPropagationCache}; thread::Bool=true, kwargs...)
     truncfunc, _ = _truncfuncs(mobj; thread, kwargs...)
-    return truncate!(truncfunc, mobj; thread)
+    return truncate!(_resolvetruncfunc(truncfunc, mobj; thread), mobj; thread)
 end
 
 """
-    buildtruncfunc(mobj::Union{AbstractMajoranaSum,AbstractMajoranaPropagationCache}; min_abs_coeff=1e-10, max_weight=Inf, max_unpaired=Inf, unpaired_mask=nothing, max_freq=Inf, max_sins=Inf, customtruncfunc=nothing, thread=true)
+    buildtruncfunc(mobj::Union{AbstractMajoranaSum,AbstractMajoranaPropagationCache}; min_abs_coeff=1e-10, min_rel_coeff=nothing, max_weight=Inf, max_unpaired=Inf, unpaired_mask=nothing, max_freq=Inf, max_sins=Inf, customtruncfunc=nothing, thread=true)
 
 Build the predicate `truncfunc(mstr, coeff)::Bool` that combines the truncations of `truncate!`, returning `true` if the Majorana string `mstr` with coefficient `coeff` should be dropped.
+With `min_rel_coeff`, its threshold is computed from the largest coefficient that `mobj` holds when the predicate is built, and captured by it.
 """
 function PauliPropagation.buildtruncfunc(mobj::Union{AbstractMajoranaSum,AbstractMajoranaPropagationCache};
-    min_abs_coeff::Real=1e-10, max_weight::Real=Inf, max_unpaired::Real=Inf, unpaired_mask=nothing,
+    min_abs_coeff::Real=1e-10, min_rel_coeff=nothing, max_weight::Real=Inf, max_unpaired::Real=Inf, unpaired_mask=nothing,
     max_freq::Real=Inf, max_sins::Real=Inf, customtruncfunc=nothing, thread::Bool=true)
 
     termtrunc = _termtruncfunc(mobj; max_weight, max_unpaired, unpaired_mask)
 
+    # the threshold of the coefficients, which `min_rel_coeff` raises with the largest of them
+    cutoff = isnothing(min_rel_coeff) ? min_abs_coeff : max(min_rel_coeff * maxabscoeff(mobj; thread), min_abs_coeff)
+
     function coefftruncfunc(mstr, coeff)
         # a threshold of zero or below truncates nothing; PauliPropagation squares it for complex coefficients
-        min_abs_coeff > 0 && PauliPropagation.truncatemincoeff(coeff, min_abs_coeff) && return true
+        cutoff > 0 && PauliPropagation.truncatemincoeff(coeff, cutoff) && return true
         PauliPropagation.truncatefrequency(coeff, max_freq) && return true
         PauliPropagation.truncatesins(coeff, max_sins) && return true
         return !isnothing(customtruncfunc) && customtruncfunc(mstr, coeff)
@@ -146,10 +151,25 @@ end
 # The truncation of `mobj` by the truncation keyword arguments among `kwargs`, as `(truncfunc, termdrop)`:
 # the whole predicate, and the part of it that only reads the Majorana string (or `nothing`).
 # Every other keyword argument is ignored, since the gates pass on all of theirs.
-function _truncfuncs(mobj; min_abs_coeff::Real=1e-10, max_weight::Real=Inf, max_unpaired::Real=Inf, unpaired_mask=nothing,
-    max_freq::Real=Inf, max_sins::Real=Inf, customtruncfunc=nothing, thread::Bool=true, kwargs...)
+# With `min_rel_coeff` the predicate depends on the largest coefficient of the sum once a gate is applied and merged,
+# so it cannot be built before the gate: `truncfunc` is then a `_RelativeTruncation`, for `_resolvetruncfunc` to build
+# the predicate from at the time of the truncation.
+function _truncfuncs(mobj; min_abs_coeff::Real=1e-10, min_rel_coeff=nothing, max_weight::Real=Inf, max_unpaired::Real=Inf,
+    unpaired_mask=nothing, max_freq::Real=Inf, max_sins::Real=Inf, customtruncfunc=nothing, thread::Bool=true, kwargs...)
 
-    truncfunc = buildtruncfunc(mobj; min_abs_coeff, max_weight, max_unpaired, unpaired_mask, max_freq, max_sins, customtruncfunc, thread)
     termdrop = _termtruncfunc(mobj; max_weight, max_unpaired, unpaired_mask)
-    return truncfunc, termdrop
+    truncations = (; min_abs_coeff, min_rel_coeff, max_weight, max_unpaired, unpaired_mask, max_freq, max_sins, customtruncfunc)
+    if !isnothing(min_rel_coeff)
+        return _RelativeTruncation(truncations), termdrop
+    end
+    return buildtruncfunc(mobj; truncations..., thread), termdrop
 end
+
+# the truncation keyword arguments of a truncation by `min_rel_coeff`, whose predicate is built when it truncates
+struct _RelativeTruncation{K<:NamedTuple}
+    truncations::K
+end
+
+# the predicate of a truncation of `mobj` as it is now
+_resolvetruncfunc(truncfunc, mobj; thread::Bool=true) = truncfunc
+_resolvetruncfunc(truncation::_RelativeTruncation, mobj; thread::Bool=true) = buildtruncfunc(mobj; truncation.truncations..., thread)

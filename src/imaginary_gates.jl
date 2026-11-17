@@ -106,7 +106,7 @@ function PropagationBase.applymergetruncate!(gate::ImaginaryFermionicRotation, p
 
         # truncate after each Majorana rotation, or after the last one
         if truncates
-            truncate!(truncfunc, prop_cache; thread)
+            truncate!(_resolvetruncfunc(truncfunc, prop_cache; thread), prop_cache; thread)
         end
     end
 
