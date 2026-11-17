@@ -8,7 +8,7 @@
 ##
 ###
 
-using PauliPropagation: _DualCoeff, _BackwardSweepState, _KeepAbsDual, _zerogradient, _layergradient, _undogatesonebyone!
+using PauliPropagation: _DualCoeff, _BackwardSweepState, _KeepAbsDual, _zerogradient, _layergradient, _undogatesonebyone!, GradientScratch
 
 """
     rewindgradient(circuit, msum::AbstractMajoranaSum, thetas, overlapfunc; thread=true, keep_rel_dual=0.03, kwargs...)
@@ -137,14 +137,77 @@ function PauliPropagation._undostep!(gate::FermionicRotation, state::_BackwardSw
     return state
 end
 
-# Records the gradient of a layer, the derivatives by the angles of its gates, and undoes its gates one by one, in the
-# order of the layer: the Heisenberg sweep applied them in reverse.
-function PauliPropagation._undostep!(layer::GateLayer, state::_BackwardSweepState{<:AbstractMajoranaPropagationCache}, thetas; kwargs...)
-    gate_grads = _undogatesonebyone!(layer, state.cache, thetas; kwargs...)
+# Records the gradient of a layer, the derivatives by the angles of its gates, and undoes it as `applymergetruncate!`
+# applies it: class by class, with the negated angles, or else its gates one by one, in the order of the layer, since
+# the Heisenberg sweep applied them in reverse.
+function PauliPropagation._undostep!(layer::GateLayer, state::_BackwardSweepState{<:AbstractMajoranaPropagationCache}, thetas;
+    truncate_each_mr=nothing, min_rel_coeff=nothing, thread::Bool=true, kwargs...)
+
+    cache = state.cache
+    plan = isnothing(min_rel_coeff) ? _classplan(layer, cache, -thetas, truncate_each_mr) : nothing
+    gate_grads = if isnothing(plan)
+        _undogatesonebyone!(layer, cache, thetas; truncate_each_mr, min_rel_coeff, thread, kwargs...)
+    else
+        truncfunc, _ = _truncfuncs(cache; thread, kwargs...)
+        _undolayerpass!(layer, cache, thetas, plan..., truncfunc; thread)
+    end
 
     state.param_idx += 1
     state.grad[state.param_idx] = _layergradient(thetas, gate_grads)
     return state
+end
+
+# One pass of the layer over the sum as `_applylayerpass!` makes it, in which every task applies the rotations through
+# rules of its own, PauliPropagation's `_GradientRule`s, which add what every two strings a rotation mixes contribute
+# to the gradient of that rotation. The rotations of a class plan commute, so each of them may record its gradient
+# whenever the pass gets to it. Returns the gradients of the gates of the layer.
+function _undolayerpass!(layer, cache, thetas, plan, gate_of, truncates_each, truncfunc::F; thread::Bool) where {F}
+    gate_grads = zeros(length(layer.gates))
+    if length(cache) == 0
+        return gate_grads
+    end
+
+    n_rotations = length(plan.rules)
+    TT = termtype(cache)
+    CT = coefftype(cache)
+    workspace = PropagationBase._takeworkspace(TT, CT, GradientScratch{TT,CT,eltype(plan.rules)})
+    try
+        sources = PropagationBase._passsources(StorageType(cache), cache, workspace, thread)
+        n_tasks = length(sources)
+        tasks = PropagationBase._ensurecount!(workspace.tasks, n_tasks)
+        for task_id in 1:n_tasks
+            scratch = tasks[task_id].scratch
+            fill!(resize!(scratch.gradient, n_rotations), 0.0)
+            resize!(scratch.rules, n_rotations)
+            for k in 1:n_rotations
+                scratch.rules[k] = eltype(scratch.rules)(plan.rules[k], scratch.gradient, k)
+            end
+        end
+
+        _applylayerpass!(cache, plan, gate_of, truncates_each, truncfunc, workspace, sources, thread)
+
+        # the angle of a gate enters each of its rotations, with the factor that the gate gives it
+        factors = _anglefactors(layer, thetas, nsites(cache))
+        for task_id in 1:n_tasks, k in 1:n_rotations
+            gate_grads[gate_of[k]] += factors[k] * tasks[task_id].scratch.gradient[k]
+        end
+    finally
+        PropagationBase._putbackworkspace!(workspace)
+    end
+    return gate_grads
+end
+
+# the sign with which a rotation maps a string to its partner, which a `_GradientRule` pairs the two with
+PauliPropagation._partnersign(rule::_RotationRule, term) = _productsign(rule, term)
+
+# The derivative of the angle of every Majorana rotation of the layer by the angle of its gate, in the order in which
+# `_classplan` lists the rotations: a fermionic rotation gives each of its rotations twice its coefficient.
+function _anglefactors(layer::GateLayer, thetas, n_sites)
+    factors = Float64[]
+    pushfactors!(gate::MajoranaRotation, theta) = push!(factors, 1.0)
+    pushfactors!(gate::FermionicRotation, theta) = append!(factors, 2.0 .* getmajoranarotations(gate, n_sites)[2])
+    PropagationBase._foreachgate(pushfactors!, layer, thetas)
+    return factors
 end
 
 

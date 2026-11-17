@@ -90,21 +90,28 @@ _branchmask(gate, prop_cache) = convert(termtype(prop_cache), gate.ms_int)
 function _branchrule(gate::MajoranaRotation, prop_cache, theta)
     gate_ms = _branchmask(gate, prop_cache)
     gate_ms_ps = compute_parity_bits_and_shift(gate_ms, 2 * nfermions(prop_cache))
-    return _rotationrule(gate_ms, gate_ms_ps, omega_L_mult(gate_ms), cos(theta), sin(theta))
+    return _RotationRule(gate_ms, gate_ms_ps, omega_L_mult(gate_ms), cos(theta), sin(theta))
 end
 
-# A string that anticommutes with the gate keeps cos(θ) of its coefficient and branches into its product with
-# the gate, which gets ±sin(θ). Built in a function of its own so that the closure only captures arguments.
-function _rotationrule(gate_ms, gate_ms_ps, omega_l_gate, cos_val, sin_val)
-    function rotate(term, coeff)
-        if _commutes_evengate(term, gate_ms)
-            return Unchanged()
-        end
-        _, sign = _rotationproduct_evengate(term, gate_ms, gate_ms_ps, omega_l_gate)
-        return Branch(_applycos(coeff, cos_val), _applysin(coeff, sin_val * sign))
-    end
-    return rotate
+# The rule of a Majorana rotation: a string that anticommutes with the gate keeps cos(θ) of its coefficient and
+# branches into its product with the gate, which gets ±sin(θ). The sign is that of the product alone, which the
+# backward sweep of `rewindgradient` asks the rule for.
+struct _RotationRule{TT,C,S}
+    gate_ms::TT
+    gate_ms_ps::TT
+    omega_l_gate::Int
+    cos_val::C
+    sin_val::S
 end
+
+@inline function (rule::_RotationRule)(term, coeff)
+    if _commutes_evengate(term, rule.gate_ms)
+        return Unchanged()
+    end
+    return Branch(_applycos(coeff, rule.cos_val), _applysin(coeff, rule.sin_val * _productsign(rule, term)))
+end
+
+@inline _productsign(rule::_RotationRule, term) = last(_rotationproduct_evengate(term, rule.gate_ms, rule.gate_ms_ps, rule.omega_l_gate))
 
 # `rule` without making the strings that `termdrop` rejects, whose parents only keep their own coefficient.
 # A string that the truncation would drop for its weight or its unpaired Majoranas is never written, sorted or merged;

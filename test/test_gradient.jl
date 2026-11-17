@@ -92,6 +92,16 @@ gradient_backends(obs) = (obs, VectorMajoranaSum(obs), MultiMajoranaSum(obs, 4),
             # a vector of derivatives for every layer, as its angles are a vector
             @test all(length(layer_grad) == length(layer_thetas) for (layer_grad, layer_thetas) in zip(layered_grad, layered_thetas))
             @test reduce(vcat, layered_grad) ≈ grad
+
+            # the layers are undone class by class, as they are applied, which only the truncations of the backward
+            # sweep tell from undoing their gates one by one: without them the two agree on a truncated operator too
+            dual_cache = PauliPropagation.wrapdual(PropagationCache(deepcopy(msum)), overlapfunc)
+            @test any(!isnothing(MajoranaPropagation._classplan(layer, dual_cache, layer_thetas, nothing))
+                      for (layer, layer_thetas) in zip(layered, layered_thetas) if layer isa GateLayer)
+            _, truncated_grad = rewindgradient(circ, msum, thetas, overlapfunc; min_abs_coeff=1e-2, keep_rel_dual=0.0)
+            _, truncated_layered_grad = rewindgradient(layered, msum, layered_thetas, overlapfunc; min_abs_coeff=1e-2, keep_rel_dual=0.0)
+            @test !isapprox(truncated_grad, grad; atol=1e-6)
+            @test reduce(vcat, truncated_layered_grad) ≈ truncated_grad
         end
     end
 
@@ -110,11 +120,13 @@ gradient_backends(obs) = (obs, VectorMajoranaSum(obs), MultiMajoranaSum(obs, 4),
         keepsall(mstr, coeff) = !(coeff isa Float64)
         @test last(rewindgradient(circ, obs, thetas, overlapfunc; min_abs_coeff=0.0, customtruncfunc=keepsall)) ≈ grad
 
+        layered, layered_thetas = torotationlayers(circ, thetas)
         for msum in gradient_backends(obs), kwargs in ((; min_abs_coeff=1e-2), (; min_abs_coeff=1e-2, keep_rel_dual=Inf),
-            (; min_rel_coeff=1e-2), (; max_weight=4), (; max_unpaired=2))
-            truncated_expec, truncated_grad = rewindgradient(circ, msum, thetas, overlapfunc; kwargs...)
-            @test truncated_expec ≈ overlapfunc(propagate(circ, msum, thetas; filter(pair -> first(pair) != :keep_rel_dual, pairs(kwargs))...))
-            @test length(truncated_grad) == length(thetas) && all(isfinite, truncated_grad)
+            (; min_rel_coeff=1e-2), (; max_weight=4), (; max_unpaired=2)), (gates, angles) in ((circ, thetas), (layered, layered_thetas))
+
+            truncated_expec, truncated_grad = rewindgradient(gates, msum, angles, overlapfunc; kwargs...)
+            @test truncated_expec ≈ overlapfunc(propagate(gates, msum, angles; filter(pair -> first(pair) != :keep_rel_dual, pairs(kwargs))...))
+            @test length(reduce(vcat, truncated_grad)) == length(thetas) && all(isfinite, reduce(vcat, truncated_grad))
         end
 
         # truncating everything leaves no expectation and no gradient

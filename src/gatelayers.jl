@@ -109,22 +109,30 @@ function _applylayerpass!(prop_cache, plan, gate_of, truncates_each, truncfunc::
     workspace = PropagationBase._takeworkspace(TT, CT, PropagationBase.ClassScratch{TT,CT})
     try
         sources = PropagationBase._passsources(StorageType(prop_cache), prop_cache, workspace, thread)
-        representativeof(term) = PropagationBase._classrepresentative(plan, term)
-        applytoclass!(sink, scratch, class_terms, class_coeffs) =
-            _applytoclass!(sink, scratch.cache, plan, gate_of, truncates_each, truncfunc, class_terms, class_coeffs)
-        PropagationBase._applytoclasses!(representativeof, applytoclass!, prop_cache, workspace, sources, thread)
+        _applylayerpass!(prop_cache, plan, gate_of, truncates_each, truncfunc, workspace, sources, thread)
     finally
         PropagationBase._putbackworkspace!(workspace)
     end
     return prop_cache
 end
 
+# The pass with the workspace and what its tasks read given: the scratch of a task holds the cache that the classes
+# are loaded into, and the rules that the rotations are applied with are those `_rulesof` gives for it, as in
+# PropagationBase.
+function _applylayerpass!(prop_cache, plan, gate_of, truncates_each, truncfunc::F, workspace, sources, thread::Bool) where {F}
+    representativeof(term) = PropagationBase._classrepresentative(plan, term)
+    applytoclass!(sink, scratch, class_terms, class_coeffs) = _applytoclass!(sink, scratch.cache,
+        PropagationBase._rulesof(scratch, plan), plan, gate_of, truncates_each, truncfunc, class_terms, class_coeffs)
+    PropagationBase._applytoclasses!(representativeof, applytoclass!, prop_cache, workspace, sources, thread)
+    return prop_cache
+end
+
 # The rotations of the plan that act on one class, `class_terms` with `class_coeffs`, applied as the gates of the layer
 # apply them one by one: the class is loaded into the emptied sum of `cache`, every acting rotation `k` branches it by
-# its rule, and its gate truncates the class after it if `truncates_each[gate_of[k]]`, or else once its rotations are
-# done, before the next gate that acts on the class. What is left is written to `sink`. As in PropagationBase, a class
-# that no rotation acts on is truncated as well.
-function _applytoclass!(sink, cache, plan, gate_of, truncates_each, truncfunc::F, class_terms, class_coeffs) where {F}
+# its rule, `rules[k]`, and its gate truncates the class after it if `truncates_each[gate_of[k]]`, or else once its
+# rotations are done, before the next gate that acts on the class. What is left is written to `sink`. As in
+# PropagationBase, a class that no rotation acts on is truncated as well.
+function _applytoclass!(sink, cache, rules, plan, gate_of, truncates_each, truncfunc::F, class_terms, class_coeffs) where {F}
     positions = PropagationBase._branchinggates(plan.lookup, first(class_terms))
     class_sum = mainsum(cache)
     empty!(cache)
@@ -148,10 +156,10 @@ function _applytoclass!(sink, cache, plan, gate_of, truncates_each, truncfunc::F
                 mergeandtruncate!(truncfunc, cache; thread=false)
             end
             if truncates_each[gate]
-                xorbranchmergeandtruncate!(plan.rules[k], truncfunc, cache, plan.gate_masks[k]; thread=false)
+                xorbranchmergeandtruncate!(rules[k], truncfunc, cache, plan.gate_masks[k]; thread=false)
                 pending = 0
             else
-                xorbranchmergeandtruncate!(plan.rules[k], nothing, cache, plan.gate_masks[k]; thread=false)
+                xorbranchmergeandtruncate!(rules[k], nothing, cache, plan.gate_masks[k]; thread=false)
                 pending = gate
             end
         end
