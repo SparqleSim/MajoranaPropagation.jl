@@ -223,4 +223,66 @@ end
         # the truncation must actually bite compared to the untruncated run
         @test length(res) < length(propagate(circ, msum0, thetas; min_abs_coeff=-1.0))
     end
+
+    @testset "min_rel_coeff" begin
+        getmergedcoeff = PauliPropagation.PropagationBase.getmergedcoeff
+        every_backend = (identity, VectorMajoranaSum, msum -> MultiMajoranaSum(msum, 4), msum -> MultiMajoranaSum(VectorMajoranaSum(msum), 4))
+
+        # truncate! drops exactly the strings below the fraction of the largest coefficient, which a multi sum
+        # takes over all of its zones
+        nf = 4
+        small = MajoranaString(nf, [1, 2, 3, 4]).gammas
+        msum = MajoranaSum(Float64, nf)
+        PauliPropagation.PropagationBase.add!(msum, MajoranaString(nf, [1, 2]).gammas, -2.0)
+        PauliPropagation.PropagationBase.add!(msum, MajoranaString(nf, [1, 3]).gammas, 0.5)
+        PauliPropagation.PropagationBase.add!(msum, small, 0.09)
+        PauliPropagation.PropagationBase.add!(msum, MajoranaString(nf, [3, 4]).gammas, -0.11)
+        for make in every_backend
+            trunc = MajoranaSum(truncate!(make(deepcopy(msum)); min_rel_coeff=0.05, min_abs_coeff=0.0))
+            @test length(trunc) == 3
+            @test getmergedcoeff(trunc, small) == 0.0
+        end
+        # the larger of the two thresholds holds
+        @test length(truncate!(deepcopy(msum); min_rel_coeff=0.05, min_abs_coeff=0.3)) == 2
+        @test truncate!(deepcopy(msum); min_rel_coeff=0.0, min_abs_coeff=0.1) == truncate!(deepcopy(msum); min_abs_coeff=0.1)
+
+        N_sites = 4
+        circ, thetas = _hubbard_circ(N_sites)
+        obs0 = MajoranaSum(N_sites, :nupndn, 2)
+        MajoranaPropagation.pop_id!(obs0)
+
+        # a fraction of zero adds nothing to min_abs_coeff, and a larger fraction only drops more
+        baseline = propagate(circ, obs0, thetas; min_abs_coeff=1e-8)
+        @test propagate(circ, obs0, thetas; min_abs_coeff=1e-8, min_rel_coeff=0.0) == baseline
+        lengths = [length(propagate(circ, obs0, thetas; min_abs_coeff=1e-8, min_rel_coeff=rel)) for rel in (1e-4, 1e-3, 1e-2, 1e-1)]
+        @test issorted(lengths, rev=true)
+        @test last(lengths) < length(baseline)
+
+        # every backend truncates alike, and so do the layers of the circuit, which apply their gates one by one
+        layered, layered_thetas = torotationlayers(circ, thetas)
+        @test any(gate -> gate isa GateLayer, layered)
+        for rel in (1e-3, 1e-2)
+            expected = propagate(circ, obs0, thetas; min_rel_coeff=rel)
+            @test length(expected) < length(baseline)
+            for make in every_backend
+                @test MajoranaSum(propagate(circ, make(obs0), thetas; min_rel_coeff=rel)) == expected
+                @test MajoranaSum(propagate(layered, make(obs0), layered_thetas; min_rel_coeff=rel)) == expected
+            end
+        end
+
+        # bare Majorana rotations, and imaginary-time rotations, which normalize before they truncate
+        TT = getinttype(2 * N_sites)
+        rotations = [MajoranaRotation(TT(0b00111100)), MajoranaRotation(TT(0b00000110)), MajoranaRotation(TT(0b01100000))]
+        angles = [0.3, 0.7, 1.1]
+        @test propagate(rotations, obs0, angles; min_rel_coeff=0.0) == propagate(rotations, obs0, angles)
+        @test length(propagate(rotations, obs0, angles; min_rel_coeff=0.5)) < length(propagate(rotations, obs0, angles))
+
+        rho0 = MajoranaSum(Float64, N_sites, true)
+        PauliPropagation.PropagationBase.add!(rho0, TT(0), 1.0)
+        icirc = [[ImaginaryFermionicRotation(:hopup, pair) for pair in bricklayertopology(N_sites)]; [ImaginaryFermionicRotation(:nupndn, [i]) for i in 1:N_sites]]
+        taus = fill(0.2, length(icirc))
+        evolved = propagate(icirc, rho0, taus; heisenberg=false)
+        @test propagate(icirc, rho0, taus; heisenberg=false, min_rel_coeff=0.0) == evolved
+        @test length(propagate(icirc, rho0, taus; heisenberg=false, min_rel_coeff=0.05)) < length(evolved)
+    end
 end

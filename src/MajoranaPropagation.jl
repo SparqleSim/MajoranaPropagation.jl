@@ -68,7 +68,7 @@ export
 include("gatelayers.jl")
 export
     GateLayer,
-    tolayers
+    torotationlayers
 
 include("propagation.jl")
 export
@@ -98,6 +98,11 @@ export
     wrapcoefficients,
     unwrapcoefficients,
     reset_tracker!
+
+include("gradient.jl")
+export
+    rewindgradient,
+    rewindgradient!
 
 include("Constructors.jl")
 

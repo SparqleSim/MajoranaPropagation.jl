@@ -29,3 +29,10 @@ function MajoranaSum(msum::AbstractMajoranaSum)
     end
     return gathered
 end
+
+# A copy of a Majorana sum with its coefficients converted to the type `CT`, as PauliPropagation converts those of a
+# Pauli sum.
+PauliPropagation.convertcoefftype(::Type{CT}, msum::MajoranaSum) where {CT} = MajoranaSum(msum.nsites, msum.is_spinful,
+    Dict{termtype(msum),CT}(mstr => convert(CT, coeff) for (mstr, coeff) in msum.Majoranas))
+PauliPropagation.convertcoefftype(::Type{CT}, vmsum::VectorMajoranaSum) where {CT} = VectorMajoranaSum(vmsum.nsites, vmsum.is_spinful,
+    copy(vmsum.terms), CT[convert(CT, coeff) for coeff in vmsum.coeffs], vmsum._terms_sorted)

@@ -53,6 +53,8 @@ Base.convert(::Type{VectorMajoranaSum}, msum::MultiMajoranaSum) = VectorMajorana
 wrapcoefficients(msum::MultiMajoranaSum, ::Type{MProp}) where {MProp<:PathProperties} =
     MultiMajoranaSum(msum.nsites, [wrapcoefficients(zone, MProp) for zone in zones(msum)], zonemap(msum))
 unwrapcoefficients(msum::MultiMajoranaSum) = MultiMajoranaSum(msum.nsites, map(unwrapcoefficients, zones(msum)), zonemap(msum))
+PauliPropagation.convertcoefftype(::Type{CT}, msum::MultiMajoranaSum) where {CT} =
+    MultiMajoranaSum(msum.nsites, [PauliPropagation.convertcoefftype(CT, zone) for zone in zones(msum)], zonemap(msum))
 
 function Base.show(io::IO, msum::MultiMajoranaSum)
     println(io, "MultiMajoranaSum of $(nameof(eltype(zones(msum)))) with $(length(msum)) terms over $(nzones(msum)) zones:")

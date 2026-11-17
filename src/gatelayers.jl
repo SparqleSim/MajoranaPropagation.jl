@@ -6,40 +6,46 @@
 # them, so the generators are both the masks of the rotations and what PropagationBase's `PrecomputedLookup` finds the
 # acting rotations of a string from. A fermionic rotation enters the pass as its Majorana rotations and truncates as it
 # does on its own: after each of them, or, for the hoppings, only after its last. Which gates of a circuit form a layer
-# is decided by `tolayers` of PauliPropagation, from `qinds` and `commutes` below.
+# is decided by `torotationlayers` of PauliPropagation, from `qinds` and `commutes` below.
 ##
 ###
 
-# The Majoranas a gate acts on, counted from one, which `GateLayer` and `tolayers` compare: gates on different Majoranas
+# The Majoranas a gate acts on, counted from one, which `GateLayer` and `torotationlayers` compare: gates on different Majoranas
 # commute, since their generators have even weight.
 PropagationBase.qinds(gate::Union{MajoranaRotation,ImaginaryMajoranaRotation}) = _majoranaindices(gate.ms_int)
 PropagationBase.qinds(gate::Union{FermionicRotation,ImaginaryFermionicRotation}) = reduce(union, _generatorindices(gate); init=Int[])
 
 # the Majoranas of every generator of a gate
-_generatorindices(gate::MajoranaRotation) = [_majoranaindices(gate.ms_int)]
+_generatorindices(gate::Union{MajoranaRotation,ImaginaryMajoranaRotation}) = [_majoranaindices(gate.ms_int)]
 _generatorindices(gate::Union{FermionicRotation,ImaginaryFermionicRotation}) =
     [_majoranaindices(ms) for (ms, _) in MajoranaSum(maximum(gate.sites), gate.symbol, gate.sites)]
 
 _majoranaindices(bits) = PropagationBase._bitpositions(bits) .+ 1
 
+# the rotations of this package, in real and in imaginary time
+const _AnyRotation = Union{MajoranaRotation,FermionicRotation,ImaginaryMajoranaRotation,ImaginaryFermionicRotation}
+
+# `torotationlayers` gathers the gates that PauliPropagation takes for rotations
+PauliPropagation._isrotation(::_AnyRotation) = true
+
 # Two rotations commute if every generator of one shares an even number of Majoranas with every generator of the other,
-# which `tolayers` asks of gates that share Majoranas.
-PauliPropagation.commutes(gate_a::Union{MajoranaRotation,FermionicRotation}, gate_b::Union{MajoranaRotation,FermionicRotation}) =
+# which `torotationlayers` asks of gates that share Majoranas.
+PauliPropagation.commutes(gate_a::_AnyRotation, gate_b::_AnyRotation) =
     all(iseven(length(intersect(a, b))) for a in _generatorindices(gate_a), b in _generatorindices(gate_b))
 
 """
-    applymergetruncate!(layer::GateLayer, prop_cache::AbstractMajoranaPropagationCache, thetas; truncate_each_mr=nothing, thread=true, kwargs...)
+    applymergetruncate!(layer::GateLayer, prop_cache::AbstractMajoranaPropagationCache, thetas; truncate_each_mr=nothing, min_rel_coeff=nothing, thread=true, kwargs...)
 
 Apply a layer of commuting `MajoranaRotation`s and `FermionicRotation`s in one pass over the Majorana sum, class by class, instead of one rotation after the other.
 A class is a set of Majorana strings that the rotations of the layer map into each other; it is gathered into a small sum of its own, to which the rotations acting on it are applied in the order of the layer.
 Every fermionic rotation truncates as it does on its own (see `truncate_each_mr`), so the result is that of the gates one after the other, except that strings no rotation acts on are truncated too.
-Layers are built with `GateLayer` or gathered from a circuit by `tolayers`, which does not reorder gates: a layer pays off when it holds many rotations, so list commuting gates next to each other, such as the hoppings of disjoint bonds.
-Layers of other gates, layers whose Majorana rotations do not all commute, and coefficients that are not numbers, such as `MajoranaFrequencyTracker`, apply their gates one after the other.
+Layers are built with `GateLayer` or gathered from a circuit by `torotationlayers`, which does not reorder gates: a layer pays off when it holds many rotations, so list commuting gates next to each other, such as the hoppings of disjoint bonds.
+Layers of other gates, layers whose Majorana rotations do not all commute, coefficients that are not numbers, such as `MajoranaFrequencyTracker`, and a truncation by `min_rel_coeff`, which follows the largest coefficient of the whole sum after every gate, apply their gates one after the other.
 """
-function PropagationBase.applymergetruncate!(layer::GateLayer, prop_cache::AbstractMajoranaPropagationCache, thetas; truncate_each_mr=nothing, thread::Bool=true, kwargs...)
-    plan = _classplan(layer, prop_cache, thetas, truncate_each_mr)
+function PropagationBase.applymergetruncate!(layer::GateLayer, prop_cache::AbstractMajoranaPropagationCache, thetas; truncate_each_mr=nothing, min_rel_coeff=nothing, thread::Bool=true, kwargs...)
+    plan = isnothing(min_rel_coeff) ? _classplan(layer, prop_cache, thetas, truncate_each_mr) : nothing
     if isnothing(plan)
-        PropagationBase._applygatesonebyone!(layer, prop_cache, thetas; truncate_each_mr, thread, kwargs...)
+        PropagationBase._applygatesonebyone!(layer, prop_cache, thetas; truncate_each_mr, min_rel_coeff, thread, kwargs...)
         return prop_cache
     end
     truncfunc, _ = _truncfuncs(prop_cache; thread, kwargs...)
@@ -103,22 +109,30 @@ function _applylayerpass!(prop_cache, plan, gate_of, truncates_each, truncfunc::
     workspace = PropagationBase._takeworkspace(TT, CT, PropagationBase.ClassScratch{TT,CT})
     try
         sources = PropagationBase._passsources(StorageType(prop_cache), prop_cache, workspace, thread)
-        representativeof(term) = PropagationBase._classrepresentative(plan, term)
-        applytoclass!(sink, scratch, class_terms, class_coeffs) =
-            _applytoclass!(sink, scratch.cache, plan, gate_of, truncates_each, truncfunc, class_terms, class_coeffs)
-        PropagationBase._applytoclasses!(representativeof, applytoclass!, prop_cache, workspace, sources, thread)
+        _applylayerpass!(prop_cache, plan, gate_of, truncates_each, truncfunc, workspace, sources, thread)
     finally
         PropagationBase._putbackworkspace!(workspace)
     end
     return prop_cache
 end
 
+# The pass with the workspace and what its tasks read given: the scratch of a task holds the cache that the classes
+# are loaded into, and the rules that the rotations are applied with are those `_rulesof` gives for it, as in
+# PropagationBase.
+function _applylayerpass!(prop_cache, plan, gate_of, truncates_each, truncfunc::F, workspace, sources, thread::Bool) where {F}
+    representativeof(term) = PropagationBase._classrepresentative(plan, term)
+    applytoclass!(sink, scratch, class_terms, class_coeffs) = _applytoclass!(sink, scratch.cache,
+        PropagationBase._rulesof(scratch, plan), plan, gate_of, truncates_each, truncfunc, class_terms, class_coeffs)
+    PropagationBase._applytoclasses!(representativeof, applytoclass!, prop_cache, workspace, sources, thread)
+    return prop_cache
+end
+
 # The rotations of the plan that act on one class, `class_terms` with `class_coeffs`, applied as the gates of the layer
 # apply them one by one: the class is loaded into the emptied sum of `cache`, every acting rotation `k` branches it by
-# its rule, and its gate truncates the class after it if `truncates_each[gate_of[k]]`, or else once its rotations are
-# done, before the next gate that acts on the class. What is left is written to `sink`. As in PropagationBase, a class
-# that no rotation acts on is truncated as well.
-function _applytoclass!(sink, cache, plan, gate_of, truncates_each, truncfunc::F, class_terms, class_coeffs) where {F}
+# its rule, `rules[k]`, and its gate truncates the class after it if `truncates_each[gate_of[k]]`, or else once its
+# rotations are done, before the next gate that acts on the class. What is left is written to `sink`. As in
+# PropagationBase, a class that no rotation acts on is truncated as well.
+function _applytoclass!(sink, cache, rules, plan, gate_of, truncates_each, truncfunc::F, class_terms, class_coeffs) where {F}
     positions = PropagationBase._branchinggates(plan.lookup, first(class_terms))
     class_sum = mainsum(cache)
     empty!(cache)
@@ -142,10 +156,10 @@ function _applytoclass!(sink, cache, plan, gate_of, truncates_each, truncfunc::F
                 mergeandtruncate!(truncfunc, cache; thread=false)
             end
             if truncates_each[gate]
-                xorbranchmergeandtruncate!(plan.rules[k], truncfunc, cache, plan.gate_masks[k]; thread=false)
+                xorbranchmergeandtruncate!(rules[k], truncfunc, cache, plan.gate_masks[k]; thread=false)
                 pending = 0
             else
-                xorbranchmergeandtruncate!(plan.rules[k], nothing, cache, plan.gate_masks[k]; thread=false)
+                xorbranchmergeandtruncate!(rules[k], nothing, cache, plan.gate_masks[k]; thread=false)
                 pending = gate
             end
         end
