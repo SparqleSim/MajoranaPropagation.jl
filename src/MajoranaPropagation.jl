@@ -68,7 +68,7 @@ export
 include("gatelayers.jl")
 export
     GateLayer,
-    tolayers
+    torotationlayers
 
 include("propagation.jl")
 export

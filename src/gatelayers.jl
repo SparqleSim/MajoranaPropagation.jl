@@ -6,25 +6,31 @@
 # them, so the generators are both the masks of the rotations and what PropagationBase's `PrecomputedLookup` finds the
 # acting rotations of a string from. A fermionic rotation enters the pass as its Majorana rotations and truncates as it
 # does on its own: after each of them, or, for the hoppings, only after its last. Which gates of a circuit form a layer
-# is decided by `tolayers` of PauliPropagation, from `qinds` and `commutes` below.
+# is decided by `torotationlayers` of PauliPropagation, from `qinds` and `commutes` below.
 ##
 ###
 
-# The Majoranas a gate acts on, counted from one, which `GateLayer` and `tolayers` compare: gates on different Majoranas
+# The Majoranas a gate acts on, counted from one, which `GateLayer` and `torotationlayers` compare: gates on different Majoranas
 # commute, since their generators have even weight.
 PropagationBase.qinds(gate::Union{MajoranaRotation,ImaginaryMajoranaRotation}) = _majoranaindices(gate.ms_int)
 PropagationBase.qinds(gate::Union{FermionicRotation,ImaginaryFermionicRotation}) = reduce(union, _generatorindices(gate); init=Int[])
 
 # the Majoranas of every generator of a gate
-_generatorindices(gate::MajoranaRotation) = [_majoranaindices(gate.ms_int)]
+_generatorindices(gate::Union{MajoranaRotation,ImaginaryMajoranaRotation}) = [_majoranaindices(gate.ms_int)]
 _generatorindices(gate::Union{FermionicRotation,ImaginaryFermionicRotation}) =
     [_majoranaindices(ms) for (ms, _) in MajoranaSum(maximum(gate.sites), gate.symbol, gate.sites)]
 
 _majoranaindices(bits) = PropagationBase._bitpositions(bits) .+ 1
 
+# the rotations of this package, in real and in imaginary time
+const _AnyRotation = Union{MajoranaRotation,FermionicRotation,ImaginaryMajoranaRotation,ImaginaryFermionicRotation}
+
+# `torotationlayers` gathers the gates that PauliPropagation takes for rotations
+PauliPropagation._isrotation(::_AnyRotation) = true
+
 # Two rotations commute if every generator of one shares an even number of Majoranas with every generator of the other,
-# which `tolayers` asks of gates that share Majoranas.
-PauliPropagation.commutes(gate_a::Union{MajoranaRotation,FermionicRotation}, gate_b::Union{MajoranaRotation,FermionicRotation}) =
+# which `torotationlayers` asks of gates that share Majoranas.
+PauliPropagation.commutes(gate_a::_AnyRotation, gate_b::_AnyRotation) =
     all(iseven(length(intersect(a, b))) for a in _generatorindices(gate_a), b in _generatorindices(gate_b))
 
 """
@@ -33,7 +39,7 @@ PauliPropagation.commutes(gate_a::Union{MajoranaRotation,FermionicRotation}, gat
 Apply a layer of commuting `MajoranaRotation`s and `FermionicRotation`s in one pass over the Majorana sum, class by class, instead of one rotation after the other.
 A class is a set of Majorana strings that the rotations of the layer map into each other; it is gathered into a small sum of its own, to which the rotations acting on it are applied in the order of the layer.
 Every fermionic rotation truncates as it does on its own (see `truncate_each_mr`), so the result is that of the gates one after the other, except that strings no rotation acts on are truncated too.
-Layers are built with `GateLayer` or gathered from a circuit by `tolayers`, which does not reorder gates: a layer pays off when it holds many rotations, so list commuting gates next to each other, such as the hoppings of disjoint bonds.
+Layers are built with `GateLayer` or gathered from a circuit by `torotationlayers`, which does not reorder gates: a layer pays off when it holds many rotations, so list commuting gates next to each other, such as the hoppings of disjoint bonds.
 Layers of other gates, layers whose Majorana rotations do not all commute, and coefficients that are not numbers, such as `MajoranaFrequencyTracker`, apply their gates one after the other.
 """
 function PropagationBase.applymergetruncate!(layer::GateLayer, prop_cache::AbstractMajoranaPropagationCache, thetas; truncate_each_mr=nothing, thread::Bool=true, kwargs...)

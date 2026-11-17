@@ -315,9 +315,9 @@ agree(results) = all(termdict(r) == termdict(first(results)) for r in results)
         @test issorted(terms(vmsum)) && termdict(vmsum) == termdict(msum)
     end
 
-    # the results of the gates one by one and of the layers `tolayers` gathers them into, from every backend
+    # the results of the gates one by one and of the layers `torotationlayers` gathers them into, from every backend
     function flatandlayered(circ, thetas, obs; kwargs...)
-        layered, layered_thetas = tolayers(circ, thetas)
+        layered, layered_thetas = torotationlayers(circ, thetas)
         return [propagate(c, b, t; kwargs...) for b in backends(obs) for (c, t) in ((circ, thetas), (layered, layered_thetas))]
     end
 
@@ -341,7 +341,7 @@ agree(results) = all(termdict(r) == termdict(first(results)) for r in results)
         @test termdict(first(default)) != termdict(first(each))
 
         # the layers are applied class by class on every backend, unless the coefficients track frequencies
-        layered, layered_thetas = tolayers(circ, thetas)
+        layered, layered_thetas = torotationlayers(circ, thetas)
         layers = [(layer, theta) for (layer, theta) in zip(layered, layered_thetas) if layer isa GateLayer]
         @test length(layers) == 6
         for b in backends(obs)
@@ -379,7 +379,7 @@ agree(results) = all(termdict(r) == termdict(first(results)) for r in results)
         # a vector sum large enough for several tasks
         circ54, thetas54 = hubbard_layer(rectangletopology(5, 4), 20)
         circ54, thetas54 = repeat(circ54, 4), repeat(thetas54, 4)
-        layered54, layered_thetas54 = tolayers(circ54, thetas54)
+        layered54, layered_thetas54 = torotationlayers(circ54, thetas54)
         obs54 = VectorMajoranaSum(MajoranaSum(20, :nupndn, 10))
         flat54 = propagate(circ54, obs54, thetas54; min_abs_coeff=1e-6)
         @test length(flat54) > 16384
@@ -387,21 +387,21 @@ agree(results) = all(termdict(r) == termdict(first(results)) for r in results)
 
         # imaginary-time rotations normalize the whole sum, so their layers apply them one by one
         icirc = [ImaginaryFermionicRotation(:nupndn, [i]) for i in 1:N]
-        ilayered, itaus = tolayers(icirc, fill(0.2, N))
+        ilayered, itaus = torotationlayers(icirc, fill(0.2, N))
         rho0 = MajoranaSum(Float64, N, true)
         add!(rho0, getinttype(2N)(0), 1.0)
         @test only(ilayered) isa GateLayer
         @test termdict(propagate(ilayered, rho0, itaus; heisenberg=false)) == termdict(propagate(icirc, rho0, fill(0.2, N); heisenberg=false))
     end
 
-    @testset "tolayers gathers the rotations that commute" begin
+    @testset "torotationlayers gathers the rotations that commute" begin
         qinds = PauliPropagation.PropagationBase.qinds
         @test qinds(MajoranaRotation(MajoranaString(4, [1, 2, 5, 8]))) == [1, 2, 5, 8]
         # the Majoranas of the up and the down hopping of a bond differ
         @test isdisjoint(qinds(FermionicRotation(:hopup, [1, 2])), qinds(FermionicRotation(:hopdn, [1, 2])))
         @test PauliPropagation.commutes(FermionicRotation(:nn, [1, 2]), FermionicRotation(:nn, [2, 3]))
         @test !PauliPropagation.commutes(FermionicRotation(:hop, [1, 2]), FermionicRotation(:hop, [2, 3]))
-        @test length(tolayers([FermionicRotation(:nn, pair) for pair in staircasetopology(6)])) == 1
-        @test length(tolayers([FermionicRotation(:hop, pair) for pair in staircasetopology(6)])) == 5
+        @test length(torotationlayers([FermionicRotation(:nn, pair) for pair in staircasetopology(6)])) == 1
+        @test length(torotationlayers([FermionicRotation(:hop, pair) for pair in staircasetopology(6)])) == 5
     end
 end
