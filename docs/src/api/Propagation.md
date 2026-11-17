@@ -13,3 +13,10 @@ Pages = ["src/propagation.jl"]
 Modules = [MajoranaPropagation]
 Pages = ["src/propagationcache.jl"]
 ```
+
+## Gradient
+
+```@autodocs
+Modules = [MajoranaPropagation]
+Pages = ["src/gradient.jl"]
+```

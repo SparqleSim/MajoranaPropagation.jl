@@ -116,10 +116,10 @@ function PauliPropagation.buildtruncfunc(mobj::Union{AbstractMajoranaSum,Abstrac
 
     function coefftruncfunc(mstr, coeff)
         # a threshold of zero or below truncates nothing; PauliPropagation squares it for complex coefficients
-        cutoff > 0 && PauliPropagation.truncatemincoeff(coeff, cutoff) && return true
+        _belowcutoff(customtruncfunc, coeff, cutoff) && return true
         PauliPropagation.truncatefrequency(coeff, max_freq) && return true
         PauliPropagation.truncatesins(coeff, max_sins) && return true
-        return !isnothing(customtruncfunc) && customtruncfunc(mstr, coeff)
+        return _customtruncates(customtruncfunc, mstr, coeff)
     end
 
     # decided once here rather than for every string: without a truncation on the string itself,
@@ -131,6 +131,12 @@ function PauliPropagation.buildtruncfunc(mobj::Union{AbstractMajoranaSum,Abstrac
     truncfunc(mstr, coeff) = termtrunc(mstr) || coefftruncfunc(mstr, coeff)
     return truncfunc
 end
+
+# Whether a coefficient is below the threshold of the coefficients, and whether the custom truncation drops a string.
+# Both are asked through the custom truncation, so that one that carries more than a function, as that of the backward
+# sweep of `rewindgradient` does, has a say in both.
+_belowcutoff(customtruncfunc, coeff, cutoff) = cutoff > 0 && PauliPropagation.truncatemincoeff(coeff, cutoff)
+_customtruncates(customtruncfunc, mstr, coeff) = !isnothing(customtruncfunc) && customtruncfunc(mstr, coeff)
 
 # The truncation by Majorana weight and by unpaired Majoranas, which only reads the Majorana string, or
 # `nothing` if neither is set. A gate may apply it to the strings it creates before it writes them.

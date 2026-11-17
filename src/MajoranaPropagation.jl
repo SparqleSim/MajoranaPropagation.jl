@@ -99,6 +99,11 @@ export
     unwrapcoefficients,
     reset_tracker!
 
+include("gradient.jl")
+export
+    rewindgradient,
+    rewindgradient!
+
 include("Constructors.jl")
 
 include("QuantumChemistry/QuantumChemistry.jl")
